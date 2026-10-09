@@ -559,3 +559,780 @@
     }
   };
 })(window);
+
+/* =====================================================================
+ * 2차: 금리 · 물가 · 경기 · 시장·신용 · 환율 · ETF
+ * ===================================================================== */
+(function (global) {
+  'use strict';
+  const has = (S, ...ids) => ids.every(id => S.has(id));
+  const pp = v => (v > 0 ? '+' : '') + v.toFixed(2) + '%p';
+
+  /* 국채 금리 공통 */
+  const yieldStates = {
+    surge: '급등 — 채권 가격 급락, 대출 금리·밸류에이션에 빠르게 부담',
+    rise: '금리 상승 — 채권 가격 하락, 성장주 밸류에이션·변동금리 대출 이자 부담',
+    fall: '금리 하락 — 채권 가격 상승, 경기 둔화 우려 반영 여부 확인',
+    plunge: '급락 — 경기 충격이나 안전자산 쏠림 신호인 경우가 많음',
+    high: '최근 수년 중 높은 금리 구간 — 자금 조달 비용이 높은 상태가 이어짐',
+    low: '낮은 금리 구간 — 조달 여건 우호적',
+    flat: '보합 — 다음 물가·고용 발표와 통화정책 회의가 변수'
+  };
+  const usYieldPairs = [
+    { when: S => S.up('us10y') && S.up('bei10y'), text: '기대인플레이션도 상승 → 물가 우려가 금리를 끌어올리는 중' },
+    { when: S => S.up('us10y') && S.up('real10y') && !S.up('bei10y'), text: '실질금리 주도 상승 → 긴축적 금융 여건, 성장주·금에 부담' },
+    { when: S => S.up('us10y') && S.up('dxy'), text: '달러 강세 동반 → 원화 약세·수입물가 경로 점검' },
+    { when: S => S.down('us10y') && S.down('sp500'), text: '주가와 함께 하락 → 경기 우려·안전자산 선호 쪽 해석' },
+    { when: S => S.lvl('hy_spread') >= 1, text: '하이일드 스프레드도 높은 구간 → 저신용 기업 차환 부담 가중' }
+  ];
+  const krYieldPairs = [
+    { when: S => S.up('kr3y') && S.up('us2y'), text: '미국 단기금리와 동반 상승 → 대외 금리 영향' },
+    { when: S => has(S, 'kr10y', 'us10y') && S.v('us10y') - S.v('kr10y') >= 0.5, text: S => `미국 10년물이 한국보다 ${(S.v('us10y') - S.v('kr10y')).toFixed(2)}%p 높음 → 자본 유출·원화 약세 압력 요인` },
+    { when: S => S.up('usdkrw'), text: '원화 약세 동반 → 외국인 채권 자금 흐름 확인' },
+    { when: S => S.lvl('kr_cpi') >= 1, text: '한국 물가가 목표 위 → 금리 인하 여지 제한' }
+  ];
+
+  /* 물가 공통 */
+  const inflStates = {
+    rise: '물가 재상승 — 금리 인하 기대가 약해지고 실질 구매력 부담',
+    fall: '물가 둔화 — 통화정책 완화 여지 확대',
+    high: '목표(2%)를 크게 웃도는 구간 — 긴축 기조가 길어질 수 있음',
+    low: '낮은 물가 구간 — 완화 여지, 디플레이션 우려 여부도 확인',
+    flat: '횡보 — 세부 항목(주거·서비스·에너지) 흐름이 관건'
+  };
+  const inflPairs = [
+    { when: S => S.up('wti') || S.up('gasoline'), text: '유가·휘발유 상승 중 → 다음 발표의 에너지 항목 상방 압력' },
+    { when: S => S.up('bei10y'), text: '시장 기대인플레이션도 상승 → 물가 우려가 금리에 반영 중' },
+    { when: S => S.lvl('freight_ppi') >= 1 || S.up('us_ppi'), text: '생산자·운송 물가 상승 → 소비자물가로 시차 전가 가능' },
+    { when: S => S.down('us_cpi') && S.down('us_core_cpi'), text: '헤드라인·근원 모두 둔화 → 물가 진정 흐름이 넓게 확인' }
+  ];
+
+  /* 주가지수 공통 */
+  const eqStates = {
+    surge: '급등 — 위험선호 급반전, 과열 여부와 변동성 함께 확인',
+    rise: '상승 — 위험선호 개선',
+    fall: '하락 — 위험선호 약화 여부 관찰',
+    plunge: '급락 — 변동성 확대, 레버리지·신용 비중 점검',
+    high: '최근 수년 중 고점권 — 기대가 많이 반영된 구간',
+    low: '저점권 — 비관이 많이 반영된 구간',
+    flat: '횡보'
+  };
+  const eqPairs = [
+    { when: S => S.up('vix'), text: '변동성(VIX) 상승 동반 → 위험 회피 흐름' },
+    { when: S => S.up('us10y') && S.up('real10y'), text: '실질금리 상승 중 → 밸류에이션 부담 요인' },
+    { when: S => S.up('hy_spread'), text: '하이일드 스프레드 확대 → 신용시장도 위험 회피' },
+    { when: S => S.pos('vix') <= 15 && S.pos('hy_spread') <= 20, text: '변동성·스프레드 모두 낮음 → 낙관 국면, 충격 시 변동폭 확대 가능' }
+  ];
+
+  /* ETF 공통 (기초 지표를 따라감) */
+  const etfStates = name => ({
+    surge: `${name} 급등 — 하루 변동이 평소보다 큼, 원인 뉴스 확인`,
+    rise: `${name} 상승`,
+    fall: `${name} 하락`,
+    plunge: `${name} 급락 — 하루 변동이 평소보다 큼, 원인 뉴스 확인`,
+    high: '최근 2년 중 고점권',
+    low: '최근 2년 중 저점권',
+    flat: '횡보'
+  });
+
+  Object.assign(global.NOTES, {
+    /* ───────── 금리 ───────── */
+    kr_base: {
+      what: '한국은행 기준금리 — 국내 대출·예금 금리의 출발점',
+      states: {
+        rise: '인상 — 변동금리 대출 이자·기업 조달 비용 증가, 부동산 수요 위축',
+        fall: '인하 — 이자 부담 완화, 경기 둔화 대응인지 함께 확인',
+        high: '높은 기준금리 유지 — 가계·자영업 이자 부담이 큰 구간',
+        flat: '동결 — 다음 금통위 의사록·총재 발언이 변수'
+      },
+      pairs: [
+        { when: S => has(S, 'kr_base', 'us_ffr') && S.v('us_ffr') - S.v('kr_base') >= 1, text: S => `미국 기준금리가 ${(S.v('us_ffr') - S.v('kr_base')).toFixed(2)}%p 높음 → 원화 약세·자본 유출 압력 요인` },
+        { when: S => S.lvl('kr_cpi') >= 1, text: '한국 물가가 목표 위 → 인하 여지 제한' },
+        { when: S => S.up('usdkrw'), text: '원화 약세 중 → 금리 결정에 환율 부담' },
+        { when: S => S.down('kr3y'), text: '국고채 3년이 하락 중 → 시장은 인하를 미리 반영하는 중' }
+      ],
+      watch: '금융통화위원회(연 8회) · 한국 CPI · 원/달러 · 가계부채'
+    },
+    kr3y: {
+      what: '한국 국고채 3년 — 시장이 보는 향후 기준금리 경로, 대출·회사채 금리의 기준',
+      states: yieldStates, pairs: krYieldPairs,
+      watch: '금통위 · 한국 CPI · 미국 2년물 · 국채 발행 계획'
+    },
+    kr10y: {
+      what: '한국 국고채 10년 — 장기 성장·물가 기대, 주택담보대출 고정금리의 기준',
+      states: yieldStates, pairs: krYieldPairs,
+      watch: '미국 10년물 · 국채 발행 물량 · 한국 성장률 전망'
+    },
+    us_ffr: {
+      what: '미국 연방기금금리 목표 상단 — 세계 달러 자금의 기준 금리',
+      states: {
+        rise: '인상 — 달러 강세·글로벌 유동성 축소 방향',
+        fall: '인하 — 달러 약세·유동성 완화 방향, 경기 둔화 대응인지 확인',
+        high: '높은 정책금리 유지 — 긴축 효과가 시차를 두고 실물에 누적',
+        flat: '동결 — 점도표·의장 발언이 변수'
+      },
+      pairs: [
+        { when: S => has(S, 'us_ffr', 'us2y') && S.v('us2y') < S.v('us_ffr') - 0.25, text: S => `2년물(${S.fmt('us2y')}%)이 기준금리보다 낮음 → 시장은 인하를 예상` },
+        { when: S => has(S, 'us_ffr', 'us2y') && S.v('us2y') > S.v('us_ffr') + 0.1, text: '2년물이 기준금리보다 높음 → 시장은 추가 인상 또는 장기 동결을 예상' },
+        { when: S => S.lvl('us_core_pce') >= 1, text: '근원 PCE가 목표 위 → 인하 여지 제한' },
+        { when: S => S.lvl('sahm') >= 1, text: '고용 둔화 신호(삼의 법칙) → 인하 압력' }
+      ],
+      watch: 'FOMC(연 8회) · 근원 PCE · 고용 보고서'
+    },
+    us3m: {
+      what: '미국 3개월 국채 — 현재 정책금리를 거의 그대로 반영, 현금성 자산 수익률',
+      states: yieldStates,
+      pairs: [
+        { when: S => has(S, 'us3m', 'us_ffr') && S.v('us3m') < S.v('us_ffr') - 0.3, text: '정책금리보다 낮음 → 가까운 시일 내 인하 예상 반영' },
+        { when: S => S.v('spread3m') < 0, text: '10년물보다 높음(10Y−3M 역전) → 경기 둔화 신호로 해석되는 경우가 많음' }
+      ],
+      watch: 'FOMC · 단기 국채 발행 물량'
+    },
+    us2y: {
+      what: '미국 2년물 — 앞으로 1~2년 기준금리 경로에 대한 시장 기대',
+      states: yieldStates,
+      pairs: [
+        { when: S => has(S, 'us2y', 'us_ffr') && S.v('us2y') < S.v('us_ffr') - 0.25, text: '기준금리보다 낮음 → 인하 기대 반영' },
+        { when: S => S.up('us2y') && S.up('usdjpy'), text: '엔/달러도 상승 → 미·일 금리 차 확대가 엔화 약세로' },
+        ...usYieldPairs.slice(2)
+      ],
+      watch: '고용 보고서 · CPI · FOMC 점도표'
+    },
+    us10y: {
+      what: '미국 10년물 — 세계 자산 가격의 기준 금리, 주택담보대출·회사채 금리의 출발점',
+      states: yieldStates, pairs: usYieldPairs,
+      watch: '국채 입찰(10년·30년) · CPI · 재정적자·국채 발행 계획 · FOMC'
+    },
+    us30y: {
+      what: '미국 30년물 — 초장기 재정·물가 우려를 반영, 연기금·보험 자산의 기준',
+      states: yieldStates,
+      pairs: [
+        { when: S => S.up('us30y') && !S.up('us2y'), text: '단기보다 장기가 더 오름 → 재정·장기 물가 우려(기간 프리미엄) 쪽 해석' },
+        ...usYieldPairs.slice(0, 3)
+      ],
+      watch: '30년물 입찰 · 재정적자 전망 · 신용등급 뉴스'
+    },
+    spread: {
+      what: '미국 장단기 금리차(10년−2년) — 경기 전망의 대표 신호, 0 아래면 역전',
+      states: {
+        rise: '금리차 확대(가팔라짐) — 역전 해소 국면은 과거 경기 변곡점과 겹친 사례가 많음',
+        fall: '금리차 축소(평탄화) — 경기 기대 약화 또는 단기금리 상승',
+        low: '역전 또는 0 근처 — 경기 둔화 신호로 해석되는 경우가 많음',
+        high: '정상적인 우상향 곡선 — 경기 확장 기대',
+        flat: '변화 작음'
+      },
+      pairs: [
+        { when: S => S.v('spread') < 0, text: '역전 상태 — 과거 침체 1~2년 전 자주 나타났지만 시점은 일정치 않음' },
+        { when: S => S.up('spread') && S.down('us2y'), text: '단기금리 하락이 주도 → 인하 기대 반영(불 스티프닝)' },
+        { when: S => S.up('spread') && S.up('us10y'), text: '장기금리 상승이 주도 → 재정·물가 우려(베어 스티프닝)' }
+      ],
+      watch: '2년물·10년물 · 고용 · 경기선행지표'
+    },
+    spread3m: {
+      what: '미국 장단기 금리차(10년−3개월) — 연준이 경기 신호로 중시하는 금리차',
+      states: {
+        rise: '금리차 확대 — 역전 해소 국면이면 경기 변곡점 신호로 주목',
+        fall: '금리차 축소 — 경기 기대 약화',
+        low: '역전 또는 0 근처 — 경기 둔화 신호',
+        high: '정상 곡선 — 경기 확장 기대',
+        flat: '변화 작음'
+      },
+      pairs: [
+        { when: S => S.v('spread3m') < 0 && S.v('spread') >= 0, text: '10Y−2Y는 정상인데 10Y−3M은 역전 → 단기 정책금리가 높게 유지되는 국면' },
+        { when: S => S.down('us3m'), text: '3개월물 하락 중 → 인하 기대가 금리차를 넓히는 방향' }
+      ],
+      watch: 'FOMC · 10년물'
+    },
+    real10y: {
+      what: '미국 10년 실질금리(TIPS) — 물가를 뺀 진짜 자금 비용, 성장주·금 가격의 핵심 변수',
+      states: {
+        surge: '급등 — 성장주·금·부동산 밸류에이션에 강한 압박',
+        rise: '실질금리 상승 — 이자 없는 자산(금)과 장기 성장 자산에 부담',
+        fall: '실질금리 하락 — 금·성장 자산에 우호적',
+        high: '높은 실질금리 — 긴축적 금융 여건, 신규 투자 문턱이 높음',
+        low: '낮은 실질금리 — 완화적 여건',
+        flat: '보합'
+      },
+      pairs: [
+        { when: S => S.up('real10y') && S.up('gold'), text: '실질금리 상승에도 금 강세 → 중앙은행 매입·지정학 수요 등 다른 요인' },
+        { when: S => S.up('real10y') && S.down('nasdaq'), text: '나스닥 하락 동반 → 성장주 밸류에이션 압박' },
+        { when: S => S.up('real10y') && S.down('etf_itb'), text: '주택건설 업종 약세 동반 → 금리 민감 업종 부담' }
+      ],
+      watch: 'FOMC · 물가연동채 입찰 · 기대인플레이션'
+    },
+    bei10y: {
+      what: '미국 10년 기대인플레이션(명목−실질 금리차) — 시장이 예상하는 장기 물가',
+      states: {
+        rise: '기대인플레이션 상승 — 물가 재상승 우려, 장기금리 상방 압력',
+        fall: '기대인플레이션 하락 — 물가 안정 기대 또는 경기 둔화 반영',
+        high: '높은 기대인플레이션 — 연준의 긴축 유지 근거',
+        low: '낮은 기대인플레이션 — 디스인플레이션 기대',
+        flat: '안정'
+      },
+      pairs: [
+        { when: S => S.up('bei10y') && (S.up('wti') || S.up('brent')), text: '유가 상승 동반 → 에너지 가격이 물가 기대를 자극' },
+        { when: S => S.up('bei10y') && S.up('gold'), text: '금 강세 동반 → 인플레이션 헤지 수요' },
+        { when: S => S.down('bei10y') && S.down('copper'), text: '구리도 하락 → 경기 둔화 기대 쪽 해석' }
+      ],
+      watch: 'CPI · 유가 · 물가연동채 입찰'
+    },
+    mortgage: {
+      what: '미국 30년 고정 모기지 금리(주간) — 주택 구매 여력과 부동산 경기의 핵심',
+      states: {
+        rise: '모기지 금리 상승 — 주택 구매 여력 감소, 거래 위축',
+        fall: '모기지 금리 하락 — 구매·재융자 수요 회복',
+        high: '높은 금리 구간 — 기존 저금리 대출자가 집을 팔지 않는 "고착 효과"로 매물 부족',
+        low: '낮은 금리 구간 — 주택 수요 회복 여건',
+        flat: '보합'
+      },
+      pairs: [
+        { when: S => has(S, 'mortgage', 'us10y') && S.v('mortgage') - S.v('us10y') >= 2.5, text: S => `10년물 대비 ${(S.v('mortgage') - S.v('us10y')).toFixed(2)}%p 높음 → 평소(약 1.7%p)보다 넓은 가산금리, 대출 여건 빡빡` },
+        { when: S => S.down('etf_itb'), text: '주택건설 업종(ITB) 약세 동반 → 주택 경기 부담' },
+        { when: S => S.up('etf_itb') && S.down('mortgage'), text: '금리 하락에 주택건설 업종 반응 → 수요 회복 기대' }
+      ],
+      watch: '매주 목요일 프레디맥 발표 · 주택 착공·판매 지표'
+    },
+
+    /* ───────── 물가 ───────── */
+    us_cpi: {
+      what: '미국 소비자물가 상승률(전년비) — 가계가 체감하는 물가, 연금·임금 조정 기준',
+      states: inflStates, pairs: inflPairs,
+      watch: '매월 중순 CPI 발표 · 휘발유 가격 · 주거비'
+    },
+    us_core_cpi: {
+      what: '미국 근원 CPI(식품·에너지 제외) — 물가의 기조적 흐름',
+      states: inflStates,
+      pairs: [
+        { when: S => has(S, 'us_cpi', 'us_core_cpi') && S.v('us_core_cpi') > S.v('us_cpi'), text: '근원이 헤드라인보다 높음 → 에너지 하락이 전체 물가를 낮추는 중, 기조 물가는 여전히 높음' },
+        { when: S => S.up('us_core_cpi') && S.up('us_core_pce'), text: '근원 PCE도 상승 → 연준이 중시하는 지표 모두 재상승' },
+        ...inflPairs.slice(1, 3)
+      ],
+      watch: '매월 중순 CPI · 주거비·서비스 물가'
+    },
+    us_core_pce: {
+      what: '미국 근원 PCE 물가 — 연준이 2% 목표로 삼는 핵심 물가 지표',
+      states: inflStates,
+      pairs: [
+        { when: S => S.v('us_core_pce') >= 2.5, text: S => `목표(2%)보다 ${(S.v('us_core_pce') - 2).toFixed(1)}%p 높음 → 금리 인하 속도 제한 요인` },
+        { when: S => S.down('us_core_pce') && S.lvl('sahm') >= 1, text: '물가 둔화 + 고용 둔화 → 인하 근거가 강해지는 조합' },
+        ...inflPairs.slice(1, 3)
+      ],
+      watch: '매월 말 PCE 발표 · FOMC 경제전망'
+    },
+    us_ppi: {
+      what: '미국 생산자물가(최종수요, 전년비) — 기업 원가, 소비자물가의 선행 신호',
+      states: {
+        rise: '생산자물가 상승 — 기업 원가 부담 증가, 소비자물가 전가 여부 확인',
+        fall: '생산자물가 둔화 — 원가 부담 완화, 소비자물가 하향 요인',
+        high: '높은 상승률 — 기업 마진 압박 또는 가격 전가로 이어짐',
+        low: '낮은 상승률 — 원가 안정',
+        flat: '횡보'
+      },
+      pairs: [
+        { when: S => has(S, 'us_ppi', 'us_cpi') && S.v('us_ppi') > S.v('us_cpi') + 1, text: '생산자물가가 소비자물가보다 크게 높음 → 기업 마진 압박 또는 향후 소비자 가격 전가' },
+        { when: S => S.up('diesel') || S.up('wti'), text: '에너지 가격 상승 중 → 원가 상승 압력 지속' }
+      ],
+      watch: '매월 중순 PPI 발표 (CPI 전후)'
+    },
+    kr_cpi: {
+      what: '한국 소비자물가 상승률(전년비) — 한국은행 목표 2%',
+      states: inflStates,
+      pairs: [
+        { when: S => S.up('usdkrw'), text: '원화 약세 중 → 수입물가 경로로 물가 상방 압력' },
+        { when: S => S.up('brent'), text: '국제 유가 상승 → 석유류 물가 상승 요인' },
+        { when: S => S.up('wheat') || S.up('corn') || S.up('soybean'), text: '곡물 가격 상승 → 가공식품 물가에 시차 전가' }
+      ],
+      watch: '매월 초 통계청 발표 · 원/달러 · 국제 유가 · 농산물 작황'
+    },
+
+    /* ───────── 경기·고용 ───────── */
+    us_unemp: {
+      what: '미국 실업률 — 연준 이중 책무 중 하나, 소비 여력의 바탕',
+      states: {
+        surge: '급등 — 해고 확산 신호, 침체 우려 확대',
+        rise: '실업률 상승 — 고용 둔화, 소비 약화로 이어질 수 있음',
+        fall: '고용 개선 — 경기 견조, 금리 인하 기대는 약해질 수 있음',
+        high: '높은 실업률 — 경기 둔화 국면',
+        low: '낮은 실업률 — 노동시장 과열·임금 상승 압력',
+        flat: '안정'
+      },
+      pairs: [
+        { when: S => S.lvl('sahm') >= 1, text: '삼의 법칙 경계 구간 → 실업률 상승 속도가 침체 초기와 비슷' },
+        { when: S => S.up('claims'), text: '신규 실업수당 청구도 증가 → 해고 증가 신호' },
+        { when: S => S.down('payems') || S.lvl('payems') >= 1, text: '고용 증가폭 둔화 동반' }
+      ],
+      watch: '매월 첫 금요일 고용 보고서 · 매주 목요일 실업수당 청구'
+    },
+    sahm: {
+      what: '삼의 법칙 지표 — 실업률 3개월 평균이 최근 1년 저점보다 0.5%p 이상 오르면 침체 초기로 봄',
+      states: {
+        rise: '상승 — 실업률 오름 속도가 빨라지는 중',
+        fall: '하락 — 고용 둔화 압력 완화',
+        high: '발동 수준 근접·초과 — 과거 침체 초기와 겹친 경우가 많음',
+        flat: '안정 — 고용 둔화 신호 제한적'
+      },
+      pairs: [
+        { when: S => S.v('sahm') >= 0.5, text: '0.5 이상 → 역사적으로 침체 시작과 자주 겹친 수준 (예외도 있음)' },
+        { when: S => S.v('spread') < 0 || S.v('spread3m') < 0, text: '장단기 금리차 역전도 함께 → 경기 둔화 신호 중첩' }
+      ],
+      watch: '고용 보고서(실업률) · 실업수당 청구'
+    },
+    payems: {
+      what: '미국 비농업 고용 증감(천명, 전월비) — 일자리 창출 속도',
+      states: {
+        rise: '고용 증가폭 확대 — 노동시장 견조',
+        fall: '고용 증가폭 축소 — 노동시장 냉각',
+        low: '증가폭이 작거나 감소 — 경기 둔화 신호',
+        high: '강한 고용 — 임금·서비스 물가 압력',
+        flat: '흐름 유지'
+      },
+      pairs: [
+        { when: S => S.v('payems') < 0, text: '고용 감소 → 경기 둔화 신호, 수정치도 확인' },
+        { when: S => S.v('payems') >= 200, text: '20만 명 이상 증가 → 금리 인하 기대 약화 요인' },
+        { when: S => S.up('claims'), text: '실업수당 청구 증가 동반 → 다음 달 고용도 약할 가능성' }
+      ],
+      watch: '매월 첫 금요일 고용 보고서 (이전 두 달 수정치 포함)'
+    },
+    claims: {
+      what: '미국 신규 실업수당 청구(주간) — 가장 빠른 해고 신호',
+      states: {
+        surge: '급증 — 해고 확산 신호, 다음 고용 보고서 악화 가능',
+        rise: '증가 — 고용 둔화 초기 신호 여부 관찰',
+        fall: '감소 — 해고 적음, 노동시장 견조',
+        high: '높은 수준 — 노동시장 약화',
+        low: '낮은 수준 — 해고가 매우 적음',
+        flat: '안정'
+      },
+      pairs: [
+        { when: S => S.up('claims') && S.up('us_unemp'), text: '실업률도 상승 → 고용 둔화가 확인되는 중' },
+        { when: () => [1, 7, 11, 12].includes(new Date().getMonth() + 1), text: '연말연시·7월은 계절 요인으로 변동이 큼 — 4주 흐름으로 확인' }
+      ],
+      watch: '매주 목요일 발표'
+    },
+    indpro: {
+      what: '미국 산업생산(전년비) — 제조업·광업·전력 생산 활동',
+      states: {
+        rise: '생산 증가율 개선 — 제조업 회복',
+        fall: '생산 증가율 둔화',
+        low: '감소 구간 — 제조업 경기 위축',
+        high: '강한 생산 증가',
+        flat: '흐름 유지'
+      },
+      pairs: [
+        { when: S => S.down('indpro') && S.down('copper'), text: '구리도 하락 → 제조업 둔화 신호 중첩' },
+        { when: S => S.down('distill_demand'), text: '디젤 수요 감소 동반 → 산업·화물 활동 둔화' },
+        { when: S => S.up('indpro') && S.up('etf_xli'), text: '산업재 업종(XLI) 강세 동반 → 제조업 회복 기대' }
+      ],
+      watch: '매월 중순 연준 발표 · ISM 제조업 지수(매월 첫 영업일)'
+    },
+    retail: {
+      what: '미국 소매판매(명목, 전년비) — 소비 경기',
+      states: {
+        rise: '소비 증가세 확대 — 경기 견조',
+        fall: '소비 증가세 둔화 — 물가 감안 실질 소비 확인',
+        low: '소비 위축 — 경기 둔화 신호',
+        high: '강한 소비 — 물가 압력 요인',
+        flat: '흐름 유지'
+      },
+      pairs: [
+        { when: S => has(S, 'retail', 'us_cpi') && S.v('retail') < S.v('us_cpi'), text: '명목 증가율이 물가보다 낮음 → 실질 소비는 감소' },
+        { when: S => S.pos('umcsent') <= 15, text: '소비자심리가 매우 낮음 → 심리와 실제 소비의 괴리 확인' },
+        { when: S => S.down('gasoline_demand'), text: '휘발유 수요도 감소 → 소비 둔화 신호 중첩' }
+      ],
+      watch: '매월 중순 발표 · 카드 소비 데이터'
+    },
+    umcsent: {
+      what: '미시간대 소비자심리지수 — 가계의 체감 경기와 물가 기대',
+      states: {
+        rise: '심리 개선',
+        fall: '심리 악화 — 물가·금리 부담이나 고용 불안 반영',
+        low: '매우 낮은 심리 — 실제 소비와의 괴리 여부 확인',
+        high: '높은 심리 — 소비 여력 기대',
+        flat: '횡보'
+      },
+      pairs: [
+        { when: S => S.up('gasoline'), text: '휘발유 가격 상승 → 심리 악화 요인' },
+        { when: S => S.up('retail') && S.pos('umcsent') <= 20, text: '심리는 낮은데 소비는 증가 → "말과 행동이 다른" 소비' }
+      ],
+      watch: '매월 두 번(속보·확정) 발표 · 기대인플레이션 항목'
+    },
+    gdp: {
+      what: '미국 실질 GDP 성장률(전기비 연율, 분기) — 경제 전체의 성장 속도',
+      states: {
+        rise: '성장률 개선',
+        fall: '성장률 둔화',
+        low: '마이너스 또는 매우 낮음 — 경기 위축',
+        high: '강한 성장 — 잠재성장률(약 2%) 상회',
+        flat: '흐름 유지'
+      },
+      pairs: [
+        { when: S => S.v('gdp') < 0, text: '마이너스 성장 → 두 분기 연속이면 흔히 기술적 침체로 부름' },
+        { when: S => S.v('gdp') >= 3 && S.lvl('us_core_pce') >= 1, text: '강한 성장 + 높은 물가 → 금리 인하 지연 요인' }
+      ],
+      watch: '분기 종료 약 1개월 뒤 속보치, 이후 두 차례 수정'
+    },
+
+    /* ───────── 시장·신용 ───────── */
+    sp500: {
+      what: 'S&P 500 — 미국 대형주 500개, 세계 위험자산의 기준',
+      states: eqStates, pairs: eqPairs,
+      watch: '기업 실적 시즌 · FOMC · CPI · 고용 보고서'
+    },
+    nasdaq: {
+      what: '나스닥 종합 — 기술·성장주 중심, 금리(특히 실질금리)에 민감',
+      states: eqStates,
+      pairs: [
+        { when: S => S.up('real10y'), text: '실질금리 상승 중 → 성장주 밸류에이션 부담' },
+        { when: S => S.down('real10y') && S.up('nasdaq'), text: '실질금리 하락과 동반 상승 → 금리 요인' },
+        { when: S => S.up('nasdaq') && !S.up('sp500'), text: '나스닥만 강세 → 소수 대형 기술주 집중 여부 확인' },
+        ...eqPairs.slice(0, 1)
+      ],
+      watch: '대형 기술주 실적 · 실질금리 · AI 투자 뉴스'
+    },
+    kospi: {
+      what: '코스피 — 한국 대표 지수, 반도체·수출 경기와 외국인 자금에 민감',
+      states: eqStates,
+      pairs: [
+        { when: S => S.up('usdkrw') && S.down('kospi'), text: '원화 약세와 동반 하락 → 외국인 매도 흐름 가능성' },
+        { when: S => S.down('usdkrw') && S.up('kospi'), text: '원화 강세와 동반 상승 → 외국인 자금 유입 흐름' },
+        { when: S => S.up('copper') && S.up('kospi'), text: '구리 강세 동반 → 글로벌 경기 기대가 수출주에 반영' },
+        { when: S => S.down('sp500'), text: '미국 증시 약세 → 다음 날 한국 증시에 영향' }
+      ],
+      watch: '수출 통계(매월 1일) · 반도체 업황 · 원/달러 · 외국인 순매수'
+    },
+    hy_spread: {
+      what: '미국 하이일드 스프레드 — 저신용 회사채가 국채보다 더 내는 금리, 신용 위험의 온도계',
+      states: {
+        surge: '급확대 — 신용 경색 신호, 저신용 기업 차환 어려움',
+        rise: '확대 — 신용 위험 회피, 차입 여건 악화',
+        fall: '축소 — 신용 위험선호 개선',
+        high: '높은 구간 — 신용 스트레스, 부도율 상승 가능성',
+        low: '매우 낮은 구간 — 신용 위험이 싸게 매겨진 상태',
+        flat: '안정'
+      },
+      pairs: [
+        { when: S => S.up('hy_spread') && S.down('etf_kre'), text: '지역은행(KRE) 약세 동반 → 대출 시장 전반의 위축 가능성' },
+        { when: S => S.up('hy_spread') && S.up('vix'), text: '변동성 상승 동반 → 주식·신용 동시 위험 회피' },
+        { when: S => S.up('hy_spread') && S.down('wti'), text: '유가 하락 동반 → 에너지 기업 비중이 큰 하이일드 시장 부담' },
+        { when: S => S.v('us10y') >= 4.75, text: '높은 국채 금리 위에 스프레드가 더해짐 → 저신용 기업의 절대 조달 금리 부담' }
+      ],
+      watch: '매일 (FRED 1일 지연) · 회사채 발행·부도 뉴스'
+    },
+    ig_spread: {
+      what: '미국 투자등급 회사채 스프레드 — 우량 기업의 추가 조달 비용',
+      states: {
+        rise: '확대 — 우량 기업까지 조달 비용 상승',
+        fall: '축소 — 신용 여건 개선',
+        high: '높은 구간 — 신용 여건 악화가 우량 기업까지 확산',
+        low: '낮은 구간 — 우량 기업 조달 여건 매우 우호적',
+        flat: '안정'
+      },
+      pairs: [
+        { when: S => S.up('ig_spread') && S.up('hy_spread'), text: '하이일드도 확대 → 신용 위험 회피가 전반적' },
+        { when: S => S.up('hy_spread') && !S.up('ig_spread'), text: '하이일드만 확대 → 위험이 저신용 쪽에 집중' }
+      ],
+      watch: '대형 회사채 발행 · 은행 대출 태도 조사(분기)'
+    },
+    nfci: {
+      what: '시카고 연은 금융여건지수(주간) — 0보다 크면 평균보다 긴축적',
+      states: {
+        rise: '긴축 방향 — 자금 조달·위험 여건 악화',
+        fall: '완화 방향',
+        high: '평균보다 긴축적 — 신용·유동성 여건 점검',
+        low: '매우 완화적 — 위험선호 우호적',
+        flat: '안정'
+      },
+      pairs: [
+        { when: S => S.v('nfci') < 0 && S.v('us_ffr') >= 4, text: '정책금리는 높은데 금융여건은 완화적 → 긴축 효과가 시장에서 덜 느껴지는 상태' },
+        { when: S => S.up('nfci') && S.up('hy_spread'), text: '스프레드 확대 동반 → 신용 쪽에서 긴축 진행' }
+      ],
+      watch: '매주 수요일 발표'
+    },
+    stlfsi: {
+      what: '세인트루이스 연은 금융스트레스지수(주간) — 0 = 평균 수준의 스트레스',
+      states: {
+        rise: '스트레스 상승 — 시장 불안 요인 확인',
+        fall: '스트레스 완화',
+        high: '평균 이상 스트레스 — 금융 불안 국면',
+        low: '낮은 스트레스',
+        flat: '안정'
+      },
+      pairs: [
+        { when: S => S.up('stlfsi') && S.up('vix'), text: '변동성 상승 동반 → 시장 전반의 불안' },
+        { when: S => S.up('stlfsi') && S.down('etf_kre'), text: '지역은행 약세 동반 → 은행권 스트레스 여부 확인' }
+      ],
+      watch: '매주 목요일 발표'
+    },
+    fed_bs: {
+      what: '연준 총자산(조 달러) — 양적완화·긴축으로 늘고 주는 시중 유동성의 원천',
+      states: {
+        rise: '자산 증가 — 유동성 공급 확대 (긴급 대출이면 금융 불안 신호일 수도)',
+        fall: '자산 감소(양적긴축) — 유동성 축소 방향',
+        flat: '변화 작음 — 양적긴축 종료·속도 조절 여부 확인'
+      },
+      pairs: [
+        { when: S => S.down('fed_bs') && S.up('nfci'), text: '양적긴축 + 금융여건 긴축 → 유동성 축소 효과 확인' },
+        { when: S => S.up('fed_bs') && S.up('stlfsi'), text: '자산 증가 + 금융 스트레스 상승 → 긴급 유동성 공급 가능성' }
+      ],
+      watch: '매주 목요일 H.4.1 발표 · FOMC 대차대조표 정책'
+    },
+    m2: {
+      what: '미국 M2 통화량 증가율(전년비) — 시중에 풀린 돈의 증가 속도',
+      states: {
+        rise: '통화량 증가율 확대 — 유동성 개선',
+        fall: '통화량 증가율 둔화',
+        low: '감소 또는 정체 — 유동성 위축',
+        high: '빠른 증가 — 자산가격·물가 상방 요인',
+        flat: '흐름 유지'
+      },
+      pairs: [
+        { when: S => S.up('m2') && S.down('fed_bs'), text: '양적긴축에도 통화량 증가 → 은행 대출 등 민간 신용 확대' },
+        { when: S => S.v('m2') < 0, text: '통화량 감소 → 역사적으로 드문 유동성 위축' }
+      ],
+      watch: '매월 넷째 주 화요일 발표'
+    },
+
+    /* ───────── 환율·변동성 ───────── */
+    usdkrw: {
+      what: '원/달러 환율 — 오르면 원화 약세, 수입물가·해외자산 원화 가치에 직결',
+      states: {
+        surge: '원화 급약세 — 수입물가·해외 결제 비용 급등, 외환 당국 대응 주목',
+        rise: '원화 약세 — 수입물가 상승, 해외자산 원화 환산 가치 증가',
+        fall: '원화 강세 — 수입 원가 부담 완화, 해외자산 원화 가치 감소',
+        plunge: '원화 급강세 — 해외자산 원화 환산 손실 확대',
+        high: '원화 약세 구간 — 수입물가·환노출 점검',
+        low: '원화 강세 구간',
+        flat: '안정'
+      },
+      pairs: [
+        { when: S => S.up('usdkrw') && S.up('dxy'), text: '달러인덱스도 상승 → 글로벌 달러 강세가 원인' },
+        { when: S => S.up('usdkrw') && !S.up('dxy'), text: '달러는 강하지 않은데 원화만 약세 → 한국 고유 요인(수출·외국인 매도) 점검' },
+        { when: S => S.up('usdkrw') && S.up('usdcny'), text: '위안화 약세 동반 → 아시아 통화 동반 약세' },
+        { when: S => has(S, 'us_ffr', 'kr_base') && S.v('us_ffr') - S.v('kr_base') >= 1, text: '한미 금리차 확대 상태 → 원화 약세 압력 요인' }
+      ],
+      watch: '수출입 통계 · 외국인 증권 매매 · 한미 통화정책 · 외환 당국 발언'
+    },
+    dxy: {
+      what: '달러인덱스 — 유로·엔 등 6개 통화 대비 달러 가치',
+      states: {
+        rise: '달러 강세 — 신흥국 통화·원자재 가격 하방 압력, 미국 밖 달러 부채 부담',
+        fall: '달러 약세 — 원자재·신흥국 자산에 우호적',
+        high: '달러 강세 구간 — 글로벌 유동성 위축',
+        low: '달러 약세 구간',
+        flat: '보합'
+      },
+      pairs: [
+        { when: S => S.up('dxy') && S.up('us2y'), text: '미국 단기금리 상승 동반 → 금리 차가 달러를 지지' },
+        { when: S => S.up('dxy') && S.up('gold'), text: '달러와 금이 함께 상승 → 안전자산 수요가 강한 국면' },
+        { when: S => S.down('dxy') && S.up('etf_eem'), text: '신흥국 주식 강세 동반 → 위험선호·자금 유입' }
+      ],
+      watch: 'FOMC·ECB·일본은행 · 미국 고용·물가'
+    },
+    usdjpy: {
+      what: '엔/달러 환율 — 오르면 엔화 약세, 엔캐리 거래와 아시아 금융시장의 변수',
+      states: {
+        rise: '엔화 약세 — 미·일 금리 차 반영, 엔캐리 거래 확대 가능성',
+        fall: '엔화 강세 — 위험회피 또는 일본 통화정책 변화',
+        plunge: '엔화 급강세 — 엔캐리 청산 시 세계 위험자산 동반 급락 사례 있음',
+        high: '엔화 약세 심화 — 일본 당국 개입 경계 구간',
+        low: '엔화 강세 구간',
+        flat: '보합'
+      },
+      pairs: [
+        { when: S => S.up('usdjpy') && S.up('us10y'), text: '미국 금리 상승 동반 → 금리 차가 엔화 약세를 주도' },
+        { when: S => S.down('usdjpy') && S.up('vix'), text: '엔화 강세 + 변동성 상승 → 위험회피 흐름' }
+      ],
+      watch: '일본은행 회의 · 일본 당국 발언 · 미국 금리'
+    },
+    eurusd: {
+      what: '유로/달러 — 1유로당 달러, 오르면 달러 약세',
+      states: {
+        rise: '유로 강세(달러 약세)',
+        fall: '유로 약세(달러 강세) — 유럽 경기·금리 차 확인',
+        high: '유로 강세 구간',
+        low: '유로 약세 구간 — 유럽 수입 에너지 비용 부담',
+        flat: '보합'
+      },
+      pairs: [
+        { when: S => S.down('eurusd') && S.up('natgas'), text: '가스 가격 상승 동반 → 유럽 에너지 부담이 유로 약세 요인' },
+        { when: S => S.up('eurusd') && S.down('dxy'), text: '달러인덱스 하락과 일치 → 달러 전반 약세' }
+      ],
+      watch: 'ECB 회의 · 유로존 물가·PMI'
+    },
+    usdcny: {
+      what: '위안/달러 — 오르면 위안화 약세, 중국 경기와 아시아 통화의 기준',
+      states: {
+        rise: '위안화 약세 — 중국 경기 부진·자본 유출 우려, 아시아 통화 동반 약세 가능',
+        fall: '위안화 강세 — 중국 경기 기대·자금 유입',
+        high: '위안화 약세 구간 — 당국 관리 여부 주시',
+        low: '위안화 강세 구간',
+        flat: '안정 — 당국이 관리하는 환율 특성'
+      },
+      pairs: [
+        { when: S => S.up('usdcny') && S.up('usdkrw'), text: '원화 동반 약세 → 중국 요인이 원화에 전이' },
+        { when: S => S.up('usdcny') && S.down('iron_ore'), text: '철광석 하락 동반 → 중국 경기 부진 신호' }
+      ],
+      watch: '인민은행 기준환율(매일) · 중국 경기 지표 · 미중 관계'
+    },
+    vix: {
+      what: 'VIX — S&P 500 옵션으로 본 향후 30일 예상 변동성, "공포 지수"',
+      states: {
+        surge: '급등 — 시장 불안 급확대, 레버리지·신용 비중 점검',
+        rise: '상승 — 위험 회피 심리 확대',
+        fall: '하락 — 시장 심리 안정',
+        high: '공포 구간 — 가격 변동폭 확대',
+        low: '매우 낮은 변동성 — 안도감이 큰 구간, 충격 시 급반등 가능',
+        flat: '안정'
+      },
+      pairs: [
+        { when: S => S.up('vix') && S.up('hy_spread'), text: '신용 스프레드도 확대 → 주식·신용 동시 위험 회피' },
+        { when: S => S.up('vix') && S.down('usdjpy'), text: '엔화 강세 동반 → 엔캐리 청산형 위험회피 가능성' },
+        { when: S => S.pos('vix') <= 10, text: '최근 2년 중 하위권 → 낙관 국면' }
+      ],
+      watch: 'FOMC·CPI 발표일 · 옵션 만기(매월 셋째 금요일)'
+    },
+
+    /* ───────── ETF ───────── */
+    etf_tlt: {
+      what: 'TLT — 미국 20년+ 장기국채, 장기금리와 반대로 움직임',
+      states: etfStates('장기채'),
+      pairs: [
+        { when: S => S.up('us30y') || S.up('us10y'), text: '장기금리 상승 중 → 가격 하락 압력' },
+        { when: S => S.up('etf_tlt') && S.down('sp500'), text: '주식 하락 속 장기채 상승 → 안전자산 역할' },
+        { when: S => S.down('etf_tlt') && S.down('sp500'), text: '주식·장기채 동반 하락 → 금리 상승이 모든 자산을 누르는 국면' }
+      ],
+      watch: '10년·30년 입찰 · CPI · FOMC'
+    },
+    etf_tip: {
+      what: 'TIP — 미국 물가연동국채, 실질금리와 반대로 움직이고 물가가 오르면 원금이 늘어남',
+      states: etfStates('물가연동채'),
+      pairs: [
+        { when: S => S.up('real10y'), text: '실질금리 상승 중 → 가격 하락 압력' },
+        { when: S => S.up('bei10y'), text: '기대인플레이션 상승 → 일반 국채보다 상대적으로 유리' }
+      ],
+      watch: '실질금리 · CPI'
+    },
+    etf_hyg: {
+      what: 'HYG — 미국 하이일드 회사채, 신용 위험선호를 그대로 반영',
+      states: etfStates('하이일드채'),
+      pairs: [
+        { when: S => S.up('hy_spread'), text: '스프레드 확대 중 → 가격 하락 압력' },
+        { when: S => S.down('etf_hyg') && S.down('sp500'), text: '주식과 동반 하락 → 위험자산 전반 회피' }
+      ],
+      watch: '하이일드 스프레드 · 부도 뉴스'
+    },
+    etf_uup: {
+      what: 'UUP — 달러 강세 ETF, 달러인덱스(DXY)를 따라감',
+      states: etfStates('달러'),
+      pairs: [
+        { when: S => S.up('etf_uup') && S.up('usdkrw'), text: '원/달러도 상승 → 원화 기준으로 달러 강세 체감' },
+        { when: S => S.up('us2y'), text: '미국 단기금리 상승 → 달러 지지 요인' }
+      ],
+      watch: 'FOMC · 미국 고용·물가'
+    },
+    etf_xle: {
+      what: 'XLE — 미국 에너지 업종(정유·석유 기업) 주식',
+      states: etfStates('에너지주'),
+      pairs: [
+        { when: S => S.up('etf_xle') && S.up('wti'), text: '유가와 동반 → 유가가 업종을 주도' },
+        { when: S => S.up('etf_xle') && !S.up('wti'), text: '유가와 무관하게 강세 → 정제 마진·주주환원 등 업종 요인' },
+        { when: S => S.down('etf_xle') && S.up('wti'), text: '유가 상승에도 약세 → 유가 지속성에 대한 의구심' }
+      ],
+      watch: '유가 · 정제 마진 · 실적 시즌'
+    },
+    etf_gld: {
+      what: 'GLD — 금 현물 ETF, 금 가격을 그대로 따라감',
+      states: etfStates('금'),
+      pairs: [
+        { when: S => S.down('real10y'), text: '실질금리 하락 → 금에 우호적' },
+        { when: S => S.up('etf_gld') && S.up('vix'), text: '변동성 상승 동반 → 안전자산 수요' }
+      ],
+      watch: '실질금리 · 달러 · 중앙은행 금 매입'
+    },
+    etf_lit: {
+      what: 'LIT — 리튬 채굴·배터리 기업 주식, 리튬 가격과 전기차 수요의 대용',
+      states: etfStates('리튬·배터리주'),
+      pairs: [
+        { when: S => S.up('lithium'), text: '리튬 가격(직접 입력)도 상승 → 업종과 원자재 동반' },
+        { when: S => S.up('nickel') || S.up('copper'), text: '배터리·전기 금속 강세 동반' },
+        { when: S => S.up('real10y'), text: '실질금리 상승 → 성장 업종 밸류에이션 부담' }
+      ],
+      watch: '전기차 판매 · 리튬 가격 · 배터리 정책'
+    },
+    etf_dbc: {
+      what: 'DBC — 원자재 종합(에너지 비중 큼) 선물 ETF, 인플레이션 압력의 대용',
+      states: etfStates('원자재 종합'),
+      pairs: [
+        { when: S => S.up('etf_dbc') && S.up('bei10y'), text: '기대인플레이션 상승 동반 → 물가 압력 신호' },
+        { when: S => S.up('etf_dbc') && S.up('dxy'), text: '달러 강세에도 원자재 상승 → 공급 요인 가능성' },
+        { when: S => S.down('etf_dbc') && S.down('copper'), text: '산업금속도 하락 → 수요 둔화 신호' }
+      ],
+      watch: '유가 · 달러 · 중국 경기 (선물 롤오버 비용으로 장기 수익률은 현물과 다를 수 있음)'
+    },
+    etf_dba: {
+      what: 'DBA — 농산물 종합 선물 ETF(곡물·설탕·커피·가축)',
+      states: etfStates('농산물'),
+      pairs: [
+        { when: S => S.up('etf_dba') && (S.up('wheat') || S.up('corn') || S.up('soybean')), text: '곡물 가격 상승 동반 → 식품 물가 상방 요인' },
+        { when: S => S.up('natgas'), text: '천연가스 상승 → 비료 원가 경로' }
+      ],
+      watch: 'USDA WASDE · 기상 · 달러'
+    },
+    etf_bwet: {
+      what: 'BWET — 유조선 운임 선물 ETF, 원유·석유제품 해상 운송비',
+      states: etfStates('유조선 운임'),
+      pairs: [
+        { when: S => S.up('etf_bwet') && S.up('brent'), text: '유가와 동반 상승 → 원유 물동량 증가 또는 운송 차질' },
+        { when: S => S.up('etf_bwet') && S.up('bdry'), text: '벌크선 운임도 상승 → 해운 전반 강세' }
+      ],
+      watch: '산유국 수출 · 중동 해상 운송 위험 · 제재 뉴스 (규모가 작은 ETF라 가격 변동 큼)'
+    },
+    etf_xli: {
+      what: 'XLI — 미국 산업재 업종(기계·항공·운송·방산)',
+      states: etfStates('산업재'),
+      pairs: [
+        { when: S => S.up('etf_xli') && S.up('copper'), text: '구리 강세 동반 → 제조업 경기 기대' },
+        { when: S => S.down('etf_xli') && S.down('indpro'), text: '산업생산 둔화 동반 → 제조업 경기 둔화' }
+      ],
+      watch: 'ISM 제조업 지수 · 산업생산 · 설비투자'
+    },
+    etf_itb: {
+      what: 'ITB — 미국 주택건설 업종, 모기지 금리에 가장 민감한 업종 중 하나',
+      states: etfStates('주택건설주'),
+      pairs: [
+        { when: S => S.up('mortgage'), text: '모기지 금리 상승 중 → 주택 수요 부담' },
+        { when: S => S.down('mortgage') && S.up('etf_itb'), text: '모기지 금리 하락에 반응 → 주택 수요 회복 기대' }
+      ],
+      watch: '모기지 금리 · 주택 착공·판매'
+    },
+    etf_kre: {
+      what: 'KRE — 미국 지역은행, 금리차·예금 이탈·상업용 부동산 대출 위험에 민감',
+      states: etfStates('지역은행'),
+      pairs: [
+        { when: S => S.down('etf_kre') && S.up('hy_spread'), text: '신용 스프레드 확대 동반 → 금융권 스트레스 신호' },
+        { when: S => S.up('spread') && S.up('etf_kre'), text: '장단기 금리차 확대 → 예대마진 개선 기대' },
+        { when: S => S.lvl('stlfsi') >= 1, text: '금융스트레스지수 평균 상회 → 은행권 위험 점검' }
+      ],
+      watch: '은행 실적 · 상업용 부동산 · 예금 동향(H.8 주간)'
+    },
+    etf_ewy: {
+      what: 'EWY — 한국 주식 ETF(달러 기준), 외국인 관점의 한국 시장 = 코스피 × 원화 가치',
+      states: etfStates('한국 ETF'),
+      pairs: [
+        { when: S => S.up('kospi') && S.down('etf_ewy'), text: '코스피는 오르는데 EWY는 하락 → 원화 약세가 달러 수익을 깎는 중' },
+        { when: S => S.up('etf_ewy') && S.down('usdkrw'), text: '원화 강세 동반 → 달러 기준 수익이 더 큼' }
+      ],
+      watch: '코스피 · 원/달러 · 반도체 업황'
+    },
+    etf_eem: {
+      what: 'EEM — 신흥국 주식 종합, 달러·중국 경기·원자재에 민감',
+      states: etfStates('신흥국'),
+      pairs: [
+        { when: S => S.up('etf_eem') && S.down('dxy'), text: '달러 약세 동반 → 신흥국 자금 유입 환경' },
+        { when: S => S.down('etf_eem') && S.up('usdcny'), text: '위안화 약세 동반 → 중국 요인' },
+        { when: S => S.up('etf_eem') && S.up('copper'), text: '원자재 강세 동반 → 자원 수출국 수혜' }
+      ],
+      watch: '달러 · 중국 경기 · 연준 정책'
+    }
+  });
+})(window);
