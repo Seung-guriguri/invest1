@@ -212,6 +212,43 @@
   .history li .grow { flex: 1; }
   .history .del { border: 0; background: none; color: var(--red); font-size: 13px; padding: 4px 6px; }
 
+  /* 스파크라인 · 차트 */
+  .spark { margin-left: auto; width: 84px; height: 30px; flex: 0 0 84px; overflow: visible; }
+  .spark path { fill: none; stroke: var(--text-2); stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; opacity: .7; }
+  .spark circle { fill: var(--accent); stroke: var(--surface); stroke-width: 1.5; }
+  .detail-value { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
+  .periods { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
+  .periods span { font-size: 12.5px; background: var(--surface-2); border-radius: 8px; padding: 3px 8px; color: var(--text-2); }
+  .periods b { color: var(--text); font-weight: 600; margin-left: 3px; }
+  .ranges { display: flex; gap: 4px; margin: 12px 0 6px; overflow-x: auto; scrollbar-width: none; }
+  .ranges button { flex: 0 0 auto; border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 4px 10px; font-size: 13px; }
+  .ranges button[aria-pressed="true"] { background: var(--text); color: var(--bg); border-color: var(--text); font-weight: 600; }
+  .chart { position: relative; height: 200px; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+  .chart svg { display: block; width: 100%; height: 200px; overflow: visible; }
+  .chart svg:focus { outline: none; }
+  .chart svg:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+  .chart .grid { stroke: var(--border); stroke-width: 1; }
+  .chart .tick { fill: var(--text-2); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .chart .line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .chart .area { fill: var(--accent); opacity: .1; }
+  .chart .end { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
+  .chart .th { stroke-width: 1; }
+  .chart .th.warn { stroke: var(--yellow); } .chart .th.danger { stroke: var(--red); }
+  .chart .th-label { font-size: 10.5px; font-weight: 600; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
+  .chart .th-label.warn { fill: var(--yellow); } .chart .th-label.danger { fill: var(--red); }
+  .chart .cross { stroke: var(--text-2); stroke-width: 1; }
+  .chart-tip {
+    position: absolute; top: 0; pointer-events: none; background: var(--text); color: var(--bg);
+    border-radius: 8px; padding: 4px 8px; font-size: 12px; white-space: nowrap; transform: translateX(-50%);
+  }
+  .chart-tip b { font-size: 13px; margin-left: 4px; }
+  .chart-foot { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--text-2); margin-top: 4px; }
+  .chart-empty { height: 120px; display: grid; place-items: center; color: var(--text-2); font-size: 13.5px; background: var(--surface-2); border-radius: 10px; }
+  details.manual { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 10px; }
+  details.manual summary { cursor: pointer; font-weight: 600; font-size: 14px; padding: 4px 0; }
+  .status-list { list-style: none; padding: 0; margin: 8px 0 0; font-size: 12.5px; color: var(--text-2); }
+  .status-list li { padding: 3px 0; }
+
   .toast {
     position: fixed; left: 50%; bottom: calc(var(--footer-h) + 20px + env(safe-area-inset-bottom)); transform: translateX(-50%);
     background: var(--text); color: var(--bg); padding: 9px 14px; border-radius: 10px; font-size: 14px; z-index: 50;
@@ -228,7 +265,7 @@
       <h1>매크로 대시보드</h1>
       <p class="sub" id="todayLabel"></p>
     </div>
-    <button class="icon-btn" id="btnRefresh" hidden aria-label="자동 조회">
+    <button class="icon-btn" id="btnRefresh" aria-label="자동 데이터 다시 받기">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>
     </button>
     <button class="icon-btn" id="btnSettings" aria-label="설정 및 값 입력">
@@ -268,8 +305,15 @@
 
   <div class="wrap view-body">
     <section class="panel section">
-      <h2>값 일괄 입력</h2>
-      <p class="hint">입력한 칸만 저장됩니다. 저장하면 기존 현재 값은 자동으로 "직전 값"이 됩니다. 같은 기준일로 다시 저장하면 덮어씁니다. 지표 카드를 누르면 개별 수정·이력 삭제가 가능합니다.</p>
+      <h2>자동 데이터</h2>
+      <p class="hint">GitHub Actions가 정해진 시간마다 FRED·Yahoo Finance·한국은행에서 값을 받아 사이트와 함께 배포합니다. API 키는 GitHub 저장소 Secrets에만 있고 이 기기에는 저장되지 않습니다.</p>
+      <div id="remoteStatus"></div>
+      <div class="btn-row" style="margin-top:10px"><button class="btn" id="btnReloadRemote" type="button">다시 받기</button></div>
+    </section>
+
+    <section class="panel section">
+      <h2>값 직접 입력</h2>
+      <p class="hint">자동 수집이 안 되는 지표(리튬 등)를 입력하거나 자동 값을 덮어쓸 때 사용합니다. 입력한 칸만 저장되고, 같은 기준일 값이 있으면 직접 입력이 우선합니다. 지표 카드를 누르면 개별 수정·삭제가 가능합니다.</p>
       <label class="field"><span>기준일 (모든 칸 공통)</span><input type="date" id="bulkDate"></label>
       <form id="bulkForm"></form>
       <div class="btn-row" style="margin-top:12px"><button class="btn primary" id="btnBulkSave" type="button">저장</button></div>
@@ -277,24 +321,12 @@
 
     <section class="panel section">
       <h2>백업</h2>
-      <p class="hint">데이터는 이 기기 브라우저(localStorage)에만 저장됩니다. 기기 변경·브라우저 데이터 삭제 전에 내보내 두세요. API 키는 백업 파일에 포함되지 않습니다.</p>
+      <p class="hint">직접 입력한 값은 이 기기 브라우저(localStorage)에만 저장됩니다. 기기 변경·브라우저 데이터 삭제 전에 내보내 두세요. 자동 데이터는 백업할 필요가 없습니다.</p>
       <div class="btn-row">
         <button class="btn" id="btnExport" type="button">JSON 내보내기</button>
         <button class="btn" id="btnImport" type="button">JSON 불러오기</button>
         <input type="file" id="importFile" accept="application/json,.json" hidden>
       </div>
-    </section>
-
-    <section class="panel section">
-      <h2>자동 조회 (선택)</h2>
-      <p class="hint">FRED API 키를 넣으면 미국 금리·CPI·실업률·VIX·유가·원/달러 등 일부 지표를 자동으로 가져옵니다. 키는 이 기기 localStorage에만 저장됩니다. 브라우저 보안(CORS) 때문에 직접 호출이 막히면 프록시 URL이 필요합니다(README 참고).</p>
-      <label class="field"><span>FRED API 키</span><input type="password" id="fredKey" autocomplete="off" spellcheck="false" placeholder="32자리 키"></label>
-      <label class="field"><span>프록시 URL (선택) — 예: https://내워커.workers.dev/?url={url}</span><input type="url" id="proxyUrl" autocomplete="off" spellcheck="false" placeholder="비워두면 직접 호출"></label>
-      <div class="btn-row">
-        <button class="btn" id="btnSaveApi" type="button">저장</button>
-        <button class="btn primary" id="btnFetchNow" type="button">지금 조회</button>
-      </div>
-      <pre class="log" id="fetchLog"></pre>
     </section>
 
     <section class="panel section">
@@ -310,16 +342,16 @@
 
     <section class="panel section">
       <h2>데이터 관리</h2>
-      <p class="hint">신호등 임계값·코멘트·체크리스트 규칙은 index.html 상단의 <code>CONFIG</code> 객체에서 수정합니다.</p>
+      <p class="hint">신호등 임계값·코멘트·체크리스트 규칙은 index.html 상단의 <code>CONFIG</code>, 자동 수집 소스는 <code>scripts/sources.mjs</code>에서 수정합니다.</p>
       <div class="btn-row">
         <button class="btn" id="btnSample" type="button">샘플 데이터 불러오기</button>
-        <button class="btn danger" id="btnClear" type="button">전체 삭제</button>
+        <button class="btn danger" id="btnClear" type="button">직접 입력 값 전체 삭제</button>
       </div>
     </section>
   </div>
 </div>
 
-<!-- ===================== 지표 편집 시트 ===================== -->
+<!-- ===================== 지표 상세 시트 ===================== -->
 <dialog class="sheet" id="editSheet" aria-labelledby="editTitle">
   <div class="sheet-inner">
     <div class="sheet-head">
@@ -343,26 +375,30 @@
  * 지표 필드
  *   unit       : 단위 표시
  *   dp         : 소수 자릿수
- *   changeMode : 'pp' = 직전 대비 변화를 %p(차이)로 판단 (금리·물가 등 % 단위 지표)
+ *   changeMode : 'pp'  = 직전 대비 변화를 %p(차이)로 판단 (금리·물가 등 % 단위 지표)
+ *                'abs' = 직전 대비 차이를 지표 단위 그대로 판단 (고용 증감, 지수 등)
  *                'pct' = 직전 대비 변화율(%)로 판단 (가격 지표)
  *   level      : 수준 기준 신호등. dir:'up'  → 값 ≥ warn 노랑, 값 ≥ danger 빨강
  *                               dir:'down'→ 값 < warn 노랑,  값 < danger 빨강
  *   change     : 변화 기준 신호등. dir:'up'(상승만) | 'down'(하락만) | 'both'(양방향 절대값)
- *                flat 미만 변화는 "보합", danger 이상은 "급등/급락"으로 해설
+ *                flat 미만 변화는 "보합", danger 이상은 "급등/급락"으로 해설. warn/danger 생략 시 해설에만 사용
  *   → 최종 신호등 = 수준 신호와 변화 신호 중 더 나쁜 쪽
+ *   ※ "직전 값"은 직전 관측치입니다. 자동 데이터는 일간 지표면 전 거래일, 월간 지표면 전월.
  *   profile    : COMMENTS 의 해설 묶음 이름. comments 로 지표별 문구 덮어쓰기 가능
- *   source     : 자동 조회 정보 (data.js Provider 참고). 없으면 직접 입력 전용
- *   derived    : 다른 지표에서 계산 (현재는 금리차만)
+ *   derived    : 자동 데이터가 없을 때 다른 두 지표의 차이로 계산 (a − b)
+ *   자동 수집 소스는 scripts/sources.mjs 에서 지정합니다 (지표 id 기준).
  * ===================================================================== */
 const CONFIG = {
   staleDays: 7,              // 마지막 업데이트 후 며칠 지나면 "오래된 데이터"
-  staleBasis: 'updated',     // 'updated' = 입력/조회한 날 기준, 'date' = 기준일 기준
+  staleBasis: 'updated',     // 'updated' = 입력/수집한 날 기준, 'date' = 기준일 기준
   checklistMin: 3,
   checklistMax: 5,
 
   categories: [
     { id: 'rates',     label: '금리' },
     { id: 'inflation', label: '물가' },
+    { id: 'growth',    label: '경기' },
+    { id: 'market',    label: '시장·신용' },
     { id: 'fx',        label: '환율' },
     { id: 'energy',    label: '에너지' },
     { id: 'metals',    label: '금속' },
@@ -373,48 +409,105 @@ const CONFIG = {
     // ── 금리·채권 ──
     { id: 'kr_base', cat: 'rates', name: '한국 기준금리', unit: '%', dp: 2, changeMode: 'pp', profile: 'policyRate',
       level: { dir: 'up', warn: 3.5, danger: 4.5 }, change: { dir: 'both', flat: 0.01, warn: 0.25, danger: 0.5 } },
+    { id: 'kr3y', cat: 'rates', name: '한국 국고채 3년', unit: '%', dp: 3, changeMode: 'pp', profile: 'marketRate',
+      level: { dir: 'up', warn: 3.5, danger: 4.0 }, change: { dir: 'both', flat: 0.02, warn: 0.1, danger: 0.2 } },
+    { id: 'kr10y', cat: 'rates', name: '한국 국고채 10년', unit: '%', dp: 3, changeMode: 'pp', profile: 'marketRate',
+      level: { dir: 'up', warn: 4.0, danger: 4.5 }, change: { dir: 'both', flat: 0.02, warn: 0.1, danger: 0.2 } },
     { id: 'us_ffr', cat: 'rates', name: '미국 기준금리', sub: 'FFR 목표 상단', unit: '%', dp: 2, changeMode: 'pp', profile: 'policyRate',
-      level: { dir: 'up', warn: 4.0, danger: 5.0 }, change: { dir: 'both', flat: 0.01, warn: 0.25, danger: 0.5 },
-      source: { fred: { series: 'DFEDTARU' } } },
-    { id: 'us10y', cat: 'rates', name: '미국 10년물 금리', unit: '%', dp: 2, changeMode: 'pp', profile: 'marketRate',
-      level: { dir: 'up', warn: 4.5, danger: 5.0 }, change: { dir: 'both', flat: 0.03, warn: 0.15, danger: 0.3 },
-      source: { fred: { series: 'DGS10' } } },
+      level: { dir: 'up', warn: 4.0, danger: 5.0 }, change: { dir: 'both', flat: 0.01, warn: 0.25, danger: 0.5 } },
+    { id: 'us3m', cat: 'rates', name: '미국 3개월물 금리', unit: '%', dp: 2, changeMode: 'pp', profile: 'marketRate',
+      level: { dir: 'up', warn: 4.5, danger: 5.0 }, change: { dir: 'both', flat: 0.03, warn: 0.15, danger: 0.3 } },
     { id: 'us2y', cat: 'rates', name: '미국 2년물 금리', unit: '%', dp: 2, changeMode: 'pp', profile: 'marketRate',
-      level: { dir: 'up', warn: 4.5, danger: 5.0 }, change: { dir: 'both', flat: 0.03, warn: 0.15, danger: 0.3 },
-      source: { fred: { series: 'DGS2' } } },
-    { id: 'spread', cat: 'rates', name: '장단기 금리차', sub: '10Y − 2Y', unit: '%p', dp: 2, changeMode: 'pp', profile: 'spread',
+      level: { dir: 'up', warn: 4.5, danger: 5.0 }, change: { dir: 'both', flat: 0.03, warn: 0.15, danger: 0.3 } },
+    { id: 'us10y', cat: 'rates', name: '미국 10년물 금리', unit: '%', dp: 2, changeMode: 'pp', profile: 'marketRate',
+      level: { dir: 'up', warn: 4.5, danger: 5.0 }, change: { dir: 'both', flat: 0.03, warn: 0.15, danger: 0.3 } },
+    { id: 'us30y', cat: 'rates', name: '미국 30년물 금리', unit: '%', dp: 2, changeMode: 'pp', profile: 'marketRate',
+      level: { dir: 'up', warn: 5.0, danger: 5.5 }, change: { dir: 'both', flat: 0.03, warn: 0.15, danger: 0.3 } },
+    { id: 'spread', cat: 'rates', name: '장단기 금리차', sub: '미국 10Y − 2Y', unit: '%p', dp: 2, changeMode: 'pp', profile: 'spread',
       level: { dir: 'down', warn: 0.25, danger: 0 }, change: { dir: 'down', flat: 0.03, warn: 0.15, danger: 0.3 },
-      derived: { op: 'diff', a: 'us10y', b: 'us2y' } },
+      derived: { a: 'us10y', b: 'us2y' } },
+    { id: 'spread3m', cat: 'rates', name: '장단기 금리차', sub: '미국 10Y − 3M', unit: '%p', dp: 2, changeMode: 'pp', profile: 'spread',
+      level: { dir: 'down', warn: 0.25, danger: 0 }, change: { dir: 'down', flat: 0.03, warn: 0.15, danger: 0.3 },
+      derived: { a: 'us10y', b: 'us3m' } },
+    { id: 'real10y', cat: 'rates', name: '미국 10년 실질금리', sub: 'TIPS', unit: '%', dp: 2, changeMode: 'pp', profile: 'realRate',
+      level: { dir: 'up', warn: 2.0, danger: 2.5 }, change: { dir: 'both', flat: 0.03, warn: 0.15, danger: 0.3 } },
+    { id: 'bei10y', cat: 'rates', name: '미국 10년 기대인플레이션', sub: 'BEI', unit: '%', dp: 2, changeMode: 'pp', profile: 'breakeven',
+      level: { dir: 'up', warn: 2.5, danger: 3.0 }, change: { dir: 'both', flat: 0.02, warn: 0.1, danger: 0.2 } },
+    { id: 'mortgage', cat: 'rates', name: '미국 30년 모기지 금리', sub: '주간', unit: '%', dp: 2, changeMode: 'pp', profile: 'mortgage',
+      level: { dir: 'up', warn: 6.5, danger: 7.5 }, change: { dir: 'both', flat: 0.05, warn: 0.2, danger: 0.4 } },
 
-    // ── 물가·경기 ──
+    // ── 물가 ──
     { id: 'us_cpi', cat: 'inflation', name: '미국 CPI 상승률', sub: '전년 동월 대비', unit: '%', dp: 1, changeMode: 'pp', profile: 'inflation',
-      level: { dir: 'up', warn: 3.0, danger: 4.0 }, change: { dir: 'up', flat: 0.1, warn: 0.3, danger: 0.6 },
-      source: { fred: { series: 'CPIAUCSL', units: 'pc1' } } },
+      level: { dir: 'up', warn: 3.0, danger: 4.0 }, change: { dir: 'up', flat: 0.1, warn: 0.3, danger: 0.6 } },
+    { id: 'us_core_cpi', cat: 'inflation', name: '미국 근원 CPI', sub: '식품·에너지 제외, 전년비', unit: '%', dp: 1, changeMode: 'pp', profile: 'inflation',
+      level: { dir: 'up', warn: 3.0, danger: 3.5 }, change: { dir: 'up', flat: 0.1, warn: 0.2, danger: 0.4 } },
+    { id: 'us_core_pce', cat: 'inflation', name: '미국 근원 PCE', sub: '연준 선호 물가, 전년비', unit: '%', dp: 1, changeMode: 'pp', profile: 'inflation',
+      level: { dir: 'up', warn: 2.5, danger: 3.0 }, change: { dir: 'up', flat: 0.1, warn: 0.2, danger: 0.4 } },
+    { id: 'us_ppi', cat: 'inflation', name: '미국 PPI', sub: '최종수요, 전년비', unit: '%', dp: 1, changeMode: 'pp', profile: 'ppi',
+      level: { dir: 'up', warn: 3.0, danger: 4.0 }, change: { dir: 'up', flat: 0.1, warn: 0.5, danger: 1.0 } },
     { id: 'kr_cpi', cat: 'inflation', name: '한국 CPI 상승률', sub: '전년 동월 대비', unit: '%', dp: 1, changeMode: 'pp', profile: 'inflation',
-      level: { dir: 'up', warn: 3.0, danger: 4.0 }, change: { dir: 'up', flat: 0.1, warn: 0.3, danger: 0.6 },
-      source: { fred: { series: 'KORCPIALLMINMEI', units: 'pc1' } } },
-    { id: 'us_unemp', cat: 'inflation', name: '미국 실업률', unit: '%', dp: 1, changeMode: 'pp', profile: 'unemployment',
-      level: { dir: 'up', warn: 4.5, danger: 5.5 }, change: { dir: 'up', flat: 0.1, warn: 0.2, danger: 0.4 },
-      source: { fred: { series: 'UNRATE' } } },
+      level: { dir: 'up', warn: 3.0, danger: 4.0 }, change: { dir: 'up', flat: 0.1, warn: 0.3, danger: 0.6 } },
+
+    // ── 경기·고용 ──
+    { id: 'us_unemp', cat: 'growth', name: '미국 실업률', unit: '%', dp: 1, changeMode: 'pp', profile: 'unemployment',
+      level: { dir: 'up', warn: 4.5, danger: 5.5 }, change: { dir: 'up', flat: 0.1, warn: 0.2, danger: 0.4 } },
+    { id: 'sahm', cat: 'growth', name: '삼의 법칙 지표', sub: 'Sahm rule, 0.5 이상 발동', unit: '%p', dp: 2, changeMode: 'pp', profile: 'sahm',
+      level: { dir: 'up', warn: 0.3, danger: 0.5 }, change: { dir: 'up', flat: 0.03, warn: 0.1, danger: 0.2 } },
+    { id: 'payems', cat: 'growth', name: '미국 비농업 고용 증감', sub: '전월 대비', unit: '천명', dp: 0, changeMode: 'abs', profile: 'payrolls',
+      level: { dir: 'down', warn: 100, danger: 0 }, change: { flat: 30 } },
+    { id: 'claims', cat: 'growth', name: '미국 신규 실업수당 청구', sub: '주간', unit: '건', dp: 0, changeMode: 'pct', profile: 'claims',
+      level: { dir: 'up', warn: 250000, danger: 300000 }, change: { dir: 'up', flat: 2, warn: 8, danger: 15 } },
+    { id: 'indpro', cat: 'growth', name: '미국 산업생산', sub: '전년비', unit: '%', dp: 1, changeMode: 'pp', profile: 'indpro',
+      level: { dir: 'down', warn: 0, danger: -2 }, change: { flat: 0.2 } },
+    { id: 'retail', cat: 'growth', name: '미국 소매판매', sub: '명목, 전년비', unit: '%', dp: 1, changeMode: 'pp', profile: 'retail',
+      level: { dir: 'down', warn: 2, danger: 0 }, change: { flat: 0.3 } },
+    { id: 'umcsent', cat: 'growth', name: '미시간 소비자심리지수', unit: '', dp: 1, changeMode: 'abs', profile: 'sentiment',
+      level: { dir: 'down', warn: 70, danger: 60 }, change: { flat: 1.5 } },
+    { id: 'gdp', cat: 'growth', name: '미국 실질 GDP 성장률', sub: '전기비 연율, 분기', unit: '%', dp: 1, changeMode: 'pp', profile: 'gdp',
+      level: { dir: 'down', warn: 1, danger: 0 }, change: { flat: 0.3 } },
+
+    // ── 시장·신용 ──
+    { id: 'sp500', cat: 'market', name: 'S&P 500', unit: '', dp: 2, changeMode: 'pct', profile: 'equity',
+      change: { dir: 'down', flat: 0.3, warn: 2, danger: 4 } },
+    { id: 'nasdaq', cat: 'market', name: '나스닥 종합', unit: '', dp: 2, changeMode: 'pct', profile: 'equity',
+      change: { dir: 'down', flat: 0.3, warn: 2.5, danger: 5 } },
+    { id: 'kospi', cat: 'market', name: '코스피', unit: '', dp: 2, changeMode: 'pct', profile: 'equity',
+      change: { dir: 'down', flat: 0.3, warn: 2, danger: 4 } },
+    { id: 'hy_spread', cat: 'market', name: '하이일드 스프레드', sub: '미국 고수익 회사채', unit: '%p', dp: 2, changeMode: 'pp', profile: 'hy',
+      level: { dir: 'up', warn: 4.5, danger: 6.0 }, change: { dir: 'up', flat: 0.05, warn: 0.3, danger: 0.6 } },
+    { id: 'ig_spread', cat: 'market', name: '투자등급 스프레드', sub: '미국 회사채', unit: '%p', dp: 2, changeMode: 'pp', profile: 'ig',
+      level: { dir: 'up', warn: 1.5, danger: 2.0 }, change: { dir: 'up', flat: 0.02, warn: 0.1, danger: 0.2 } },
+    { id: 'nfci', cat: 'market', name: '금융여건지수', sub: '시카고 연은 NFCI, 0 초과 = 긴축적', unit: '', dp: 2, changeMode: 'abs', profile: 'nfci',
+      level: { dir: 'up', warn: 0, danger: 0.5 }, change: { dir: 'up', flat: 0.02, warn: 0.1, danger: 0.2 } },
+    { id: 'stlfsi', cat: 'market', name: '금융스트레스지수', sub: '세인트루이스 연은, 0 = 평균', unit: '', dp: 2, changeMode: 'abs', profile: 'stress',
+      level: { dir: 'up', warn: 0, danger: 1 }, change: { dir: 'up', flat: 0.05, warn: 0.3, danger: 0.6 } },
+    { id: 'fed_bs', cat: 'market', name: '연준 총자산', sub: '주간', unit: '조$', dp: 2, changeMode: 'pct', profile: 'fedbs',
+      change: { flat: 0.2 } },
+    { id: 'm2', cat: 'market', name: '미국 M2 증가율', sub: '전년비', unit: '%', dp: 1, changeMode: 'pp', profile: 'm2',
+      level: { dir: 'down', warn: 0, danger: -2 }, change: { flat: 0.2 } },
 
     // ── 환율·변동성 ──
     { id: 'usdkrw', cat: 'fx', name: '원/달러 환율', unit: '원', dp: 1, changeMode: 'pct', profile: 'usdkrw',
-      level: { dir: 'up', warn: 1400, danger: 1450 }, change: { dir: 'both', flat: 0.2, warn: 1.0, danger: 2.0 },
-      source: { fred: { series: 'DEXKOUS' } } },
+      level: { dir: 'up', warn: 1400, danger: 1450 }, change: { dir: 'both', flat: 0.2, warn: 1.0, danger: 2.0 } },
     { id: 'dxy', cat: 'fx', name: '달러인덱스', sub: 'DXY', unit: '', dp: 2, changeMode: 'pct', profile: 'dxy',
       level: { dir: 'up', warn: 105, danger: 110 }, change: { dir: 'both', flat: 0.2, warn: 1.0, danger: 2.0 } },
+    { id: 'usdjpy', cat: 'fx', name: '엔/달러 환율', unit: '엔', dp: 2, changeMode: 'pct', profile: 'usdjpy',
+      level: { dir: 'up', warn: 155, danger: 160 }, change: { dir: 'both', flat: 0.2, warn: 1.0, danger: 2.0 } },
+    { id: 'eurusd', cat: 'fx', name: '유로/달러 환율', sub: '1유로당 달러', unit: '$', dp: 4, changeMode: 'pct', profile: 'eurusd',
+      change: { dir: 'both', flat: 0.2, warn: 1.0, danger: 2.0 } },
+    { id: 'usdcny', cat: 'fx', name: '위안/달러 환율', unit: '위안', dp: 4, changeMode: 'pct', profile: 'usdcny',
+      level: { dir: 'up', warn: 7.3, danger: 7.4 }, change: { dir: 'both', flat: 0.1, warn: 0.5, danger: 1.0 } },
     { id: 'vix', cat: 'fx', name: 'VIX', sub: 'S&P500 변동성 지수', unit: '', dp: 2, changeMode: 'pct', profile: 'vix',
-      level: { dir: 'up', warn: 20, danger: 30 }, change: { dir: 'up', flat: 3, warn: 15, danger: 30 },
-      source: { fred: { series: 'VIXCLS' } } },
+      level: { dir: 'up', warn: 20, danger: 30 }, change: { dir: 'up', flat: 3, warn: 15, danger: 30 } },
 
     // ── 에너지 ──
     { id: 'wti', cat: 'energy', name: 'WTI 원유', unit: '$/bbl', dp: 2, changeMode: 'pct', profile: 'oil',
-      level: { dir: 'up', warn: 90, danger: 100 }, change: { dir: 'both', flat: 1, warn: 5, danger: 10 },
-      source: { fred: { series: 'DCOILWTICO' } } },
-    { id: 'natgas', cat: 'energy', name: '천연가스', sub: '헨리허브', unit: '$/MMBtu', dp: 2, changeMode: 'pct', profile: 'gas',
-      change: { dir: 'both', flat: 2, warn: 8, danger: 15 },
-      source: { fred: { series: 'DHHNGSP' } } },
-    { id: 'coal', cat: 'energy', name: '석탄', sub: '뉴캐슬', unit: '$/t', dp: 1, changeMode: 'pct', profile: 'coal',
+      level: { dir: 'up', warn: 90, danger: 100 }, change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
+    { id: 'brent', cat: 'energy', name: '브렌트유', unit: '$/bbl', dp: 2, changeMode: 'pct', profile: 'oil',
+      level: { dir: 'up', warn: 95, danger: 105 }, change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
+    { id: 'natgas', cat: 'energy', name: '천연가스', sub: '헨리허브', unit: '$/MMBtu', dp: 3, changeMode: 'pct', profile: 'gas',
+      change: { dir: 'both', flat: 2, warn: 8, danger: 15 } },
+    { id: 'coal', cat: 'energy', name: '석탄', sub: '호주 뉴캐슬, 월간', unit: '$/t', dp: 1, changeMode: 'pct', profile: 'coal',
       change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
 
     // ── 금속·광물 ──
@@ -424,11 +517,13 @@ const CONFIG = {
       change: { dir: 'both', flat: 0.5, warn: 3, danger: 6 } },
     { id: 'silver', cat: 'metals', name: '은', unit: '$/oz', dp: 2, changeMode: 'pct', profile: 'silver',
       change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
+    { id: 'aluminum', cat: 'metals', name: '알루미늄', unit: '$/t', dp: 0, changeMode: 'pct', profile: 'aluminum',
+      change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
     { id: 'iron_ore', cat: 'metals', name: '철광석', unit: '$/t', dp: 1, changeMode: 'pct', profile: 'ironOre',
       change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
-    { id: 'lithium', cat: 'metals', name: '리튬', sub: '탄산리튬', unit: 'CNY/t', dp: 0, changeMode: 'pct', profile: 'lithium',
+    { id: 'lithium', cat: 'metals', name: '리튬', sub: '탄산리튬, 직접 입력', unit: 'CNY/t', dp: 0, changeMode: 'pct', profile: 'lithium',
       change: { dir: 'both', flat: 2, warn: 10, danger: 20 } },
-    { id: 'nickel', cat: 'metals', name: '니켈', unit: '$/t', dp: 0, changeMode: 'pct', profile: 'nickel',
+    { id: 'nickel', cat: 'metals', name: '니켈', sub: '월간', unit: '$/t', dp: 0, changeMode: 'pct', profile: 'nickel',
       change: { dir: 'both', flat: 1, warn: 7, danger: 15 } },
 
     // ── 곡물 ──
@@ -465,17 +560,41 @@ const COMMENTS = {
     special(a) {
       if (a.value < 0) return '장단기 금리차 역전 — 경기 둔화 신호로 해석되는 경우가 많음, 지표 추이 확인';
       if (a.prev != null && a.prev < 0) return '역전 해소 — 과거 경기 변곡점과 겹친 사례가 있어 고용·경기 지표 함께 확인';
-      if (a.value < CONFIG_LEVEL('spread').warn) return '금리차 축소 — 역전 진입 여부와 경기 지표 추이 관찰';
+      if (a.lvl >= 1) return '금리차 축소 — 역전 진입 여부와 경기 지표 추이 관찰';
       return null;
     },
     flat: '정상적인 우상향 수익률 곡선 — 특이 신호 제한적'
+  },
+  realRate: {
+    rise: '실질금리 상승 — 성장주·금 등 이자 없는 자산에 부담 요인, 실질 차입 비용 증가',
+    fall: '실질금리 하락 — 금·성장 자산에 우호적 환경일 수 있음',
+    high: '실질금리 높은 구간 — 긴축적 금융 여건, 밸류에이션 부담 점검',
+    flat: '실질금리 보합 — 큰 변화 없음'
+  },
+  breakeven: {
+    rise: '기대인플레이션 상승 — 물가 재상승 우려, 장기금리 상방 압력 가능성',
+    fall: '기대인플레이션 하락 — 물가 안정 기대 또는 경기 둔화 반영',
+    high: '기대인플레이션 높음 — 긴축 기조 장기화 가능성 점검',
+    flat: '기대인플레이션 안정 — 물가 기대 변화 제한적'
+  },
+  mortgage: {
+    rise: '모기지 금리 상승 — 주택 구입·대출 상환 부담 증가, 부동산 경기 영향 확인',
+    fall: '모기지 금리 하락 — 주택 대출 부담 완화',
+    high: '높은 모기지 금리 — 주택시장 거래 위축 가능성',
+    flat: '모기지 금리 보합 — 큰 변화 없음'
   },
   inflation: {
     high: '물가 상승률 높음 — 금리 인하 기대 약화 가능성, 실질 구매력·실질금리 점검',
     rise: '물가 재상승 — 긴축 기조 장기화 가능성 점검',
     fall: '물가 둔화 — 통화정책 완화 기대와 연결되는지 확인',
-    warn: '물가 목표(2%) 상회 — 근원물가 등 세부 항목 확인',
-    flat: '물가 흐름 횡보 — 근원물가 등 세부 항목 확인'
+    warn: '물가 목표(2%) 상회 — 세부 항목과 추세 확인',
+    flat: '물가 흐름 횡보 — 세부 항목 확인'
+  },
+  ppi: {
+    high: '생산자물가 상승률 높음 — 소비자물가로 전가될 가능성 점검',
+    rise: '생산자물가 상승 — 기업 원가 부담 증가, 소비자물가 전가 여부 확인',
+    fall: '생산자물가 둔화 — 원가 부담 완화 가능성',
+    flat: '생산자물가 횡보 — 큰 변화 없음'
   },
   unemployment: {
     surge: '실업률 급등 — 경기 침체 우려 확대 가능성, 소득·현금흐름 안정성 점검',
@@ -483,6 +602,104 @@ const COMMENTS = {
     high: '실업률 높은 수준 — 경기 둔화 국면 가능성, 비상자금 수준 점검',
     fall: '고용 개선 — 경기 견조, 금리 인하 기대는 약해질 수 있음',
     flat: '고용 지표 안정 — 추세 변화 여부 관찰'
+  },
+  sahm: {
+    high: '삼의 법칙 발동 수준 — 과거 경기 침체 초기와 겹친 경우가 많음, 고용 추이 확인',
+    rise: '실업률 상승 속도 확대 — 경기 둔화 초기 신호 여부 관찰',
+    warn: '경계 구간 진입 — 고용 지표 추이 확인',
+    fall: '실업률 상승 압력 완화',
+    flat: '고용 둔화 신호 제한적'
+  },
+  payrolls: {
+    special(a) { return a.value < 0 ? '고용 감소 — 경기 둔화 신호로 해석되는 경우가 많음, 다음 발표·수정치 확인' : null; },
+    warn: '고용 증가 둔화 — 노동시장 냉각 여부 확인',
+    rise: '고용 증가폭 확대 — 노동시장 견조, 금리 인하 기대는 약해질 수 있음',
+    fall: '고용 증가폭 축소 — 노동시장 냉각 여부 관찰',
+    flat: '고용 증가 흐름 유지'
+  },
+  claims: {
+    surge: '실업수당 청구 급증 — 해고 증가 신호 여부 확인',
+    rise: '청구 건수 증가 — 고용 둔화 초기 신호 여부 관찰',
+    high: '청구 건수 높은 수준 — 노동시장 약화 가능성',
+    fall: '청구 건수 감소 — 고용 여건 양호',
+    flat: '청구 건수 안정'
+  },
+  indpro: {
+    high: '산업생산 감소 — 제조업 경기 위축 신호',
+    warn: '산업생산 정체 — 제조업 경기 둔화 여부 확인',
+    rise: '산업생산 증가율 개선 — 제조업 회복 여부 관찰',
+    fall: '산업생산 증가율 둔화',
+    flat: '산업생산 흐름 유지'
+  },
+  retail: {
+    high: '소매판매 위축 — 소비 둔화 신호, 경기 지표와 함께 확인',
+    warn: '소매판매 증가 둔화 — 물가를 감안한 실질 소비 확인',
+    rise: '소비 증가세 확대',
+    fall: '소비 증가세 둔화',
+    flat: '소비 흐름 유지'
+  },
+  sentiment: {
+    high: '소비자심리 매우 낮음 — 소비 위축 우려, 실제 소비 지표와 괴리 여부 확인',
+    warn: '소비자심리 부진 — 소비 지표 추이 확인',
+    rise: '소비자심리 개선',
+    fall: '소비자심리 악화',
+    flat: '소비자심리 횡보'
+  },
+  gdp: {
+    high: '성장률 마이너스 — 경기 위축 신호, 다음 분기 추이 확인',
+    warn: '성장 둔화 — 잠재성장률 하회 여부 확인',
+    rise: '성장률 개선',
+    fall: '성장률 둔화',
+    flat: '성장 흐름 유지'
+  },
+  equity: {
+    plunge: '{name} 급락 — 위험자산 변동성 확대, 레버리지·신용 비중 점검',
+    fall: '{name} 하락 — 위험선호 약화 여부 관찰',
+    surge: '{name} 급등 — 과열 여부와 변동성 함께 확인',
+    rise: '{name} 상승 — 위험선호 개선',
+    flat: '{name} 보합 — 큰 변동 없음'
+  },
+  hy: {
+    surge: '하이일드 스프레드 급확대 — 신용 위험 회피 확대, 레버리지·저등급 채권 노출 점검',
+    rise: '하이일드 스프레드 확대 — 신용 위험 회피 확대, 차입 여건 악화 가능성',
+    high: '신용 스트레스 구간 — 신용·레버리지 노출 점검',
+    warn: '스프레드 경계 구간 — 신용시장 추이 관찰',
+    fall: '스프레드 축소 — 신용시장 위험선호 개선',
+    flat: '신용시장 안정'
+  },
+  ig: {
+    rise: '투자등급 스프레드 확대 — 우량 기업 조달 비용 상승',
+    high: '투자등급 스프레드 높은 구간 — 신용 여건 악화 신호',
+    warn: '투자등급 스프레드 경계 구간',
+    fall: '투자등급 스프레드 축소 — 신용 여건 개선',
+    flat: '우량 회사채 시장 안정'
+  },
+  nfci: {
+    special(a) {
+      if (a.value > 0) return '금융여건 평균보다 긴축적 — 자금 조달·유동성 여건 점검';
+      if (a.trend === 'rise' || a.trend === 'surge') return '금융여건 완화적이나 긴축 방향으로 이동 — 추이 관찰';
+      return null;
+    },
+    flat: '금융여건 평균보다 완화적 — 위험선호에 우호적인 환경'
+  },
+  stress: {
+    high: '금융 스트레스 높음 — 시장 불안 확대, 위험 노출 규모 점검',
+    warn: '금융 스트레스 평균 상회 — 시장 불안 요인 확인',
+    rise: '금융 스트레스 상승 — 추이 관찰',
+    fall: '금융 스트레스 완화',
+    flat: '금융 스트레스 낮은 수준 유지'
+  },
+  fedbs: {
+    rise: '연준 자산 증가 — 유동성 공급 확대 방향',
+    fall: '연준 자산 감소(양적긴축) — 유동성 축소 방향',
+    flat: '연준 자산 변화 제한적'
+  },
+  m2: {
+    high: '통화량 감소 — 유동성 위축 신호',
+    warn: '통화량 증가 정체 — 유동성 둔화',
+    rise: '통화량 증가율 확대 — 유동성 개선 방향',
+    fall: '통화량 증가율 둔화',
+    flat: '통화량 흐름 유지'
   },
   usdkrw: {
     surge: '원화 급약세 — 수입 물가·해외 결제 비용 급등, 환율 변동성 확대 주의',
@@ -498,6 +715,24 @@ const COMMENTS = {
     fall: '달러 약세 — 원자재·신흥국 자산에 우호적인 환경일 수 있음',
     high: '달러 강세 구간 — 글로벌 유동성 위축 가능성 점검',
     flat: '달러 보합 — 큰 방향성 없음'
+  },
+  usdjpy: {
+    rise: '엔화 약세 — 엔캐리 거래 확대 가능성, 일본 당국 대응 주시',
+    plunge: '엔화 급강세 — 엔캐리 청산 등 위험회피 흐름 여부 확인',
+    fall: '엔화 강세 — 위험회피 흐름 또는 일본 통화정책 변화 반영 가능성',
+    high: '엔화 약세 심화 구간 — 일본 당국 개입 경계',
+    flat: '엔화 보합 — 큰 변동 없음'
+  },
+  eurusd: {
+    rise: '유로 강세(달러 약세) — 달러 흐름 확인',
+    fall: '유로 약세(달러 강세) — 유럽 경기·금리 차 확인',
+    flat: '유로/달러 보합'
+  },
+  usdcny: {
+    rise: '위안화 약세 — 중국 경기·수출 환경 변화, 원화 동반 약세 여부 확인',
+    fall: '위안화 강세 — 아시아 통화 흐름 확인',
+    high: '위안화 약세 구간 — 아시아 통화 동반 약세 가능성',
+    flat: '위안화 안정'
   },
   vix: {
     surge: '변동성 급등 — 시장 불안 확대, 레버리지·신용 비중 점검',
@@ -544,6 +779,11 @@ const COMMENTS = {
     fall: '은 하락 — 산업 수요 둔화 또는 귀금속 약세 반영 가능성',
     flat: '은 보합 — 큰 변동 없음'
   },
+  aluminum: {
+    rise: '알루미늄 상승 — 전력 비용·공급 이슈 또는 수요 회복 반영 가능성',
+    fall: '알루미늄 하락 — 수요 둔화 또는 공급 확대 반영 가능성',
+    flat: '알루미늄 보합 — 큰 변동 없음'
+  },
   ironOre: {
     rise: '철광석 상승 — 철강·건설 수요(특히 중국) 기대 반영 가능성',
     fall: '철광석 하락 — 철강·건설 수요 둔화 반영 가능성',
@@ -576,19 +816,29 @@ const COMMENTS = {
  * --------------------------------------------------------------------- */
 const CHECKLIST = [
   { priority: 120, test: S => S.missingCount === S.total, text: '지표 값 입력 필요', why: '입력된 데이터가 없음' },
-  { priority: 110, test: S => S.staleCount > 0, text: S => `오래된 데이터 ${S.staleCount}개 — 값 업데이트 먼저`, why: `마지막 업데이트 ${CONFIG.staleDays}일 이상 경과` },
-  { priority: 100, test: S => S.sig('vix') === 2 || S.surge('vix'), text: '레버리지·신용 비중 점검', why: 'VIX 급등 또는 경고 구간' },
-  { priority: 95,  test: S => S.has('spread') && S.v('spread') < 0, text: '장단기 금리차 역전 — 경기 지표 추이 확인', why: '10Y−2Y < 0' },
+  { priority: 110, test: S => S.staleCount > 0, text: S => `오래된 데이터 ${S.staleCount}개 — 자동 수집 상태·값 업데이트 확인`, why: `마지막 업데이트 ${CONFIG.staleDays}일 이상 경과` },
+  { priority: 100, test: S => S.sig('vix') === 2 || S.surge('vix') || S.count(['sp500', 'nasdaq', 'kospi'], S.plunge) >= 1,
+    text: '레버리지·신용 비중 점검', why: 'VIX 급등·경고 구간 또는 주가지수 급락' },
+  { priority: 97,  test: S => S.lvl('sahm') === 2, text: '삼의 법칙 발동 수준 — 경기 침체 위험 점검', why: '삼의 법칙 지표 ≥ 0.5' },
+  { priority: 95,  test: S => (S.has('spread') && S.v('spread') < 0) || (S.has('spread3m') && S.v('spread3m') < 0),
+    text: '장단기 금리차 역전 — 경기 지표 추이 확인', why: '10Y−2Y 또는 10Y−3M < 0' },
+  { priority: 92,  test: S => S.up('hy_spread') && S.lvl('hy_spread') >= 1 || S.surge('hy_spread') || S.lvl('hy_spread') === 2,
+    text: '신용 스프레드 확대 — 저등급 채권·레버리지 노출 점검', why: '하이일드 스프레드 확대' },
   { priority: 90,  test: S => (S.up('us10y') || S.up('us2y')) && (S.up('dxy') || S.up('usdkrw')), text: '환율·수입 원가 점검', why: '금리 상승 + 달러 강세' },
-  { priority: 85,  test: S => S.up('wti') && (S.lvl('us_cpi') >= 1 || S.lvl('kr_cpi') >= 1), text: '물가 재가속 가능성 — 물가 발표 일정·실질금리 확인', why: '유가 상승 + 물가 높은 수준' },
+  { priority: 88,  test: S => S.plunge('usdjpy'), text: '엔화 급강세 — 엔캐리 청산 등 위험회피 흐름 확인', why: '엔/달러 급락' },
+  { priority: 85,  test: S => (S.up('wti') || S.up('brent')) && (S.lvl('us_cpi') >= 1 || S.lvl('kr_cpi') >= 1 || S.up('bei10y')),
+    text: '물가 재가속 가능성 — 물가 발표 일정·실질금리 확인', why: '유가 상승 + 물가·기대인플레이션 부담' },
   { priority: 80,  test: S => S.lvl('usdkrw') >= 1 || S.surge('usdkrw'), text: '해외자산 환노출·외화 지출 시점 점검', why: '원/달러 높은 수준 또는 급변' },
-  { priority: 75,  test: S => S.up('us_unemp') || S.lvl('us_unemp') >= 1, text: '고용 둔화 여부 확인 — 비상자금·현금흐름 점검', why: '미국 실업률 상승' },
-  { priority: 70,  test: S => S.up('kr_base') || S.up('us_ffr'), text: '변동금리 대출·레버리지 이자 부담 점검', why: '기준금리 인상' },
+  { priority: 75,  test: S => S.up('us_unemp') || S.lvl('us_unemp') >= 1 || S.lvl('claims') >= 1 || S.surge('claims') || S.lvl('payems') >= 1,
+    text: '고용 둔화 여부 확인 — 비상자금·현금흐름 점검', why: '실업률·실업수당 청구·고용 증감 신호' },
+  { priority: 72,  test: S => S.up('real10y') && S.lvl('real10y') >= 1, text: '실질금리 상승 — 밸류에이션 부담 점검', why: '10년 실질금리 상승 + 높은 수준' },
+  { priority: 70,  test: S => S.up('kr_base') || S.up('us_ffr') || S.up('kr3y') || S.up('mortgage'), text: '변동금리 대출·레버리지 이자 부담 점검', why: '기준금리·대출 관련 금리 상승' },
   { priority: 66,  test: S => S.up('gold') && S.lvl('vix') >= 1, text: '안전자산 선호 강화 — 포트폴리오 위험 노출 점검', why: '금 상승 + VIX 경계' },
   { priority: 65,  test: S => S.up('copper') && !S.up('gold'), text: '경기 기대 신호 — 제조업 지표와 함께 해석', why: '구리 상승, 금 상승 없음' },
+  { priority: 62,  test: S => S.lvl('nfci') >= 1 || S.lvl('stlfsi') >= 1, text: '금융여건 긴축 — 자금 조달·유동성 점검', why: '금융여건·스트레스 지수 평균 상회' },
   { priority: 60,  test: S => S.count(['wheat', 'corn', 'soybean'], S.up) >= 2, text: '곡물 가격 동반 상승 — 식품 원가·물가 영향 점검', why: '곡물 2개 이상 상승' },
-  { priority: 58,  test: S => S.count(['wti', 'natgas', 'coal'], id => S.surge(id) || S.plunge(id)) >= 1, text: '에너지 가격 급변 — 운송·전력 원가 영향 점검', why: '에너지 급등락' },
-  { priority: 55,  test: S => S.count(['copper', 'nickel', 'lithium', 'iron_ore'], id => S.surge(id) || S.plunge(id)) >= 1, text: '산업금속 급변 — 제조업 원가·재고 부담 점검', why: '산업금속 급등락' },
+  { priority: 58,  test: S => S.count(['wti', 'brent', 'natgas', 'coal'], id => S.surge(id) || S.plunge(id)) >= 1, text: '에너지 가격 급변 — 운송·전력 원가 영향 점검', why: '에너지 급등락' },
+  { priority: 55,  test: S => S.count(['copper', 'aluminum', 'nickel', 'lithium', 'iron_ore'], id => S.surge(id) || S.plunge(id)) >= 1, text: '산업금속 급변 — 제조업 원가·재고 부담 점검', why: '산업금속 급등락' },
   { priority: 50,  test: S => S.redCount >= 3, text: S => `경고 지표 ${S.redCount}개 — 전체 위험 노출 규모 점검`, why: '빨간불 3개 이상' },
   // 기본 항목 (개수가 모자랄 때)
   { priority: 10, default: true, text: '주요 일정(FOMC·금통위·CPI 발표) 확인', why: '정기 점검' },
@@ -600,42 +850,59 @@ const CHECKLIST = [
  * 이하 앱 로직 — 보통은 수정할 필요 없음
  * ===================================================================== */
 const IND = Object.fromEntries(CONFIG.indicators.map(i => [i.id, i]));
-function CONFIG_LEVEL(id) { return IND[id].level || {}; }
 const SIGNAL_LABEL = ['양호', '주의', '경고'];
+const SOURCE_LABEL = { FRED: 'FRED', Yahoo: 'Yahoo', ECOS: '한국은행', manual: '직접 입력', import: '직접 입력', derived: '자동 계산', sample: '샘플' };
+const RANGES = [['1M', 31], ['3M', 92], ['6M', 183], ['1Y', 366], ['2Y', 731], ['5Y', 1827], ['10Y', 3653]];
 const $ = sel => document.querySelector(sel);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const todayISO = () => DataStore.isoDate(new Date());
+const DAY = 86400000;
 
 function fmt(v, dp) {
   return Number(v).toLocaleString('ko-KR', { minimumFractionDigits: dp, maximumFractionDigits: dp });
 }
 function fmtSigned(v, dp) { return (v > 0 ? '+' : v < 0 ? '−' : '') + fmt(Math.abs(v), dp); }
-function shortDate(iso) { return iso ? iso.slice(0, 10) : '-'; }
-
-/* ---------- 분석 ---------- */
-function snapshot(ind) {
-  if (!ind.derived) return DataStore.getSnapshot(ind.id);
-  const A = DataStore.getSnapshot(ind.derived.a), B = DataStore.getSnapshot(ind.derived.b);
-  const combine = (x, y) => {
-    if (!x || !y) return null;
-    return {
-      value: Math.round((x.value - y.value) * 10000) / 10000,
-      date: x.date < y.date ? x.date : y.date,
-      updatedAt: x.updatedAt < y.updatedAt ? x.updatedAt : y.updatedAt,
-      source: x.source === 'sample' || y.source === 'sample' ? 'sample' : 'derived'
-    };
-  };
-  return { current: combine(A.current, B.current), prev: combine(A.prev, B.prev), history: [] };
+function toLocalISO(isoStr) { const d = new Date(isoStr); return isNaN(d) ? '' : DataStore.isoDate(d); }
+/** 주기에 맞춘 기준일 표시: 월간 2026-08, 분기 2026 Q2 */
+function fmtObsDate(date, freq) {
+  if (freq === 'M') return date.slice(0, 7);
+  if (freq === 'Q') return `${date.slice(0, 4)} Q${Math.floor((Number(date.slice(5, 7)) - 1) / 3) + 1}`;
+  return date;
 }
 
+/* ---------- 이력 ---------- */
+/** 지표 이력 (기준일 내림차순). 자기 데이터가 없고 derived 면 두 지표 차이로 계산 */
+function historyFor(ind) {
+  const own = DataStore.getHistory(ind.id);
+  if (own.length || !ind.derived) return own;
+  const A = DataStore.getHistory(ind.derived.a), B = DataStore.getHistory(ind.derived.b);
+  if (!A.length || !B.length) return [];
+  const bMap = new Map(B.map(e => [e.date, e]));
+  const combine = (x, y) => ({
+    date: x.date < y.date ? x.date : y.date,
+    value: Math.round((x.value - y.value) * 10000) / 10000,
+    updatedAt: x.updatedAt < y.updatedAt ? x.updatedAt : y.updatedAt,
+    source: x.source === 'sample' || y.source === 'sample' ? 'sample' : 'derived'
+  });
+  const matched = A.filter(e => bMap.has(e.date)).map(e => combine(e, bMap.get(e.date)));
+  if (matched.length >= 2) return matched;
+  // 기준일이 서로 다르게 입력된 경우: 순서대로 짝지음
+  return A.slice(0, Math.min(A.length, B.length, 2)).map((e, i) => combine(e, B[i]));
+}
+
+/* ---------- 분석 ---------- */
+function changeBasis(ind, diff, pct) { return ind.changeMode === 'pct' ? pct : diff; }
+
 function analyze(ind) {
-  const snap = snapshot(ind);
-  const cur = snap.current, prevE = snap.prev;
-  const a = { ind, cur, prevE, value: cur ? cur.value : null, prev: prevE ? prevE.value : null,
+  const history = historyFor(ind);
+  const cur = history[0] || null, prevE = history[1] || null;
+  const meta = DataStore.getMeta(ind.id);
+  const a = { ind, history, meta, cur, prevE, value: cur ? cur.value : null, prev: prevE ? prevE.value : null,
               lvl: null, cs: 0, signal: null, trend: null, diff: null, pct: null, stale: false, isSample: false };
-  if (!cur) return a;
+  if (!cur) { a.comment = ''; return a; }
 
   a.isSample = cur.source === 'sample';
+  a.freq = cur.source === 'auto' && meta ? meta.freq : null;
   const L = ind.level;
   a.lvl = !L ? 0 : L.dir === 'down'
     ? (a.value < L.danger ? 2 : a.value < L.warn ? 1 : 0)
@@ -643,25 +910,24 @@ function analyze(ind) {
 
   if (a.prev != null) {
     a.diff = Math.round((a.value - a.prev) * 1e8) / 1e8; // 부동소수 오차 제거 (4.5-4.2=0.2999… 방지)
-    a.pct = a.prev !== 0 ? (a.diff / Math.abs(a.prev)) * 100 : null;
-    const basis = ind.changeMode === 'pp' ? a.diff : a.pct;
+    a.pct = a.prev !== 0 ? Math.round((a.diff / Math.abs(a.prev)) * 100 * 1e6) / 1e6 : null;
+    const basis = changeBasis(ind, a.diff, a.pct);
     const C = ind.change;
     if (C && basis != null) {
       const x = C.dir === 'up' ? basis : C.dir === 'down' ? -basis : Math.abs(basis);
-      a.cs = x >= C.danger ? 2 : x >= C.warn ? 1 : 0;
+      a.cs = C.danger != null && x >= C.danger ? 2 : C.warn != null && x >= C.warn ? 1 : 0;
       const flat = C.flat != null ? C.flat : C.warn / 3;
-      const eps = 1e-9;
-      if (Math.abs(basis) < flat - eps) a.trend = 'flat';
-      else if (basis > 0) a.trend = basis >= C.danger - eps ? 'surge' : 'rise';
-      else a.trend = -basis >= C.danger - eps ? 'plunge' : 'fall';
+      const big = C.danger != null ? C.danger : Infinity;
+      if (Math.abs(basis) < flat) a.trend = 'flat';
+      else if (basis > 0) a.trend = basis >= big ? 'surge' : 'rise';
+      else a.trend = -basis >= big ? 'plunge' : 'fall';
     }
   }
   a.signal = Math.max(a.lvl, a.cs);
 
   if (!a.isSample) {
     const basisDate = CONFIG.staleBasis === 'date' ? new Date(cur.date + 'T00:00:00') : new Date(cur.updatedAt);
-    const days = (Date.now() - basisDate.getTime()) / 86400000;
-    a.stale = days >= (ind.staleDays || CONFIG.staleDays);
+    a.stale = (Date.now() - basisDate.getTime()) / DAY >= (ind.staleDays || CONFIG.staleDays);
   }
   a.comment = pickComment(ind, a);
   return a;
@@ -708,9 +974,9 @@ function buildChecklist(R) {
     staleCount: all.filter(a => a.stale).length,
     missingCount: all.filter(a => !a.cur).length
   };
-  const pick = (rules) => rules
+  const pick = rules => rules
     .sort((x, y) => y.priority - x.priority)
-    .map(r => ({ text: typeof r.text === 'function' ? r.text(S) : r.text, why: r.why, key: r.priority }));
+    .map(r => ({ text: typeof r.text === 'function' ? r.text(S) : r.text, why: r.why }));
   const hits = pick(CHECKLIST.filter(r => !r.default && safeTest(r, S))).slice(0, CONFIG.checklistMax);
   if (hits.length < CONFIG.checklistMin) {
     hits.push(...pick(CHECKLIST.filter(r => r.default)).slice(0, CONFIG.checklistMin - hits.length));
@@ -729,7 +995,6 @@ function render() {
   const all = Object.values(R);
 
   $('#sampleBanner').hidden = !all.some(a => a.isSample);
-  $('#btnRefresh').hidden = !DataStore.canAutoFetch();
 
   const c = s => all.filter(a => a.signal === s).length;
   $('#counts').innerHTML = [
@@ -751,8 +1016,44 @@ function render() {
       <span class="dot ${worst == null ? '' : 's' + worst}" aria-hidden="true"></span>${esc(cat.label)}</button>`;
   }).join('');
 
-  const list = all.filter(a => a.ind.cat === activeTab);
-  $('#cards').innerHTML = list.map(cardHTML).join('');
+  $('#cards').innerHTML = all.filter(a => a.ind.cat === activeTab).map(cardHTML).join('');
+}
+
+function changeHTML(a) {
+  const ind = a.ind;
+  if (a.diff == null) return '<span class="change">직전 값 없음</span>';
+  const arrow = a.diff > 0 ? '▲' : a.diff < 0 ? '▼' : '–';
+  if (ind.changeMode === 'pct') {
+    const p = a.pct == null ? '-' : fmt(Math.abs(a.pct), 2) + '%';
+    return `<span class="change num">${arrow} ${p} <span class="pct">(${fmtSigned(a.diff, ind.dp)})</span></span>`;
+  }
+  const unit = ind.changeMode === 'pp' ? '%p' : (ind.unit ? ' ' + esc(ind.unit) : '');
+  const showPct = ind.changeMode === 'pp' && a.pct != null && a.prev > 0 && a.value > 0;
+  return `<span class="change num">${arrow} ${fmt(Math.abs(a.diff), Math.max(ind.dp, ind.changeMode === 'pp' ? 2 : 0))}${unit}${showPct ? ` <span class="pct">(${fmtSigned(a.pct, 2)}%)</span>` : ''}</span>`;
+}
+
+function sourceName(a) {
+  if (!a.cur) return '';
+  if (a.cur.source === 'auto') return SOURCE_LABEL[a.cur.origin] || '자동';
+  return SOURCE_LABEL[a.cur.source] || '';
+}
+
+/** 카드용 스파크라인: 일간·주간은 최근 3개월, 월간·분기는 최근 24개 */
+function sparkSVG(a) {
+  if (a.isSample || a.history.length < 3) return '';
+  const latest = Date.parse(a.history[0].date);
+  let pts = a.freq === 'M' || a.freq === 'Q'
+    ? a.history.slice(0, 24)
+    : a.history.filter(e => latest - Date.parse(e.date) <= 92 * DAY);
+  if (pts.length < 3) return '';
+  pts = pts.slice().reverse();
+  const W = 84, H = 30, P = 3;
+  const ys = pts.map(p => p.value), lo = Math.min(...ys), hi = Math.max(...ys);
+  const x = i => P + (i / (pts.length - 1)) * (W - 2 * P);
+  const y = v => hi === lo ? H / 2 : P + (hi - v) / (hi - lo) * (H - 2 * P);
+  const d = pts.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.value).toFixed(1)}`).join('');
+  const last = pts[pts.length - 1];
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" aria-hidden="true"><path d="${d}"/><circle cx="${x(pts.length - 1).toFixed(1)}" cy="${y(last.value).toFixed(1)}" r="3"/></svg>`;
 }
 
 function cardHTML(a) {
@@ -763,33 +1064,23 @@ function cardHTML(a) {
   if (!a.cur) {
     return `<button class="card sn" data-edit="${ind.id}" type="button">
       <div class="card-head"><div class="card-title">${title}</div><span class="light sn"><span class="dot"></span>${lightLabel}</span></div>
-      <p class="empty">${ind.derived ? '10년물·2년물 금리를 입력하면 자동 계산됩니다.' : '눌러서 값을 입력하세요.'}</p></button>`;
-  }
-  let change = '<span class="change">직전 값 없음</span>';
-  if (a.diff != null) {
-    const arrow = a.diff > 0 ? '▲' : a.diff < 0 ? '▼' : '–';
-    const pctTxt = a.pct == null ? '' : `${fmtSigned(a.pct, 2)}%`;
-    change = ind.changeMode === 'pp'
-      ? `<span class="change num">${arrow} ${fmt(Math.abs(a.diff), 2)}%p <span class="pct">(${pctTxt || '-'})</span></span>`
-      : `<span class="change num">${arrow} ${pctTxt.replace(/^[+−]/, '')} <span class="pct">(${fmtSigned(a.diff, ind.dp)})</span></span>`;
+      <p class="empty">자동 데이터 없음 — 눌러서 직접 입력하세요.</p></button>`;
   }
   const badges = [
     a.isSample ? '<span class="badge sample">샘플</span>' : '',
     a.stale ? '<span class="badge stale">오래된 데이터</span>' : '',
-    ind.derived && !a.isSample ? '<span class="badge auto">자동 계산</span>' : '',
-    a.cur.source === 'fred' ? '<span class="badge auto">FRED</span>' : ''
+    !a.isSample && sourceName(a) ? `<span class="badge auto">${esc(sourceName(a))}</span>` : ''
   ].join('');
   const dateTxt = a.isSample
     ? '기준일 샘플'
-    : `기준일 ${esc(a.cur.date)} · 업데이트 ${esc(shortDate(a.cur.updatedAt && toLocalISO(a.cur.updatedAt)))}`;
-  return `<button class="card ${s}${a.isSample ? ' sample' : ''}" data-edit="${ind.id}" type="button" aria-label="${esc(ind.name)} ${lightLabel}, 눌러서 수정">
+    : `기준일 ${esc(fmtObsDate(a.cur.date, a.freq))} · 업데이트 ${esc(toLocalISO(a.cur.updatedAt))}`;
+  return `<button class="card ${s}${a.isSample ? ' sample' : ''}" data-edit="${ind.id}" type="button" aria-label="${esc(ind.name)} ${lightLabel}, 눌러서 차트와 상세 보기">
     <div class="card-head"><div class="card-title">${title}</div><span class="light ${s}"><span class="dot ${s}"></span>${lightLabel}</span></div>
-    <div class="value-row"><span class="value num">${fmt(a.value, ind.dp)}<span class="unit">${esc(ind.unit)}</span></span>${change}</div>
+    <div class="value-row"><span class="value num">${fmt(a.value, ind.dp)}<span class="unit">${esc(ind.unit)}</span></span>${changeHTML(a)}${sparkSVG(a)}</div>
     <div class="meta">${badges}<span>${dateTxt}</span></div>
     <div class="comment">${esc(a.comment || '')}</div>
   </button>`;
 }
-function toLocalISO(isoStr) { const d = new Date(isoStr); return isNaN(d) ? '' : DataStore.isoDate(d); }
 
 /* ---------- 체크 상태 (하루 단위로 초기화) ---------- */
 const CHECK_KEY = 'macroDash.checks';
@@ -798,65 +1089,238 @@ function loadChecks() {
 }
 function saveChecks(items) { try { localStorage.setItem(CHECK_KEY, JSON.stringify({ date: todayISO(), items })); } catch (e) {} }
 
-/* ---------- 편집 시트 ---------- */
+/* ---------- 차트 ---------- */
+function niceStep(range, count) {
+  const raw = range / count, mag = Math.pow(10, Math.floor(Math.log10(raw))), n = raw / mag;
+  return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * mag;
+}
+function tickLabel(v, step) {
+  const dp = Math.max(0, -Math.floor(Math.log10(step) + 1e-9));
+  const abs = Math.abs(v);
+  if (abs >= 1e6) return fmt(v / 1e6, 1) + 'M';
+  if (abs >= 1e4 && step >= 1000) return fmt(v / 1e3, step >= 1e4 ? 0 : 1) + 'K';
+  return fmt(v, Math.min(dp, 4));
+}
+
+/** 선 차트 1개 (단일 시리즈 + 임계선 + 십자선 툴팁). pts: 오름차순 [{date, value}] */
+function drawChart(host, pts, ind, freq) {
+  host.innerHTML = '';
+  if (pts.length < 2) { host.innerHTML = '<div class="chart-empty">차트를 그리려면 값이 2개 이상 필요합니다.</div>'; return; }
+  const W = Math.max(260, host.clientWidth || 320), H = 200, padL = 4, padR = 46, padT = 12, padB = 22;
+  const xs = pts.map(p => Date.parse(p.date)), ys = pts.map(p => p.value);
+  let lo = Math.min(...ys), hi = Math.max(...ys);
+  const span0 = hi - lo || Math.abs(hi) * 0.05 || 1;
+  // 범위 근처의 임계선만 표시 (너무 멀면 차트가 납작해지므로 생략)
+  const ths = [];
+  if (ind.level) [['warn', ind.level.warn, '주의'], ['danger', ind.level.danger, '경고']].forEach(([k, v, label]) => {
+    if (v >= lo - span0 * 0.6 && v <= hi + span0 * 0.6) { ths.push({ k, v, label }); lo = Math.min(lo, v); hi = Math.max(hi, v); }
+  });
+  if (hi === lo) { hi += span0 / 2; lo -= span0 / 2; }
+  const step = niceStep(hi - lo, 4);
+  lo = Math.floor(lo / step) * step; hi = Math.ceil(hi / step) * step;
+  const x0 = xs[0], x1 = xs[xs.length - 1];
+  const X = t => padL + (x1 === x0 ? 0.5 : (t - x0) / (x1 - x0)) * (W - padL - padR);
+  const Y = v => padT + (hi - v) / (hi - lo) * (H - padT - padB);
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (tag, attrs, parent) => { const n = document.createElementNS(NS, tag); Object.entries(attrs).forEach(([k, v]) => n.setAttribute(k, v)); parent && parent.appendChild(n); return n; };
+
+  const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, tabindex: '0', role: 'img',
+    'aria-label': `${ind.name} 차트, ${pts[0].date}부터 ${pts[pts.length - 1].date}까지. 좌우 화살표로 값 확인` });
+  for (let v = lo; v <= hi + step / 2; v += step) {
+    el('line', { class: 'grid', x1: padL, x2: W - padR, y1: Y(v), y2: Y(v) }, svg);
+    const t = el('text', { class: 'tick', x: W - padR + 6, y: Y(v) + 4 }, svg); t.textContent = tickLabel(v, step);
+  }
+  // x축 날짜 (처음·가운데·끝)
+  const longSpan = (x1 - x0) / DAY > 400;
+  const dl = d => longSpan || freq === 'M' || freq === 'Q' ? d.slice(0, 7).replace('-', '.') : d.slice(5).replace('-', '/');
+  [[0, 'start'], [Math.floor((pts.length - 1) / 2), 'middle'], [pts.length - 1, 'end']].forEach(([i, anchor]) => {
+    const t = el('text', { class: 'tick', x: X(xs[i]), y: H - 4, 'text-anchor': anchor }, svg); t.textContent = dl(pts[i].date);
+  });
+  ths.forEach(t => {
+    el('line', { class: `th ${t.k}`, x1: padL, x2: W - padR, y1: Y(t.v), y2: Y(t.v) }, svg);
+    const tx = el('text', { class: `th-label ${t.k}`, x: padL + 2, y: Y(t.v) - 3 }, svg); tx.textContent = `${t.label} ${fmt(t.v, ind.dp)}`;
+  });
+  const d = pts.map((p, i) => `${i ? 'L' : 'M'}${X(xs[i]).toFixed(1)},${Y(p.value).toFixed(1)}`).join('');
+  el('path', { class: 'area', d: `${d}L${X(x1).toFixed(1)},${Y(lo)}L${X(x0).toFixed(1)},${Y(lo)}Z` }, svg);
+  el('path', { class: 'line', d }, svg);
+  el('circle', { class: 'end', cx: X(x1), cy: Y(ys[ys.length - 1]), r: 4 }, svg);
+
+  const cross = el('line', { class: 'cross', y1: padT, y2: H - padB, visibility: 'hidden' }, svg);
+  const dot = el('circle', { class: 'end', r: 4, visibility: 'hidden' }, svg);
+  host.appendChild(svg);
+  const tip = document.createElement('div');
+  tip.className = 'chart-tip'; tip.hidden = true;
+  host.appendChild(tip);
+
+  let cur = -1;
+  function show(i) {
+    cur = Math.max(0, Math.min(pts.length - 1, i));
+    const px = X(xs[cur]), py = Y(ys[cur]);
+    [cross].forEach(n => { n.setAttribute('x1', px); n.setAttribute('x2', px); n.setAttribute('visibility', 'visible'); });
+    dot.setAttribute('cx', px); dot.setAttribute('cy', py); dot.setAttribute('visibility', 'visible');
+    tip.textContent = fmtObsDate(pts[cur].date, freq);
+    const b = document.createElement('b'); b.textContent = `${fmt(ys[cur], ind.dp)}${ind.unit ? ' ' + ind.unit : ''}`; tip.appendChild(b);
+    tip.hidden = false;
+    const scale = host.clientWidth / W, half = tip.offsetWidth / 2;
+    tip.style.left = Math.max(half, Math.min(host.clientWidth - half, px * scale)) + 'px';
+    tip.style.top = (py * (200 / H) > 40 ? 0 : 150) + 'px';
+  }
+  function hide() { cross.setAttribute('visibility', 'hidden'); dot.setAttribute('visibility', 'hidden'); tip.hidden = true; cur = -1; }
+  function nearest(clientX) {
+    const r = svg.getBoundingClientRect();
+    const t = x0 + ((clientX - r.left) * (W / r.width) - padL) / (W - padL - padR) * (x1 - x0);
+    let a = 0, b = xs.length - 1;
+    while (b - a > 1) { const m = (a + b) >> 1; if (xs[m] < t) a = m; else b = m; }
+    return Math.abs(xs[a] - t) <= Math.abs(xs[b] - t) ? a : b;
+  }
+  svg.addEventListener('pointerdown', e => show(nearest(e.clientX)));
+  svg.addEventListener('pointermove', e => show(nearest(e.clientX)));
+  svg.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') hide(); });
+  svg.addEventListener('keydown', e => {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      e.preventDefault(); show((cur < 0 ? pts.length - 1 : cur) + (e.key === 'ArrowLeft' ? -1 : 1));
+    } else if (e.key === 'Escape') hide();
+  });
+  svg.addEventListener('blur', hide);
+}
+
+/** 기간별 변화 (최근 값 vs N일 전 이전 마지막 값) */
+function periodChange(asc, ind, days) {
+  if (asc.length < 2) return null;
+  const last = asc[asc.length - 1], target = Date.parse(last.date) - days * DAY;
+  let base = null;
+  for (let i = asc.length - 2; i >= 0; i--) if (Date.parse(asc[i].date) <= target) { base = asc[i]; break; }
+  if (!base || Date.parse(last.date) - Date.parse(base.date) > days * DAY * 1.6) return null;
+  const diff = last.value - base.value;
+  if (ind.changeMode === 'pct') return base.value ? fmtSigned(diff / Math.abs(base.value) * 100, 1) + '%' : null;
+  return fmtSigned(diff, ind.changeMode === 'pp' ? 2 : ind.dp) + (ind.changeMode === 'pp' ? '%p' : '');
+}
+
+/* ---------- 상세 시트 ---------- */
 function thresholdText(ind) {
-  const u = ind.changeMode === 'pp' ? '%p' : '%';
+  const u = ind.changeMode === 'pp' ? '%p' : ind.changeMode === 'abs' ? (ind.unit ? ' ' + ind.unit : '') : '%';
   const parts = [];
   if (ind.level) {
     const op = ind.level.dir === 'down' ? '<' : '≥';
     parts.push(`수준: 주의 ${op} ${fmt(ind.level.warn, ind.dp)}, 경고 ${op} ${fmt(ind.level.danger, ind.dp)}`);
   }
-  if (ind.change) {
+  if (ind.change && ind.change.warn != null) {
     const sign = ind.change.dir === 'up' ? '+' : ind.change.dir === 'down' ? '−' : '±';
     parts.push(`직전 대비: 주의 ${sign}${ind.change.warn}${u}, 경고 ${sign}${ind.change.danger}${u}`);
   }
-  return parts.join('<br>');
+  return parts.length ? parts.join('<br>') : '신호등 임계값 없음 (해설만 표시)';
 }
+
+let detailState = { id: null, range: null };
 
 function openEdit(id) {
   const ind = IND[id];
+  const a = analyze(ind);
+  detailState.id = id;
   $('#editTitle').textContent = ind.name + (ind.unit ? ` (${ind.unit})` : '');
+  const asc = a.isSample ? [] : a.history.slice().reverse();
+  const s = a.signal == null ? 'sn' : 's' + a.signal;
+  const manual = DataStore.getManual(id);
+  const periods = [['1주', 7], ['1개월', 30], ['1년', 365]]
+    .map(([label, d]) => { const v = periodChange(asc, ind, d); return v ? `<span>${label}<b class="num">${v}</b></span>` : ''; }).join('');
+
+  const head = a.cur ? `
+    <div class="detail-value">
+      <span class="value num">${fmt(a.value, ind.dp)}<span class="unit">${esc(ind.unit)}</span></span>${changeHTML(a)}
+      <span class="light ${s}" style="margin-left:auto"><span class="dot ${s}"></span>${a.signal == null ? '데이터 없음' : SIGNAL_LABEL[a.signal]}</span>
+    </div>
+    <div class="meta" style="margin-top:4px">${a.isSample ? '<span class="badge sample">샘플</span>' : ''}${a.stale ? '<span class="badge stale">오래된 데이터</span>' : ''}
+      <span>${a.isSample ? '기준일 샘플' : `기준일 ${esc(fmtObsDate(a.cur.date, a.freq))} · 업데이트 ${esc(toLocalISO(a.cur.updatedAt))} · ${esc(sourceName(a))}${a.cur.source === 'auto' && a.meta ? ` (${esc(a.meta.source.split(':')[1] || '')})` : ''}`}</span></div>
+    ${periods ? `<div class="periods">${periods}</div>` : ''}
+    <div class="comment" style="margin-top:8px">${esc(a.comment)}</div>` : '<p class="hint">아직 값이 없습니다. 아래에서 직접 입력하세요.</p>';
+
+  // 차트 기간 버튼: 데이터 길이에 맞는 것만
+  let rangeHTML = '';
+  if (asc.length >= 2) {
+    const spanDays = (Date.parse(asc[asc.length - 1].date) - Date.parse(asc[0].date)) / DAY;
+    const minDays = a.freq === 'M' || a.freq === 'Q' ? 366 : a.freq === 'W' ? 92 : 0; // 월간 지표에 1M 같은 기간은 의미 없음
+    const cand = RANGES.filter(r => r[1] >= minDays);
+    const avail = cand.filter((r, i) => i === 0 || spanDays > cand[i - 1][1] * 1.05);
+    const pref = DataStore.getSettings().range;
+    const def = a.freq === 'M' || a.freq === 'Q' ? '5Y' : '1Y';
+    let pick = avail.find(r => r[0] === (detailState.range || pref || def)) || avail.find(r => r[0] === def) || avail[avail.length - 1];
+    detailState.range = pick[0];
+    rangeHTML = `<div class="ranges" role="group" aria-label="차트 기간">${avail.map(r =>
+      `<button type="button" data-range="${r[0]}" aria-pressed="${r[0] === pick[0]}">${r[0]}</button>`).join('')}</div>
+      <div class="chart" id="chartHost"></div><div class="chart-foot" id="chartFoot"></div>`;
+  }
+
   const body = $('#editBody');
-  if (ind.derived) {
-    body.innerHTML = `<p class="hint">${esc(IND[ind.derived.a].name)} − ${esc(IND[ind.derived.b].name)} 으로 자동 계산됩니다. 두 지표 값을 입력하세요.</p>
-      <div class="thresholds">${thresholdText(ind)}</div>
-      <div class="btn-row"><button class="btn" type="button" data-edit="${ind.derived.a}">10년물 입력</button><button class="btn" type="button" data-edit="${ind.derived.b}">2년물 입력</button></div>`;
-  } else {
-    const snap = DataStore.getSnapshot(id);
-    body.innerHTML = `
-      <div class="thresholds">${thresholdText(ind)}</div>
-      <form id="editForm" class="two">
-        <label class="field"><span>값</span><input type="number" step="any" name="value" required placeholder="${snap.current ? esc(snap.current.value) : ''}"></label>
+  body.innerHTML = `${head}${rangeHTML}
+    <div class="thresholds">${thresholdText(ind)}</div>
+    <details class="manual" ${a.cur && !a.isSample ? '' : 'open'}>
+      <summary>직접 입력·수정</summary>
+      ${ind.derived && !DataStore.getMeta(id) ? `<p class="hint">자동 데이터가 없으면 ${esc(IND[ind.derived.a].name)} − ${esc(IND[ind.derived.b].name)}로 계산합니다.</p>` : ''}
+      <form id="editForm" class="two" style="margin-top:8px">
+        <label class="field"><span>값</span><input type="number" step="any" name="value" required></label>
         <label class="field"><span>기준일</span><input type="date" name="date" required value="${todayISO()}"></label>
       </form>
-      <div class="btn-row"><button class="btn primary" type="button" id="btnEditSave">저장 (현재 값으로 추가)</button></div>
-      <h3 style="font-size:14px;margin:16px 0 0">이력 <small style="color:var(--text-2);font-weight:400">— 맨 위가 현재 값, 그다음이 직전 값</small></h3>
-      <ul class="history">${snap.history.length ? snap.history.map(e => `
-        <li><span class="num">${esc(e.date)}</span><span class="grow num"><b>${fmt(e.value, ind.dp)}</b> ${e.source === 'sample' ? '<span class="badge sample">샘플</span>' : e.source === 'fred' ? '<span class="badge auto">FRED</span>' : ''}</span>
-        <button class="del" type="button" data-del="${esc(e.date)}" data-id="${id}">삭제</button></li>`).join('') : '<li class="empty">아직 값이 없습니다.</li>'}</ul>`;
-    $('#btnEditSave').onclick = () => {
-      const f = $('#editForm');
-      if (!f.reportValidity()) return;
-      try {
-        DataStore.upsert(id, { value: f.value.value, date: f.date.value, source: 'manual' });
-        toast('저장했습니다');
-        render();
-        openEdit(id);
-      } catch (e) { toast(e.message); }
-    };
-  }
+      <div class="btn-row"><button class="btn primary" type="button" id="btnEditSave">저장</button></div>
+      <h3 style="font-size:14px;margin:14px 0 0">직접 입력한 값</h3>
+      <ul class="history">${manual.length ? manual.slice(0, 20).map(e => `
+        <li><span class="num">${esc(e.date)}</span><span class="grow num"><b>${fmt(e.value, ind.dp)}</b> ${e.source === 'sample' ? '<span class="badge sample">샘플</span>' : ''}</span>
+        <button class="del" type="button" data-del="${esc(e.date)}" data-id="${id}">삭제</button></li>`).join('') : '<li class="empty">없음</li>'}</ul>
+    </details>
+    ${asc.length ? `<details class="manual"><summary>최근 값 표</summary><ul class="history">${a.history.slice(0, 15).map(e =>
+      `<li><span class="num">${esc(fmtObsDate(e.date, a.freq))}</span><span class="grow num" style="text-align:right"><b>${fmt(e.value, ind.dp)}</b></span></li>`).join('')}</ul></details>` : ''}`;
+
+  $('#btnEditSave').onclick = () => {
+    const f = $('#editForm');
+    if (!f.reportValidity()) return;
+    try {
+      DataStore.upsert(id, { value: f.value.value, date: f.date.value, source: 'manual' });
+      toast('저장했습니다'); render(); openEdit(id);
+    } catch (e) { toast(e.message); }
+  };
+
   const dlg = $('#editSheet');
   if (!dlg.open) dlg.showModal();
+  if (rangeHTML) drawDetailChart(ind, asc, a.freq);
+}
+
+function drawDetailChart(ind, asc, freq) {
+  const days = RANGES.find(r => r[0] === detailState.range)[1];
+  const from = Date.parse(asc[asc.length - 1].date) - days * DAY;
+  const pts = asc.filter(p => Date.parse(p.date) >= from);
+  drawChart($('#chartHost'), pts, ind, freq);
+  if (pts.length >= 2) {
+    const ys = pts.map(p => p.value);
+    const first = pts[0].value, last = pts[pts.length - 1].value;
+    const chg = ind.changeMode === 'pct'
+      ? (first ? fmtSigned((last - first) / Math.abs(first) * 100, 1) + '%' : '-')
+      : fmtSigned(last - first, ind.changeMode === 'pp' ? 2 : ind.dp) + (ind.changeMode === 'pp' ? '%p' : '');
+    $('#chartFoot').textContent = `기간 변화 ${chg} · 최고 ${fmt(Math.max(...ys), ind.dp)} · 최저 ${fmt(Math.min(...ys), ind.dp)}`;
+  }
 }
 
 /* ---------- 설정 화면 ---------- */
+function renderRemoteStatus() {
+  const info = DataStore.remoteInfo();
+  const el = $('#remoteStatus');
+  if (!info.generatedAt) {
+    el.innerHTML = `<p class="hint" style="margin:0">자동 데이터가 아직 없습니다.${info.error ? ' (' + esc(info.error) + ')' : ''}<br>README의 "자동 데이터 설정" 순서대로 GitHub Actions를 켜 주세요.</p>`;
+    return;
+  }
+  const t = new Date(info.generatedAt).toLocaleString('ko-KR', { dateStyle: 'medium', timeStyle: 'short' });
+  const failed = info.errors.map(e => `<li>✗ ${esc(IND[e.id] ? IND[e.id].name : e.id)}${e.keptPrevious ? ' (이전 값 유지)' : ''} — <span style="word-break:break-all">${esc(e.message)}</span></li>`).join('');
+  el.innerHTML = `<p style="margin:0;font-size:14px">마지막 수집: <b>${esc(t)}</b> · 지표 ${info.count}개${info.fromCache ? ' <span class="badge auto">오프라인 캐시</span>' : ''}</p>
+    ${info.error ? `<p class="hint" style="margin:4px 0 0">새로 받기 실패: ${esc(info.error)}</p>` : ''}
+    ${failed ? `<details style="margin-top:6px"><summary style="font-size:13px">수집 실패 ${info.errors.length}개</summary><ul class="status-list">${failed}</ul></details>` : ''}`;
+}
+
 function buildBulkForm() {
   $('#bulkDate').value = todayISO();
   $('#bulkForm').innerHTML = CONFIG.categories.map(cat => {
-    const rows = CONFIG.indicators.filter(i => i.cat === cat.id && !i.derived).map(ind => {
+    const rows = CONFIG.indicators.filter(i => i.cat === cat.id).map(ind => {
       const cur = DataStore.getSnapshot(ind.id).current;
+      const auto = !!DataStore.getMeta(ind.id);
       const ph = cur ? `${fmt(cur.value, ind.dp)}${cur.source === 'sample' ? ' (샘플)' : ''}` : '';
-      return `<div class="bulk-row"><label for="b_${ind.id}">${esc(ind.name)}<small>${esc(ind.unit || '')}${cur && cur.source !== 'sample' ? ' · 현재 ' + esc(cur.date) : ''}</small></label>
+      return `<div class="bulk-row"><label for="b_${ind.id}">${esc(ind.name)}${ind.sub ? ` <small style="display:inline">${esc(ind.sub)}</small>` : ''}<small>${esc(ind.unit || '')}${auto ? ' · 자동 수집' : ''}${cur && cur.source !== 'sample' ? ' · 최근 ' + esc(cur.date) : ''}</small></label>
         <input type="number" step="any" id="b_${ind.id}" data-id="${ind.id}" placeholder="${esc(ph)}"></div>`;
     }).join('');
     return `<div class="bulk-group"><h3>${esc(cat.label)}</h3>${rows}</div>`;
@@ -864,10 +1328,8 @@ function buildBulkForm() {
 }
 
 function syncSettingsFields() {
-  const st = DataStore.getSettings();
-  $('#themeSelect').value = st.theme;
-  $('#proxyUrl').value = st.proxy || '';
-  $('#fredKey').value = DataStore.getSecrets().fredKey || '';
+  $('#themeSelect').value = DataStore.getSettings().theme;
+  renderRemoteStatus();
   buildBulkForm();
 }
 
@@ -888,26 +1350,29 @@ let toastTimer;
 function toast(msg) {
   const el = $('#toast');
   el.textContent = msg; el.hidden = false;
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.hidden = true; }, 2200);
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.hidden = true; }, 2400);
 }
 
-async function runFetch(logEl) {
-  if (logEl) logEl.textContent = '조회 중…\n';
-  const res = await DataStore.refreshAll(CONFIG.indicators, msg => { if (logEl) logEl.textContent += msg + '\n'; });
-  const msg = `자동 조회: 성공 ${res.ok} · 실패 ${res.fail} · 미지원 ${res.skipped}`;
-  if (logEl) logEl.textContent += msg;
-  toast(msg);
-  render();
+async function reloadRemote(silent) {
+  const st = await DataStore.loadRemote();
+  if (!silent) toast(st.error ? `자동 데이터 받기 실패: ${st.error}` : '자동 데이터를 새로 받았습니다');
+  if (location.hash === '#settings') syncSettingsFields(); else render();
+  return st;
 }
 
 /* ---------- 이벤트 ---------- */
 document.addEventListener('click', e => {
-  const t = e.target.closest('[data-tab],[data-edit],[data-del],[data-action]');
+  const t = e.target.closest('[data-tab],[data-edit],[data-del],[data-action],[data-range]');
   if (!t) return;
   if (t.dataset.tab) {
     activeTab = t.dataset.tab; DataStore.setSettings({ tab: activeTab }); render();
+  } else if (t.dataset.range) {
+    detailState.range = t.dataset.range; DataStore.setSettings({ range: t.dataset.range });
+    document.querySelectorAll('[data-range]').forEach(b => b.setAttribute('aria-pressed', String(b === t)));
+    const ind = IND[detailState.id], a = analyze(ind);
+    drawDetailChart(ind, a.history.slice().reverse(), a.freq);
   } else if (t.dataset.edit) {
-    openEdit(t.dataset.edit);
+    detailState.range = null; openEdit(t.dataset.edit);
   } else if (t.dataset.del) {
     if (confirm(`${t.dataset.del} 값을 삭제할까요?`)) { DataStore.removeEntry(t.dataset.id, t.dataset.del); render(); openEdit(t.dataset.id); }
   } else if (t.dataset.action === 'go-settings') {
@@ -925,7 +1390,8 @@ $('#checklist').addEventListener('change', e => {
   saveChecks(items); render();
 });
 $('#btnSettings').onclick = () => { location.hash = 'settings'; };
-$('#btnRefresh').onclick = () => runFetch(null);
+$('#btnRefresh').onclick = () => reloadRemote(false);
+$('#btnReloadRemote').onclick = () => reloadRemote(false);
 
 $('#btnBulkSave').onclick = () => {
   const date = $('#bulkDate').value;
@@ -952,27 +1418,20 @@ $('#btnImport').onclick = () => $('#importFile').click();
 $('#importFile').onchange = async e => {
   const file = e.target.files[0]; e.target.value = '';
   if (!file) return;
-  if (!confirm('현재 데이터를 백업 파일 내용으로 바꿀까요?')) return;
+  if (!confirm('직접 입력한 데이터를 백업 파일 내용으로 바꿀까요?')) return;
   try { const n = DataStore.importJSON(await file.text()); toast(`${n}개 지표 불러옴`); buildBulkForm(); }
   catch (err) { toast(err.message); }
 };
-$('#btnSaveApi').onclick = () => {
-  DataStore.setSecrets({ fredKey: $('#fredKey').value.trim() });
-  DataStore.setSettings({ proxy: $('#proxyUrl').value.trim() });
-  toast('저장했습니다 (이 기기에만 저장)');
-};
-$('#btnFetchNow').onclick = () => {
-  $('#btnSaveApi').click();
-  if (!DataStore.canAutoFetch()) return toast('API 키를 먼저 입력하세요');
-  runFetch($('#fetchLog')).then(buildBulkForm);
-};
 $('#themeSelect').onchange = e => { DataStore.setSettings({ theme: e.target.value }); applyTheme(); };
 $('#btnSample').onclick = () => {
-  if (DataStore.hasAnyData() && !DataStore.isSampleOnly() && !confirm('입력한 데이터가 모두 샘플로 바뀝니다. 계속할까요? (먼저 내보내기 권장)')) return;
-  DataStore.loadSample(); toast('샘플 데이터를 불러왔습니다'); buildBulkForm();
+  const hasManual = CONFIG.indicators.some(i => DataStore.getManual(i.id).some(x => x.source !== 'sample'));
+  if (hasManual && !confirm('직접 입력한 데이터가 모두 샘플로 바뀝니다. 계속할까요? (먼저 내보내기 권장)')) return;
+  DataStore.loadSample();
+  toast(DataStore.hasRemote() ? '샘플을 불러왔지만 자동 데이터가 있어 샘플은 표시되지 않습니다' : '샘플 데이터를 불러왔습니다');
+  buildBulkForm();
 };
 $('#btnClear').onclick = () => {
-  if (!confirm('모든 지표 데이터를 삭제할까요? (API 키·설정은 유지)')) return;
+  if (!confirm('직접 입력한 값을 모두 삭제할까요? (자동 데이터·설정은 유지)')) return;
   DataStore.clearAll(); toast('삭제했습니다'); buildBulkForm();
 };
 window.addEventListener('hashchange', route);
@@ -980,11 +1439,15 @@ window.addEventListener('hashchange', route);
 /* ---------- 시작 ---------- */
 $('#todayLabel').textContent = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
 applyTheme();
-if (!DataStore.hasAnyData() && !localStorage.getItem('macroDash.started')) {
-  DataStore.loadSample();
+route(); // 캐시된 자동 데이터로 먼저 표시
+reloadRemote(true).then(() => {
+  // 자동 데이터도, 입력값도 없는 첫 실행이면 화면 예시용 샘플
+  if (!DataStore.hasAnyData() && !localStorage.getItem('macroDash.started')) {
+    DataStore.loadSample();
+    if (location.hash !== '#settings') render();
+  }
   try { localStorage.setItem('macroDash.started', '1'); } catch (e) {}
-}
-route();
+});
 
 if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));

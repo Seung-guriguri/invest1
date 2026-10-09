@@ -1,0 +1,64 @@
+# 지표 자동 수집 + GitHub Pages 배포
+#  - 정해진 시간마다 FRED·Yahoo Finance·한국은행에서 데이터를 받아 data/latest.json 을 만들고
+#    사이트 파일과 함께 GitHub Pages 에 배포합니다. (데이터는 저장소에 커밋하지 않음)
+#  - 저장소 Settings → Pages → Source 를 "GitHub Actions" 로 설정해야 합니다.
+#  - API 키: Settings → Secrets and variables → Actions → FRED_API_KEY, ECOS_API_KEY
+name: 데이터 수집 및 배포
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # cron 은 UTC 기준. 한국시간 = UTC + 9
+    - cron: '23 22 * * 0-4'   # 한국 06:23 (화~토) — 미국 장 마감 후
+    - cron: '43 7 * * 1-5'    # 한국 16:43 (월~금) — 한국 장 마감 후
+    - cron: '13 13 * * 1-5'   # 한국 22:13 (월~금) — 미국 지표 발표(대개 21:30~23:00) 이후
+  workflow_dispatch:          # Actions 탭에서 수동 실행
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - id: pages
+        uses: actions/configure-pages@v5
+
+      - name: 이전 배포 데이터 받기 (이번에 실패한 지표는 이전 값 유지)
+        run: curl -fsSL "${{ steps.pages.outputs.base_url }}/data/latest.json" -o previous.json || echo "이전 데이터 없음"
+
+      - name: 지표 수집
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+          ECOS_API_KEY: ${{ secrets.ECOS_API_KEY }}
+        run: node scripts/fetch-data.mjs --previous previous.json --out _site/data/latest.json
+
+      - name: 사이트 파일 구성
+        run: cp -r index.html data.js manifest.json sw.js icons .nojekyll _site/
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

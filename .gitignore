@@ -1,2 +1,5 @@
 macro-dashboard-backup-*.json
 .DS_Store
+data/
+_site/
+previous.json

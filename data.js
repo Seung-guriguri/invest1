@@ -2,24 +2,32 @@
  * data.js — 데이터 모듈
  *
  * 화면(index.html)은 이 모듈의 공개 API(window.DataStore)만 사용합니다.
- * 나중에 API 자동 조회로 바꾸고 싶다면 아래 "Provider" 영역에
- * 새 provider를 추가하고 index.html CONFIG의 지표에 source 정보를 넣으면 됩니다.
+ *
+ * 데이터는 두 군데에서 옵니다.
+ *   1) 자동 데이터: data/latest.json
+ *      GitHub Actions(scripts/fetch-data.mjs)가 FRED·Yahoo·한국은행에서 받아 배포 때 함께 올림.
+ *      브라우저는 같은 사이트의 파일만 읽으므로 CORS·API 키 문제가 없습니다.
+ *      마지막으로 받은 파일은 localStorage에 캐시해 오프라인에서도 보입니다.
+ *   2) 직접 입력: localStorage (자동 소스가 없는 지표, 또는 자동 값 덮어쓰기)
+ *
+ * 두 데이터는 기준일로 합쳐지고, 같은 기준일이면 직접 입력 값이 우선합니다.
+ * 자동 데이터가 하나라도 있으면 샘플 값은 쓰지 않습니다.
  *
  * 저장 구조 (localStorage)
- *   macroDash.data.v1     : { version, series: { [지표ID]: [{date, value, source, updatedAt}, ...] } }
- *                           각 배열은 기준일(date) 내림차순. [0]=현재 값, [1]=직전 값
- *   macroDash.settings.v1 : 화면 설정 (테마, 마지막 탭, 프록시 URL)
- *   macroDash.secrets.v1  : API 키 — 이 기기 localStorage에만 저장, JSON 내보내기에 포함되지 않음
+ *   macroDash.data.v1     : { version, series: { [지표ID]: [{date, value, source, updatedAt}, ...] } } — 직접 입력
+ *   macroDash.remote.v1   : data/latest.json 캐시
+ *   macroDash.settings.v1 : 화면 설정 (테마, 탭, 차트 기간)
  *
- * source 값: 'manual'(직접 입력) | 'sample'(샘플) | 'fred'(FRED 자동 조회) | 'import'(백업 불러오기)
+ * 다른 자동 소스를 붙이려면 scripts/sources.mjs 에 소스를 추가하면 됩니다 (README 참고).
  * ===================================================================== */
 (function (global) {
   'use strict';
 
   const DATA_KEY = 'macroDash.data.v1';
+  const REMOTE_KEY = 'macroDash.remote.v1';
   const SETTINGS_KEY = 'macroDash.settings.v1';
-  const SECRETS_KEY = 'macroDash.secrets.v1';
-  const MAX_HISTORY = 24; // 지표별 보관할 이력 개수
+  const REMOTE_URL = 'data/latest.json';
+  const MAX_HISTORY = 60; // 직접 입력 이력 보관 개수
 
   /* ---------- localStorage 래퍼 (사생활 보호 모드 등에서 실패해도 앱은 동작) ---------- */
   const memory = {};
@@ -48,26 +56,81 @@
     return isoDate(d);
   }
   const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+  const byDateDesc = (a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0);
 
   /* ---------- 상태 ---------- */
   let state = readJSON(DATA_KEY);
   if (!state || typeof state !== 'object' || !state.series) state = { version: 1, series: {} };
+  let remote = validRemote(readJSON(REMOTE_KEY));
+  let remoteStatus = { loaded: !!remote, fromCache: !!remote, error: null };
+  let cache = {}; // 합친 이력 메모
 
-  function persist() { writeJSON(DATA_KEY, state); }
+  function validRemote(r) {
+    return r && typeof r === 'object' && r.series && typeof r.series === 'object' ? r : null;
+  }
+  function changed() { cache = {}; }
+  function persist() { writeJSON(DATA_KEY, state); changed(); }
+  const hasRemote = () => !!(remote && Object.keys(remote.series).length);
 
-  function sortDesc(list) {
-    return list.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  /* ---------- 자동 데이터 ---------- */
+  async function loadRemote() {
+    try {
+      const res = await fetch(REMOTE_URL + '?t=' + Date.now(), { cache: 'no-store' });
+      if (!res.ok) throw new Error(res.status === 404 ? '자동 데이터 파일 없음 (아직 Actions가 실행되지 않음)' : `HTTP ${res.status}`);
+      const r = validRemote(await res.json());
+      if (!r) throw new Error('자동 데이터 형식 오류');
+      remote = r;
+      writeJSON(REMOTE_KEY, r);
+      remoteStatus = { loaded: true, fromCache: false, error: null };
+    } catch (e) {
+      remoteStatus = { loaded: !!remote, fromCache: !!remote, error: e.message };
+    }
+    changed();
+    return remoteStatus;
   }
 
-  /** 지표 하나의 현재/직전 값과 이력 */
+  function remoteInfo() {
+    return Object.assign({}, remoteStatus, {
+      generatedAt: remote ? remote.generatedAt : null,
+      count: remote ? Object.keys(remote.series).length : 0,
+      errors: remote ? remote.errors || [] : []
+    });
+  }
+
+  /** 지표의 자동 데이터 메타 (출처, 주기, 수집 시각) */
+  function getMeta(id) {
+    const s = remote && remote.series[id];
+    return s ? { source: s.source, freq: s.freq, fetchedAt: s.fetchedAt } : null;
+  }
+
+  /* ---------- 조회 ---------- */
+  /** 자동 + 직접 입력을 합친 이력 (기준일 내림차순). [0]=현재, [1]=직전 */
+  function getHistory(id) {
+    if (cache[id]) return cache[id];
+    const map = new Map();
+    const rs = remote && remote.series[id];
+    if (rs && Array.isArray(rs.obs)) {
+      const origin = String(rs.source || '').split(':')[0] || 'auto';
+      rs.obs.forEach(([date, value]) => map.set(date, { date, value, source: 'auto', origin, updatedAt: rs.fetchedAt || remote.generatedAt }));
+    }
+    const skipSample = hasRemote();
+    (state.series[id] || []).forEach(e => { if (!(skipSample && e.source === 'sample')) map.set(e.date, e); });
+    cache[id] = [...map.values()].sort(byDateDesc);
+    return cache[id];
+  }
+
   function getSnapshot(id) {
-    const history = state.series[id] || [];
+    const history = getHistory(id);
     return { current: history[0] || null, prev: history[1] || null, history };
   }
 
+  /** 직접 입력한 값만 (편집 화면·백업용) */
+  function getManual(id) { return (state.series[id] || []).slice(); }
+
+  /* ---------- 직접 입력 ---------- */
   /**
    * 값 추가/수정. 같은 기준일 값이 있으면 덮어씀.
-   * 실제 값(샘플이 아닌 값)을 넣으면 그 지표의 샘플 값은 모두 지움 (샘플과 실제 값이 섞이지 않게).
+   * 실제 값(샘플이 아닌 값)을 넣으면 그 지표의 샘플 값은 모두 지움.
    */
   function upsert(id, entry) {
     const value = Number(entry.value);
@@ -77,7 +140,7 @@
     let list = (state.series[id] || []).filter(e => e.date !== entry.date);
     if (source !== 'sample') list = list.filter(e => e.source !== 'sample');
     list.push({ date: entry.date, value, source, updatedAt: entry.updatedAt || new Date().toISOString() });
-    state.series[id] = sortDesc(list).slice(0, MAX_HISTORY);
+    state.series[id] = list.sort(byDateDesc).slice(0, MAX_HISTORY);
     persist();
   }
 
@@ -92,11 +155,10 @@
     persist();
   }
 
-  function hasAnyData() { return Object.keys(state.series).length > 0; }
+  function hasAnyData() { return Object.keys(state.series).length > 0 || hasRemote(); }
 
   /* ---------- 샘플 데이터 ----------
-   * 화면 시연용 가짜 값입니다. 실제 시세가 아니며, 일부러 둥근 숫자를 사용했습니다.
-   * 화면에서는 기준일 대신 "샘플"로 표시되고, 카드에 샘플 표식이 붙습니다.
+   * 자동 데이터가 없을 때 화면 시연용으로만 쓰는 가짜 값입니다. 일부러 둥근 숫자를 사용했습니다.
    * [현재 값, 직전 값]
    */
   const SAMPLE_DATA = {
@@ -121,14 +183,7 @@
     persist();
   }
 
-  function isSampleOnly() {
-    const lists = Object.values(state.series);
-    return lists.length > 0 && lists.every(l => l.every(e => e.source === 'sample'));
-  }
-
-  /* ---------- 백업 (JSON 내보내기/불러오기) ----------
-   * API 키(secrets)는 내보내기에 포함하지 않습니다.
-   */
+  /* ---------- 백업 (직접 입력 값만. 자동 데이터는 다시 받으면 되므로 제외) ---------- */
   function exportJSON() {
     return JSON.stringify({
       app: 'macro-dashboard',
@@ -138,7 +193,7 @@
     }, null, 2);
   }
 
-  /** 백업 파일 내용을 검증한 뒤 현재 데이터를 교체. 불러온 지표 개수 반환 */
+  /** 백업 파일 내용을 검증한 뒤 직접 입력 데이터를 교체. 불러온 지표 개수 반환 */
   function importJSON(text) {
     let obj;
     try { obj = JSON.parse(text); } catch (e) { throw new Error('JSON 형식이 아닙니다.'); }
@@ -153,127 +208,27 @@
         .map(e => ({
           date: e.date,
           value: Number(e.value),
-          source: ['manual', 'sample', 'fred', 'import'].includes(e.source) ? e.source : 'import',
+          source: ['manual', 'sample', 'import'].includes(e.source) ? e.source : 'import',
           updatedAt: typeof e.updatedAt === 'string' ? e.updatedAt : new Date().toISOString()
         }));
-      if (clean.length) series[id] = sortDesc(clean).slice(0, MAX_HISTORY);
+      if (clean.length) series[id] = clean.sort(byDateDesc).slice(0, MAX_HISTORY);
     });
     state = { version: 1, series };
     persist();
     return Object.keys(series).length;
   }
 
-  /* ---------- 설정 / 비밀값 ---------- */
-  function getSettings() { return Object.assign({ theme: 'system', tab: 'rates', proxy: '' }, readJSON(SETTINGS_KEY)); }
+  /* ---------- 설정 ---------- */
+  function getSettings() { return Object.assign({ theme: 'system', tab: 'rates', range: null }, readJSON(SETTINGS_KEY)); }
   function setSettings(patch) { writeJSON(SETTINGS_KEY, Object.assign(getSettings(), patch)); }
-  function getSecrets() { return Object.assign({ fredKey: '' }, readJSON(SECRETS_KEY)); }
-  function setSecrets(patch) { writeJSON(SECRETS_KEY, Object.assign(getSecrets(), patch)); }
 
-  /* =====================================================================
-   * Provider (2단계: 자동 조회)
-   *
-   * provider 인터페이스:
-   *   {
-   *     id: 'fred',
-   *     label: '표시 이름',
-   *     isReady(): boolean                    — 키 등 준비 여부
-   *     supports(indicator): boolean          — 이 지표를 조회할 수 있는지 (indicator.source[id] 존재 등)
-   *     fetch(indicator): Promise<[{date, value}]>  — 최신순 관측치 (최소 2개면 직전 대비 계산 가능)
-   *   }
-   *
-   * 새 소스를 붙이려면 PROVIDERS 배열에 객체를 추가하고,
-   * index.html CONFIG.indicators[].source 에 { 새provider: {...} } 를 넣으면 됩니다.
-   * ===================================================================== */
-
-  /** 프록시 URL 적용: '{url}'이 있으면 인코딩해서 치환, 없으면 앞에 붙임 */
-  function withProxy(url) {
-    const proxy = (getSettings().proxy || '').trim();
-    if (!proxy) return url;
-    return proxy.includes('{url}') ? proxy.replace('{url}', encodeURIComponent(url)) : proxy + url;
-  }
-
-  /*
-   * FRED (미국 세인트루이스 연준) — https://fred.stlouisfed.org/docs/api/fred/
-   * - 무료 API 키 필요. 키는 설정 화면에서 입력 → localStorage(secrets)에만 저장.
-   * - 브라우저에서 직접 호출 시 CORS로 막힐 수 있음 → 설정의 "프록시 URL" 사용 (README 참고).
-   * - indicator.source.fred = { series: 'DGS10', units: 'pc1'(선택, 전년동월비) }
-   */
-  const FredProvider = {
-    id: 'fred',
-    label: 'FRED',
-    isReady() { return !!getSecrets().fredKey; },
-    supports(ind) { return !!(ind.source && ind.source.fred); },
-    async fetch(ind) {
-      const { series, units } = ind.source.fred;
-      const params = new URLSearchParams({
-        series_id: series,
-        api_key: getSecrets().fredKey,
-        file_type: 'json',
-        sort_order: 'desc',
-        limit: '15'
-      });
-      if (units) params.set('units', units);
-      const url = withProxy('https://api.stlouisfed.org/fred/series/observations?' + params);
-      const res = await fetch(url, { cache: 'no-store' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
-      return (json.observations || [])
-        .filter(o => o.value !== '.' && Number.isFinite(Number(o.value)))
-        .slice(0, 2)
-        .map(o => ({ date: o.date, value: Number(o.value) }));
-    }
-  };
-
-  /*
-   * (예시 자리) 공개 시세 소스 — 원자재·환율·VIX 등
-   * 예: Alpha Vantage(무료 키, 원자재 월간), 거래소/정부 공개 API, 직접 만든 서버리스 함수 등.
-   * 무료 시세 사이트 대부분은 브라우저 CORS를 허용하지 않으므로
-   * Cloudflare Workers 같은 작은 프록시를 두고 그 응답을 {date, value} 배열로 바꿔주면 됩니다.
-   *
-   * const MyQuoteProvider = {
-   *   id: 'quote', label: '시세',
-   *   isReady() { return true; },
-   *   supports(ind) { return !!(ind.source && ind.source.quote); },
-   *   async fetch(ind) {
-   *     const res = await fetch(withProxy('https://example.com/quote?symbol=' + ind.source.quote.symbol));
-   *     const j = await res.json();
-   *     return [{ date: j.date, value: j.price }, { date: j.prevDate, value: j.prevPrice }];
-   *   }
-   * };
-   */
-  const PROVIDERS = [FredProvider];
-
-  function canAutoFetch() { return PROVIDERS.some(p => p.isReady()); }
-
-  /**
-   * 자동 조회 실행. 준비된 provider가 지원하는 지표만 조회해서 이력에 저장.
-   * onProgress(message) 콜백으로 진행 상황 전달. 결과 요약 반환.
-   */
-  async function refreshAll(indicators, onProgress) {
-    const log = msg => onProgress && onProgress(msg);
-    const result = { ok: 0, fail: 0, skipped: 0 };
-    for (const ind of indicators) {
-      const provider = PROVIDERS.find(p => p.isReady() && p.supports(ind));
-      if (!provider) { result.skipped++; continue; }
-      try {
-        const obs = await provider.fetch(ind);
-        if (!obs.length) throw new Error('관측치 없음');
-        const now = new Date().toISOString();
-        obs.slice().reverse().forEach(o => upsert(ind.id, { date: o.date, value: o.value, source: provider.id, updatedAt: now }));
-        result.ok++;
-        log(`✓ ${ind.name} (${provider.label}) ${obs[0].date}`);
-      } catch (e) {
-        result.fail++;
-        log(`✗ ${ind.name}: ${e.message}${e instanceof TypeError ? ' — CORS/네트워크 문제일 수 있음, 프록시 확인' : ''}`);
-      }
-    }
-    return result;
-  }
+  // 이전 버전에서 저장했던 브라우저용 API 키는 더 이상 쓰지 않으므로 정리
+  try { localStorage.removeItem('macroDash.secrets.v1'); } catch (e) {}
 
   global.DataStore = {
-    getSnapshot, upsert, removeEntry, clearAll, hasAnyData, isSampleOnly,
+    loadRemote, remoteInfo, hasRemote, getMeta,
+    getHistory, getSnapshot, getManual, upsert, removeEntry, clearAll, hasAnyData,
     loadSample, exportJSON, importJSON,
-    getSettings, setSettings, getSecrets, setSecrets,
-    canAutoFetch, refreshAll, isoDate
+    getSettings, setSettings, isoDate
   };
 })(window);
