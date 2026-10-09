@@ -149,15 +149,23 @@ async function fetchEurostat(src) {
   Object.entries(src.filters || {}).forEach(([k, v]) => p.append(k, v));
   const j = await getJSON(`https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/${src.eurostat}?` + p);
   if (!j.id || !j.dimension) throw new Error('Eurostat 응답 형식 오류' + (j.error ? `: ${JSON.stringify(j.error).slice(0, 200)}` : ''));
-  const timeCat = j.dimension.time.category;
-  const times = Object.keys(timeCat.index);
+  // JSON-stat 범주 index 는 객체·배열·생략(범주 1개) 모두 가능 → { code: 위치 } 로 통일
+  const indexOf = dim => {
+    const cat = j.dimension[dim].category || {};
+    if (Array.isArray(cat.index)) return Object.fromEntries(cat.index.map((c, i) => [c, i]));
+    if (cat.index && typeof cat.index === 'object') return cat.index;
+    return Object.fromEntries(Object.keys(cat.label || {}).map((c, i) => [c, i]));
+  };
+  const IDX = Object.fromEntries(j.id.map(d => [d, indexOf(d)]));
+  const timeDim = j.id.find(d => d === 'time' || /time/i.test(d));
+  const times = Object.keys(IDX[timeDim]).sort((a, b) => IDX[timeDim][a] - IDX[timeDim][b]);
   const strides = j.size.map((_, i) => j.size.slice(i + 1).reduce((a, b) => a * b, 1));
   // 차원별 후보: prefer 가 있으면 그 값만, 없으면 모든 값
   const cand = {};
   for (const dim of j.id) {
-    if (dim === 'time') continue;
-    const cat = j.dimension[dim].category;
-    const codes = Object.keys(cat.index).sort((a, b) => cat.index[a] - cat.index[b]);
+    if (dim === timeDim) continue;
+    const cat = j.dimension[dim].category || {};
+    const codes = Object.keys(IDX[dim]).sort((a, b) => IDX[dim][a] - IDX[dim][b]);
     const label = c => (cat.label && cat.label[c]) || c;
     const re = src.prefer && src.prefer[dim];
     if (re) {
@@ -172,18 +180,21 @@ async function fetchEurostat(src) {
   dims.forEach(d => { combos = combos.flatMap(c => cand[d].map(code => ({ ...c, [d]: code }))); });
   const series = combo => times.map(t => {
     let flat = 0;
-    j.id.forEach((dim, i) => { flat += (dim === 'time' ? timeCat.index[t] : j.dimension[dim].category.index[combo[dim]]) * strides[i]; });
+    j.id.forEach((dim, i) => { flat += (dim === timeDim ? IDX[timeDim][t] : IDX[dim][combo[dim]]) * strides[i]; });
     const v = j.value[flat];
     const date = /^\d{4}-\d{2}$/.test(t) ? `${t}-01` : /^\d{4}$/.test(t) ? `${t}-01-01` : t;
     return [date, v == null ? NaN : Number(v)];
   });
+  if (!combos.length) {
+    throw new Error(`후보 조합 없음 — 차원: ${j.id.map((d, i) => `${d}(${j.size[i]}개: ${Object.keys(IDX[d]).slice(0, 8).join('/')})`).join(', ')}`);
+  }
   let best = null, bestN = -1;
   for (const c of combos.slice(0, 200)) {
     const s = series(c), n = s.filter(o => Number.isFinite(o[1])).length;
     if (n > bestN) { best = c; bestN = n; }
   }
   const desc = dims.filter(d => cand[d].length > 1 || (src.prefer && src.prefer[d]))
-    .map(d => `${d}=${best[d]}(${(j.dimension[d].category.label || {})[best[d]] || ''})`).join(', ');
+    .map(d => `${d}=${best[d]}(${((j.dimension[d].category || {}).label || {})[best[d]] || ''})`).join(', ');
   console.log(`  · Eurostat ${src.eurostat} 선택: ${desc} — 값 ${bestN}개 (후보 조합 ${combos.length}개)`);
   return series(best);
 }
