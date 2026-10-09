@@ -365,6 +365,7 @@
 
     <section class="panel section">
       <h2>데이터 관리</h2>
+      <p class="hint">앱 버전 <b>__BUILD__</b> — 배포할 때마다 바뀝니다. 새 기능이 안 보이면 이 값이 최신 배포와 같은지 확인하세요.</p>
       <p class="hint">신호등 임계값·코멘트·체크리스트 규칙은 index.html 상단의 <code>CONFIG</code>, 자동 수집 소스는 <code>scripts/sources.mjs</code>에서 수정합니다.</p>
       <div class="btn-row">
         <button class="btn" id="btnSample" type="button">샘플 데이터 불러오기</button>
@@ -388,7 +389,7 @@
 <footer class="disclaimer" role="note">정보 정리용이며 투자 권유나 매매 판단이 아닙니다.</footer>
 <div class="toast" id="toast" role="status" hidden></div>
 
-<script src="data.js"></script>
+<script src="data.js?v=__BUILD__"></script>
 <script>
 'use strict';
 
@@ -1932,7 +1933,17 @@ reloadRemote(true).then(() => {
 });
 
 if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  // 새 버전이 배포되면: 앱을 열거나 다시 앞으로 가져올 때 확인 → 새 서비스 워커가 넘겨받으면 한 번 새로고침
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (hadController && !reloaded) { reloaded = true; location.reload(); }
+  });
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(reg => {
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
+    }).catch(() => {});
+  });
 }
 </script>
 </body>

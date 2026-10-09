@@ -47,8 +47,12 @@ jobs:
           EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
         run: node scripts/fetch-data.mjs --previous previous.json --out _site/data/latest.json
 
-      - name: 사이트 파일 구성
-        run: cp -r index.html data.js manifest.json sw.js icons .nojekyll _site/
+      - name: "사이트 파일 구성 (배포 버전 = 커밋 번호 + 시각)"
+        run: |
+          cp -r index.html data.js manifest.json sw.js icons .nojekyll _site/
+          BUILD="$(git rev-parse --short HEAD)-$(TZ=Asia/Seoul date +%m%d%H%M)"
+          sed -i "s/__BUILD__/${BUILD}/g" _site/index.html _site/sw.js
+          echo "배포 버전: ${BUILD}"
 
       - uses: actions/upload-pages-artifact@v5
         with:
