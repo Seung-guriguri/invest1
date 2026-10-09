@@ -122,6 +122,17 @@
   .checklist label { display: flex; gap: 10px; cursor: pointer; width: 100%; }
   .checklist input { position: absolute; opacity: 0; pointer-events: none; }
 
+  /* 지표별 인사이트 (상세 화면) */
+  .ind-insight { margin-top: 12px; border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; background: var(--surface-2); }
+  .ind-insight h3 { font-size: 14px; margin: 0 0 6px; }
+  .ind-insight dl { margin: 0; display: grid; gap: 7px; }
+  .ind-insight dt { font-size: 12px; font-weight: 700; color: var(--text-2); }
+  .ind-insight dd { margin: 1px 0 0; font-size: 13.5px; }
+  .ind-insight ul { margin: 2px 0 0; padding-left: 18px; }
+  .ind-insight li { margin: 2px 0; }
+  .tab-summary { font-size: 13px; color: var(--text-2); background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 8px 12px; margin-bottom: 10px; }
+  .tab-summary b { color: var(--text); }
+
   /* 매크로 인사이트 */
   .insights { margin-top: 12px; }
   .insights h2 small { font-weight: 400; font-size: 12px; color: var(--text-2); }
@@ -390,6 +401,7 @@
 <div class="toast" id="toast" role="status" hidden></div>
 
 <script src="data.js?v=__BUILD__"></script>
+<script src="notes.js?v=__BUILD__"></script>
 <script>
 'use strict';
 
@@ -1479,7 +1491,8 @@ function render() {
       <span class="dot ${worst == null ? '' : 's' + worst}" aria-hidden="true"></span>${esc(cat.label)}</button>`;
   }).join('');
 
-  $('#cards').innerHTML = all.filter(a => a.ind.cat === activeTab).map(cardHTML).join('');
+  const tabList = all.filter(a => a.ind.cat === activeTab);
+  $('#cards').innerHTML = tabSummaryHTML(tabList) + tabList.map(cardHTML).join('');
 }
 
 function changeHTML(a) {
@@ -1544,6 +1557,76 @@ function cardHTML(a) {
     ${!a.isSample && (a.m1 || a.pctl || a.season) ? `<div class="meta" style="margin-top:2px">${[m1Text(a), a.season ? seasonText(a) : positionText(a)].filter(Boolean).map(t => `<span>${esc(t)}</span>`).join('<span aria-hidden="true">·</span>')}</div>` : ''}
     <div class="comment">${esc(a.comment || '')}</div>
   </button>`;
+}
+
+/* ---------- 지표별 인사이트 (notes.js) ---------- */
+const NOTE_FALLBACK = { surge: 'rise', plunge: 'fall', high: 'flat', low: 'flat', rise: 'flat', fall: 'flat' };
+
+/** 의미 문구를 고를 상태: 급등락 > 분포·평년 극단 > 추세 > 보합 */
+function insightState(a) {
+  if (a.trend === 'surge' || a.trend === 'plunge') return a.trend;
+  if (a.season) { if (a.season.dev <= -5) return 'low'; if (a.season.dev >= 5) return 'high'; }
+  else if (a.pctl) { if (a.pctl.rank >= 90) return 'high'; if (a.pctl.rank <= 10) return 'low'; }
+  if (a.trend === 'rise' || a.trend === 'fall') return a.trend;
+  return 'flat';
+}
+
+/** 지금 상태 한 줄 (자동) */
+function statusLine(a) {
+  const ind = a.ind, parts = [];
+  if (a.diff != null) {
+    const d = ind.changeMode === 'pct'
+      ? (a.pct == null ? null : `${fmtSigned(a.pct, 1)}%`)
+      : `${fmtSigned(a.diff, ind.changeMode === 'pp' ? 2 : ind.dp)}${ind.changeMode === 'pp' ? '%p' : ''}`;
+    if (d) parts.push(`직전 대비 ${d}`);
+  }
+  if (a.m1) parts.push(m1Text(a));
+  if (a.season) parts.push(seasonText(a)); else if (a.pctl) parts.push(positionText(a));
+  if (a.lvl === 2) parts.push('수준 경고'); else if (a.lvl === 1) parts.push('수준 주의');
+  return parts.join(' · ');
+}
+
+function noteHTML(a) {
+  const note = (global => global.NOTES || {})(window)[a.ind.id];
+  if (!note || !a.cur || a.isSample) return '';
+  const st = insightState(a);
+  let key = st;
+  while (key && !note.states[key]) key = NOTE_FALLBACK[key];
+  const meaning = note.states[key] || '';
+  const S = makeS(R);
+  const pairs = (note.pairs || []).filter(p => { try { return !!p.when(S); } catch (e) { return false; } }).slice(0, 3)
+    .map(p => { try { return typeof p.text === 'function' ? p.text(S) : p.text; } catch (e) { return ''; } }).filter(Boolean);
+  // 관련 지표: 규칙 조건에 등장하는 지표 id (자기 자신 제외)
+  const related = [...new Set((note.pairs || []).flatMap(p => [...String(p.when).matchAll(/S\.\w+\('(\w+)'/g)].map(m => m[1])))]
+    .filter(id => id !== a.ind.id && IND[id]).slice(0, 6);
+  return `<section class="ind-insight" aria-label="인사이트">
+    <h3>인사이트 <small style="font-weight:400;color:var(--text-2);font-size:12px">규칙 기반 일반 해석</small></h3>
+    <dl>
+      <div><dt>지금 상태</dt><dd class="num">${esc(statusLine(a) || '-')}</dd></div>
+      <div><dt>의미</dt><dd>${esc(note.what)}${meaning ? `<br>${esc(meaning)}` : ''}</dd></div>
+      <div><dt>함께 보면</dt><dd>${pairs.length ? `<ul>${pairs.map(t => `<li>${esc(t)}</li>`).join('')}</ul>` : '지금은 눈에 띄는 조합 신호 없음'}
+        ${related.length ? `<div class="chips">${related.map(id => {
+          const r = R[id], sg = r && r.signal != null ? 's' + r.signal : '';
+          return `<button type="button" data-edit="${id}"><span class="dot ${sg}" aria-hidden="true"></span>${esc(IND[id].name)}</button>`;
+        }).join('')}</div>` : ''}</dd></div>
+      ${note.watch ? `<div><dt>확인할 것</dt><dd>${esc(note.watch)}</dd></div>` : ''}
+    </dl>
+  </section>`;
+}
+
+/** 탭 요약: 1개월(또는 직전 발표) 기준 상승·하락 개수, 신호, 가장 크게 움직인 지표 */
+function tabSummaryHTML(list) {
+  const has = list.filter(a => a.cur && !a.isSample);
+  if (!has.length) return '';
+  const up = has.filter(a => a.trend === 'rise' || a.trend === 'surge').length;
+  const down = has.filter(a => a.trend === 'fall' || a.trend === 'plunge').length;
+  const red = has.filter(a => a.signal === 2).length, yellow = has.filter(a => a.signal === 1).length;
+  const move = a => a.m1 && a.m1.pct != null && a.ind.changeMode === 'pct' ? Math.abs(a.m1.pct)
+    : a.ind.changeMode === 'pct' && a.pct != null ? Math.abs(a.pct) : -1;
+  const top = has.filter(a => move(a) >= 0).sort((x, y) => move(y) - move(x))[0];
+  const topTxt = top ? ` · 가장 크게 움직인 지표 <b>${esc(top.ind.name)}</b> ${esc(top.m1 ? m1Text(top) : `직전 대비 ${fmtSigned(top.pct, 1)}%`)}` : '';
+  const ins = buildInsights(R).filter(it => it.watch.some(id => IND[id] && IND[id].cat === activeTab)).map(it => it.title);
+  return `<div class="tab-summary">${has.length}개 중 상승 <b>${up}</b> · 하락 <b>${down}</b>${red ? ` · 경고 <b>${red}</b>` : ''}${yellow ? ` · 주의 <b>${yellow}</b>` : ''}${topTxt}${ins.length ? `<br>관련 인사이트: ${ins.map(t => `<b>${esc(t)}</b>`).join(', ')}` : ''}</div>`;
 }
 
 /* ---------- 체크 상태 (하루 단위로 초기화) ---------- */
@@ -1735,6 +1818,7 @@ function openEdit(id) {
 
   const body = $('#editBody');
   body.innerHTML = `${head}${rangeHTML}
+    ${noteHTML(a)}
     <div class="thresholds">${thresholdText(ind, a)}</div>
     <details class="manual" ${a.cur && !a.isSample ? '' : 'open'}>
       <summary>직접 입력·수정</summary>
