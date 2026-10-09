@@ -95,8 +95,9 @@ export const SOURCES = {
   gasoline_demand: [{ eia: 'PET.WGFUPUS2.W', scale: 0.001, avg: 4 }],     // 휘발유 제품 공급 = 수요, 4주 평균 (백만 배럴/일)
   distill_demand:  [{ eia: 'PET.WDIUPUS2.W', scale: 0.001, avg: 4 }],     // 디젤·난방유 수요, 4주 평균
   crude_net_imports: [{ eia: 'PET.WCRNTUS2.W', scale: 0.001 }],           // 원유 순수입 (백만 배럴/일)
-  // EU 비상 석유 비축 (월간, 수개월 지연). 단위 NR = 비축 일수 (THS_T 는 천 톤)
-  eu_oil_stock: [{ eurostat: 'nrg_stk_oem', filters: { geo: 'EU27_2020' }, prefer: { unit: /^NR$/ } }],
+  // 독일 비상 석유 비축 (월간, 수개월 지연). EU 합계는 데이터셋에 없어 독일을 대표로 사용
+  // stk_flow STK_EUE_DIR = EU 지침에 따른 비상 비축 (일수 환산), unit NR = 일수
+  eu_oil_stock: [{ eurostat: 'nrg_stk_oem', filters: { geo: 'DE' }, prefer: { stk_flow: /^STK_EUE_DIR$/, unit: /^NR$/ } }],
 
   // ── 매크로 ETF (Yahoo) ──
   etf_tlt: [{ yahoo: 'TLT' }],
