@@ -97,7 +97,7 @@ export const SOURCES = {
   crude_net_imports: [{ eia: 'PET.WCRNTUS2.W', scale: 0.001 }],           // 원유 순수입 (백만 배럴/일)
   // 독일 비상 석유 비축 (월간, 수개월 지연). EU 합계는 데이터셋에 없어 독일을 대표로 사용
   // stk_flow STK_EUE_DNY_MTH = 순수입 대비 비축 일수, unit NR = 일수
-  eu_oil_stock: [{ eurostat: 'nrg_stk_oem', filters: { geo: 'DE' }, prefer: { stk_flow: /^STK_EUE_DNY_MTH$/, unit: /^NR$/ } }],
+  eu_oil_stock: [{ eurostat: 'nrg_stk_oem', filters: { geo: 'DE' }, prefer: { stk_flow: /^__LIST_LABELS__$/, unit: /^NR$/ } }],
 
   // ── 매크로 ETF (Yahoo) ──
   etf_tlt: [{ yahoo: 'TLT' }],
