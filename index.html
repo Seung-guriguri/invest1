@@ -613,7 +613,7 @@ const CONFIG = {
       change: { dir: 'both', flat: 0.5, warn: 3, danger: 6 } },
     { id: 'crude_net_imports', cat: 'stocks', name: '미국 원유 순수입', sub: '주간 (EIA)', unit: '백만 b/d', dp: 2, changeMode: 'abs', profile: 'netImports',
       change: { dir: 'both', flat: 0.1, warn: 0.6, danger: 1.2 } },
-    { id: 'eu_oil_stock', cat: 'stocks', name: 'EU 비상 석유 비축', sub: '순수입 대비 일수, 월간 (수개월 지연)', unit: '일', dp: 1, changeMode: 'pct', profile: 'stocks',
+    { id: 'eu_oil_stock', cat: 'stocks', name: '독일 비상 석유 비축', sub: '순수입 대비 일수, 월간·수개월 지연 (Eurostat)', unit: '일', dp: 1, changeMode: 'pct', profile: 'stocks',
       staleDays: 220, level: { fixed: true, dir: 'down', warn: 95, danger: 90 }, change: { dir: 'both', flat: 0.5, warn: 3, danger: 6 } },
 
     // ── 매크로 ETF (섹터별 대표, Yahoo 일간 종가) ──
