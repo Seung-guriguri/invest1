@@ -82,6 +82,23 @@ export const SOURCES = {
   freight_ppi: [{ fred: 'PCU483111483111', units: 'pc1' }],  // 미국 PPI 원양 화물운송, 전년비
   // scfi: 상하이 컨테이너 운임지수 — 무료 API 없음 → 직접 입력
 
+  // ── 매크로 ETF (Yahoo) ──
+  etf_tlt: [{ yahoo: 'TLT' }],
+  etf_tip: [{ yahoo: 'TIP' }],
+  etf_hyg: [{ yahoo: 'HYG' }],
+  etf_uup: [{ yahoo: 'UUP' }],
+  etf_xle: [{ yahoo: 'XLE' }],
+  etf_gld: [{ yahoo: 'GLD' }],
+  etf_lit: [{ yahoo: 'LIT' }],
+  etf_dbc: [{ yahoo: 'DBC' }],
+  etf_dba: [{ yahoo: 'DBA' }],
+  etf_bwet: [{ yahoo: 'BWET' }],
+  etf_xli: [{ yahoo: 'XLI' }],
+  etf_itb: [{ yahoo: 'ITB' }],
+  etf_kre: [{ yahoo: 'KRE' }],
+  etf_ewy: [{ yahoo: 'EWY' }],
+  etf_eem: [{ yahoo: 'EEM' }],
+
   // ── 금속·광물 ──
   copper:   [{ yahoo: 'HG=F', scale: LB_PER_T }, { fred: 'PCOPPUSDM' }],
   gold:     [{ yahoo: 'GC=F' }],

@@ -403,7 +403,8 @@ const CONFIG = {
     { id: 'energy',    label: '에너지' },
     { id: 'freight',   label: '운임' },
     { id: 'metals',    label: '금속' },
-    { id: 'grains',    label: '곡물' }
+    { id: 'grains',    label: '곡물' },
+    { id: 'etf',       label: 'ETF' }
   ],
 
   indicators: [
@@ -545,7 +546,39 @@ const CONFIG = {
     { id: 'corn', cat: 'grains', name: '옥수수', unit: '$/t', dp: 1, changeMode: 'pct', profile: 'grain',
       change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
     { id: 'soybean', cat: 'grains', name: '대두', unit: '$/t', dp: 1, changeMode: 'pct', profile: 'grain',
-      change: { dir: 'both', flat: 1, warn: 5, danger: 10 } }
+      change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
+
+    // ── 매크로 ETF (섹터별 대표, Yahoo 일간 종가) ──
+    { id: 'etf_tlt', cat: 'etf', name: 'TLT', sub: '미국 20년+ 국채 — 장기 금리 (금리↑ → 가격↓)', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
+      change: { dir: 'both', flat: 0.2, warn: 1.5, danger: 3 }, comments: { rise: '장기채 상승 — 장기 금리 하락 반영, 경기 둔화·안전자산 선호 가능성', fall: '장기채 하락 — 장기 금리 상승 반영, 채권 보유분 평가손 점검' } },
+    { id: 'etf_tip', cat: 'etf', name: 'TIP', sub: '미국 물가연동국채(TIPS) — 실질금리·인플레 기대', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
+      change: { dir: 'both', flat: 0.1, warn: 0.7, danger: 1.5 }, comments: { rise: '물가연동채 상승 — 실질금리 하락 또는 인플레 기대 상승', fall: '물가연동채 하락 — 실질금리 상승 반영 가능성' } },
+    { id: 'etf_hyg', cat: 'etf', name: 'HYG', sub: '미국 하이일드 회사채 — 위험선호·신용 여건', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
+      change: { dir: 'both', flat: 0.1, warn: 0.7, danger: 1.5 }, comments: { rise: '하이일드채 상승 — 신용 위험선호 개선', fall: '하이일드채 하락 — 신용 스트레스 확대 여부 확인' } },
+    { id: 'etf_uup', cat: 'etf', name: 'UUP', sub: '달러 강세 ETF — 달러인덱스 방향', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
+      change: { dir: 'both', flat: 0.1, warn: 0.7, danger: 1.5 }, comments: { rise: '달러 강세 — 신흥국 통화·원자재에 부담 가능성', fall: '달러 약세 — 원자재·신흥국 자산에 우호적일 수 있음' } },
+    { id: 'etf_xle', cat: 'etf', name: 'XLE', sub: '미국 에너지 업종 주식 — 유가·정유 기업', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
+      change: { dir: 'both', flat: 0.3, warn: 2.5, danger: 5 }, comments: { rise: '에너지주 상승 — 유가 강세 또는 에너지 업황 기대 반영', fall: '에너지주 하락 — 유가 약세·수요 둔화 반영 가능성' } },
+    { id: 'etf_gld', cat: 'etf', name: 'GLD', sub: '금 현물 — 안전자산·실질금리', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
+      change: { dir: 'both', flat: 0.3, warn: 2, danger: 4 }, comments: { rise: '금 ETF 상승 — 안전자산 선호 또는 달러·실질금리 하락', fall: '금 ETF 하락 — 위험선호 회복 또는 실질금리 상승' } },
+    { id: 'etf_lit', cat: 'etf', name: 'LIT', sub: '리튬·2차전지 업종 — 리튬 가격 흐름 참고', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
+      change: { dir: 'both', flat: 0.5, warn: 4, danger: 8 }, comments: { rise: '리튬·배터리주 상승 — 2차전지 수요 기대 반영, 변동성 큼', fall: '리튬·배터리주 하락 — 공급 과잉·전기차 수요 둔화 반영 가능성' } },
+    { id: 'etf_dbc', cat: 'etf', name: 'DBC', sub: '원자재 종합 (에너지 비중 큼) — 인플레 압력', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
+      change: { dir: 'both', flat: 0.3, warn: 2, danger: 4 }, comments: { rise: '원자재 종합 상승 — 인플레이션 압력 확대 가능성', fall: '원자재 종합 하락 — 수요 둔화 또는 물가 압력 완화' } },
+    { id: 'etf_dba', cat: 'etf', name: 'DBA', sub: '농산물 종합 — 곡물·커피·설탕·가축', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
+      change: { dir: 'both', flat: 0.3, warn: 2, danger: 4 }, comments: { rise: '농산물 상승 — 식품 물가 상방 압력 가능성', fall: '농산물 하락 — 식품 원가 부담 완화 가능성' } },
+    { id: 'etf_bwet', cat: 'etf', name: 'BWET', sub: '유조선 운임 선물 — 원유·석유제품 해상 운송비', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
+      change: { dir: 'both', flat: 0.5, warn: 5, danger: 10 }, comments: { rise: '유조선 운임 상승 — 원유 수송 수요 증가 또는 공급 차질 반영', fall: '유조선 운임 하락 — 원유 물동량 둔화 반영 가능성' } },
+    { id: 'etf_xli', cat: 'etf', name: 'XLI', sub: '미국 산업재 업종 — 제조업 경기', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
+      change: { dir: 'both', flat: 0.3, warn: 2.5, danger: 5 }, comments: { rise: '산업재 상승 — 제조업·설비투자 경기 기대 반영', fall: '산업재 하락 — 제조업 경기 둔화 우려 반영 가능성' } },
+    { id: 'etf_itb', cat: 'etf', name: 'ITB', sub: '미국 주택건설 업종 — 모기지 금리 민감', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
+      change: { dir: 'both', flat: 0.3, warn: 3, danger: 6 }, comments: { rise: '주택건설주 상승 — 금리 하락·주택 수요 회복 기대', fall: '주택건설주 하락 — 모기지 금리 부담·주택 경기 둔화 반영' } },
+    { id: 'etf_kre', cat: 'etf', name: 'KRE', sub: '미국 지역은행 — 금리차·신용 스트레스', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
+      change: { dir: 'both', flat: 0.3, warn: 3, danger: 6 }, comments: { rise: '지역은행 상승 — 금융 불안 완화·대출 여건 개선 기대', fall: '지역은행 하락 — 은행권 신용·예금 이탈 우려 여부 확인' } },
+    { id: 'etf_ewy', cat: 'etf', name: 'EWY', sub: '한국 주식 (달러 기준) — 외국인 관점의 한국 시장', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
+      change: { dir: 'both', flat: 0.3, warn: 2.5, danger: 5 }, comments: { rise: '한국 ETF 상승 — 한국 증시·원화 동반 강세 가능성', fall: '한국 ETF 하락 — 한국 증시 또는 원화 약세 반영' } },
+    { id: 'etf_eem', cat: 'etf', name: 'EEM', sub: '신흥국 주식 — 신흥국 자금 흐름', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
+      change: { dir: 'both', flat: 0.3, warn: 2.5, danger: 5 }, comments: { rise: '신흥국 상승 — 달러 약세·위험선호 확대 반영 가능성', fall: '신흥국 하락 — 달러 강세·위험회피 흐름 반영 가능성' } }
   ]
 };
 
@@ -846,6 +879,9 @@ const COMMENTS = {
     fall: '니켈 하락 — 공급 확대 또는 수요 둔화 반영 가능성',
     flat: '니켈 보합 — 큰 변동 없음'
   },
+  etf: {
+    flat: '{name} 보합 — 큰 변동 없음'
+  },
   grain: {
     surge: '{name} 급등 — 식품 원가·물가 상승 압력, 기상·수출 이슈 확인',
     rise: '{name} 상승 — 식품 원가 부담 증가 가능성',
@@ -888,6 +924,7 @@ const CHECKLIST = [
   { priority: 57,  test: S => S.surge('bdry') || S.surge('scfi') || S.lvl('freight_ppi') >= 1 || (S.up('diesel') && (S.up('bdry') || S.up('scfi'))),
     text: '운임·물류비 상승 — 수입 원가·물류비 영향 점검', why: '해상 운임 또는 디젤 가격 상승' },
   { priority: 55,  test: S => S.count(['copper', 'aluminum', 'nickel', 'lithium', 'iron_ore'], id => S.surge(id) || S.plunge(id)) >= 1, text: '산업금속 급변 — 제조업 원가·재고 부담 점검', why: '산업금속 급등락' },
+  { priority: 93,  test: S => S.plunge('etf_kre') || S.plunge('etf_hyg'), text: '금융·신용 ETF 급락 — 은행·신용 스트레스 확인', why: 'KRE 또는 HYG 급락' },
   { priority: 50,  test: S => S.redCount >= 3, text: S => `경고 지표 ${S.redCount}개 — 전체 위험 노출 규모 점검`, why: '빨간불 3개 이상' },
   // 기본 항목 (개수가 모자랄 때)
   { priority: 10, default: true, text: '주요 일정(FOMC·금통위·CPI 발표) 확인', why: '정기 점검' },
