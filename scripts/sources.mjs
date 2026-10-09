@@ -74,6 +74,13 @@ export const SOURCES = {
   brent:  [{ yahoo: 'BZ=F' }, { fred: 'DCOILBRENTEU' }],
   natgas: [{ yahoo: 'NG=F' }, { fred: 'DHHNGSP' }],
   coal:   [{ fred: 'PCOALAUUSDM' }],                       // IMF 호주(뉴캐슬) 석탄, 월간
+  gasoline: [{ yahoo: 'RB=F' }, { fred: 'DGASNYH' }],       // RBOB 휘발유 선물 (실패 시 뉴욕항 현물)
+  diesel:   [{ yahoo: 'HO=F' }, { fred: 'DDFUELNYH' }],     // 초저유황 디젤(ULSD) 선물 (실패 시 뉴욕항 현물)
+
+  // ── 운임 ──
+  bdry:        [{ yahoo: 'BDRY' }],                          // 벌크선 운임 선물 ETF (BDI 대용)
+  freight_ppi: [{ fred: 'PCU483111483111', units: 'pc1' }],  // 미국 PPI 원양 화물운송, 전년비
+  // scfi: 상하이 컨테이너 운임지수 — 무료 API 없음 → 직접 입력
 
   // ── 금속·광물 ──
   copper:   [{ yahoo: 'HG=F', scale: LB_PER_T }, { fred: 'PCOPPUSDM' }],
