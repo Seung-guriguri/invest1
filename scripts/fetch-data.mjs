@@ -137,8 +137,47 @@ async function fetchEcos(src) {
   return obs;
 }
 
-const FETCHERS = { fred: fetchFred, yahoo: fetchYahoo, ecos: fetchEcos };
-const sourceLabel = src => src.fred ? `FRED:${src.fred}` : src.yahoo ? `Yahoo:${src.yahoo}` : `ECOS:${src.ecos}/${src.item}`;
+/* ---------- Eurostat (EU 통계청, 키 불필요, JSON-stat) ----------
+ * { eurostat: '데이터셋 코드', filters: { geo: 'EU27_2020' }, prefer: { 차원: /라벨 정규식/ } }
+ * 여러 값이 있는 차원은 prefer 정규식과 라벨이 맞는 값을 고르고, 맞는 값이 없으면
+ * 가능한 값 목록을 오류로 남깁니다 (Actions 로그에서 확인 후 sources.mjs 수정).
+ */
+async function fetchEurostat(src) {
+  const p = new URLSearchParams({ format: 'JSON', lang: 'EN', sinceTimePeriod: `${new Date().getFullYear() - 11}-01` });
+  Object.entries(src.filters || {}).forEach(([k, v]) => p.append(k, v));
+  const j = await getJSON(`https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/${src.eurostat}?` + p);
+  if (!j.id || !j.dimension) throw new Error('Eurostat 응답 형식 오류' + (j.error ? `: ${JSON.stringify(j.error).slice(0, 200)}` : ''));
+  const pos = {}, picked = [];
+  for (const dim of j.id) {
+    if (dim === 'time') continue;
+    const cat = j.dimension[dim].category;
+    const codes = Object.keys(cat.index).sort((a, b) => cat.index[a] - cat.index[b]);
+    const label = c => (cat.label && cat.label[c]) || c;
+    let code = codes[0];
+    const re = src.prefer && src.prefer[dim];
+    if (codes.length > 1 || re) {
+      const hit = re ? codes.find(c => re.test(label(c)) || re.test(c)) : null;
+      if (re && !hit) throw new Error(`${dim} 에서 ${re} 와 맞는 값 없음. 가능한 값: ${codes.map(c => `${c}(${label(c)})`).join(', ').slice(0, 600)}`);
+      code = hit || codes[0];
+      if (codes.length > 1) picked.push(`${dim}=${code}`);
+    }
+    pos[dim] = cat.index[code];
+  }
+  if (picked.length) console.log(`  · Eurostat ${src.eurostat} 선택: ${picked.join(', ')}`);
+  const timeCat = j.dimension.time.category;
+  const strides = j.size.map((_, i) => j.size.slice(i + 1).reduce((a, b) => a * b, 1));
+  return Object.keys(timeCat.index).map(t => {
+    let flat = 0;
+    j.id.forEach((dim, i) => { flat += (dim === 'time' ? timeCat.index[t] : pos[dim]) * strides[i]; });
+    const v = j.value[flat];
+    const date = /^\d{4}-\d{2}$/.test(t) ? `${t}-01` : /^\d{4}$/.test(t) ? `${t}-01-01` : t;
+    return [date, v == null ? NaN : Number(v)];
+  });
+}
+
+const FETCHERS = { fred: fetchFred, yahoo: fetchYahoo, ecos: fetchEcos, eurostat: fetchEurostat };
+const sourceLabel = src => src.fred ? `FRED:${src.fred}` : src.yahoo ? `Yahoo:${src.yahoo}`
+  : src.eurostat ? `Eurostat:${src.eurostat}` : `ECOS:${src.ecos}/${src.item}`;
 
 /** 지표 하나: 소스를 순서대로 시도 */
 async function collect(id, sources) {

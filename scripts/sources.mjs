@@ -82,6 +82,14 @@ export const SOURCES = {
   freight_ppi: [{ fred: 'PCU483111483111', units: 'pc1' }],  // 미국 PPI 원양 화물운송, 전년비
   // scfi: 상하이 컨테이너 운임지수 — 무료 API 없음 → 직접 입력
 
+  // ── 비축·재고 (FRED 주간, 천 배럴 → 백만 배럴) ──
+  us_spr:      [{ fred: 'WCSSTUS1', scale: 0.001 }],   // 미국 전략비축유(SPR)
+  us_crude:    [{ fred: 'WCESTUS1', scale: 0.001 }],   // 미국 상업 원유 재고 (SPR 제외)
+  us_gasoline: [{ fred: 'WGTSTUS1', scale: 0.001 }],   // 미국 휘발유 재고
+  us_distill:  [{ fred: 'WDISTUS1', scale: 0.001 }],   // 미국 디젤·난방유(중간유분) 재고
+  // EU 비상 석유 비축 (월간, 수개월 지연). 단위는 '일수'만 허용 — 다른 단위면 로그에 가능한 값 표시
+  eu_oil_stock: [{ eurostat: 'nrg_stk_oem', filters: { geo: 'EU27_2020' }, prefer: { unit: /day/i } }],
+
   // ── 매크로 ETF (Yahoo) ──
   etf_tlt: [{ yahoo: 'TLT' }],
   etf_tip: [{ yahoo: 'TIP' }],
