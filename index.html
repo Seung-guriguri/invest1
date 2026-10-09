@@ -591,13 +591,13 @@ const CONFIG = {
       change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
 
     // ── 비축·재고 ──
-    { id: 'us_spr', cat: 'stocks', name: '미국 전략비축유(SPR)', sub: '주간, EIA', unit: '백만 bbl', dp: 1, changeMode: 'pct', profile: 'spr',
+    { id: 'us_spr', cat: 'stocks', name: '미국 전략비축유(SPR)', sub: '주간 (EIA)', unit: '백만 bbl', dp: 1, changeMode: 'pct', profile: 'spr',
       level: { dir: 'down', warn: 400, danger: 350 }, change: { dir: 'both', flat: 0.05, warn: 1, danger: 2 } },
-    { id: 'us_crude', cat: 'stocks', name: '미국 상업 원유 재고', sub: 'SPR 제외, 주간', unit: '백만 bbl', dp: 1, changeMode: 'pct', profile: 'stocks',
+    { id: 'us_crude', cat: 'stocks', name: '미국 상업 원유 재고', sub: 'SPR 제외, 주간 (EIA)', unit: '백만 bbl', dp: 1, changeMode: 'pct', profile: 'stocks',
       level: { seasonal: { warn: -5, danger: -10 }, dir: 'down', warn: 420, danger: 400 }, change: { dir: 'both', flat: 0.3, warn: 2, danger: 4 } },
-    { id: 'us_gasoline', cat: 'stocks', name: '미국 휘발유 재고', sub: '주간', unit: '백만 bbl', dp: 1, changeMode: 'pct', profile: 'stocks',
+    { id: 'us_gasoline', cat: 'stocks', name: '미국 휘발유 재고', sub: '주간 (EIA)', unit: '백만 bbl', dp: 1, changeMode: 'pct', profile: 'stocks',
       level: { seasonal: { warn: -5, danger: -10 }, dir: 'down', warn: 220, danger: 210 }, change: { dir: 'both', flat: 0.3, warn: 2, danger: 4 } },
-    { id: 'us_distill', cat: 'stocks', name: '미국 디젤·난방유 재고', sub: '중간유분, 주간', unit: '백만 bbl', dp: 1, changeMode: 'pct', profile: 'stocks',
+    { id: 'us_distill', cat: 'stocks', name: '미국 디젤·난방유 재고', sub: '중간유분, 주간 (EIA)', unit: '백만 bbl', dp: 1, changeMode: 'pct', profile: 'stocks',
       level: { seasonal: { warn: -5, danger: -10 }, dir: 'down', warn: 115, danger: 105 }, change: { dir: 'both', flat: 0.3, warn: 2, danger: 4 } },
     { id: 'ng_storage', cat: 'stocks', name: '미국 천연가스 저장량', sub: '본토 48개 주, 주간 (EIA)', unit: 'Bcf', dp: 0, changeMode: 'pct', profile: 'gasStorage',
       level: { seasonal: { warn: -5, danger: -10 }, dir: 'down', warn: 2500, danger: 2000 }, change: { flat: 0.5 } },
