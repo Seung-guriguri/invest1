@@ -7,6 +7,7 @@
  * 환경 변수 (GitHub Actions에서는 저장소 Secrets로 전달)
  *   FRED_API_KEY  — FRED 지표 (없으면 FRED 소스는 건너뜀)
  *   ECOS_API_KEY  — 한국은행 ECOS 지표 (없으면 건너뜀)
+ *   EIA_API_KEY   — 미국 에너지정보청 EIA 지표 (없으면 건너뜀)
  *   Yahoo Finance 는 키 없이 호출 (비공식 API, 막히면 다음 소스로 대체)
  *
  * 출력 형식 (data/latest.json)
@@ -27,6 +28,7 @@ const PREVIOUS = arg('--previous', null);
 
 const FRED_KEY = (process.env.FRED_API_KEY || '').trim();
 const ECOS_KEY = (process.env.ECOS_API_KEY || '').trim();
+const EIA_KEY = (process.env.EIA_API_KEY || '').trim();
 const UA = 'Mozilla/5.0 (macro-dashboard data fetcher)';
 
 /* ---------- 유틸 ---------- */
@@ -64,9 +66,9 @@ function guessFreq(obs) {
   return g <= 4 ? 'D' : g <= 10 ? 'W' : g <= 45 ? 'M' : 'Q';
 }
 
-/** 주기별 보관 기간: 일간 2년, 주간 5년, 월간·분기 10년 */
+/** 주기별 보관 기간: 일간 2년, 주간 6년(평년 5년 비교용), 월간·분기 10년 */
 function trim(obs, freq) {
-  const keepYears = freq === 'D' ? 2 : freq === 'W' ? 5 : 10;
+  const keepYears = freq === 'D' ? 2 : freq === 'W' ? 6 : 10;
   const from = iso(yearsAgo(keepYears));
   return obs.filter(o => o[0] >= from);
 }
@@ -137,8 +139,70 @@ async function fetchEcos(src) {
   return obs;
 }
 
-const FETCHERS = { fred: fetchFred, yahoo: fetchYahoo, ecos: fetchEcos };
-const sourceLabel = src => src.fred ? `FRED:${src.fred}` : src.yahoo ? `Yahoo:${src.yahoo}` : `ECOS:${src.ecos}/${src.item}`;
+/* ---------- Eurostat (EU 통계청, 키 불필요, JSON-stat) ----------
+ * { eurostat: '데이터셋 코드', filters: { geo: 'EU27_2020' }, prefer: { 차원: /라벨 정규식/ } }
+ * 여러 값이 있는 차원은 prefer 정규식과 라벨이 맞는 값을 고르고, 맞는 값이 없으면
+ * 가능한 값 목록을 오류로 남깁니다 (Actions 로그에서 확인 후 sources.mjs 수정).
+ */
+async function fetchEurostat(src) {
+  const p = new URLSearchParams({ format: 'JSON', lang: 'EN', sinceTimePeriod: `${new Date().getFullYear() - 11}-01` });
+  Object.entries(src.filters || {}).forEach(([k, v]) => p.append(k, v));
+  const j = await getJSON(`https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/${src.eurostat}?` + p);
+  if (!j.id || !j.dimension) throw new Error('Eurostat 응답 형식 오류' + (j.error ? `: ${JSON.stringify(j.error).slice(0, 200)}` : ''));
+  const pos = {}, picked = [];
+  for (const dim of j.id) {
+    if (dim === 'time') continue;
+    const cat = j.dimension[dim].category;
+    const codes = Object.keys(cat.index).sort((a, b) => cat.index[a] - cat.index[b]);
+    const label = c => (cat.label && cat.label[c]) || c;
+    let code = codes[0];
+    const re = src.prefer && src.prefer[dim];
+    if (codes.length > 1 || re) {
+      const hit = re ? codes.find(c => re.test(label(c)) || re.test(c)) : null;
+      if (re && !hit) throw new Error(`${dim} 에서 ${re} 와 맞는 값 없음. 가능한 값: ${codes.map(c => `${c}(${label(c)})`).join(', ').slice(0, 600)}`);
+      code = hit || codes[0];
+      if (codes.length > 1) picked.push(`${dim}=${code}`);
+    }
+    pos[dim] = cat.index[code];
+  }
+  if (picked.length) console.log(`  · Eurostat ${src.eurostat} 선택: ${picked.join(', ')}`);
+  const timeCat = j.dimension.time.category;
+  const strides = j.size.map((_, i) => j.size.slice(i + 1).reduce((a, b) => a * b, 1));
+  return Object.keys(timeCat.index).map(t => {
+    let flat = 0;
+    j.id.forEach((dim, i) => { flat += (dim === 'time' ? timeCat.index[t] : pos[dim]) * strides[i]; });
+    const v = j.value[flat];
+    const date = /^\d{4}-\d{2}$/.test(t) ? `${t}-01` : /^\d{4}$/.test(t) ? `${t}-01-01` : t;
+    return [date, v == null ? NaN : Number(v)];
+  });
+}
+
+/* ---------- 미국 에너지정보청 EIA (API v2, 예전 시리즈 ID로 조회) ----------
+ * { eia: 'PET.WCRFPUS2.W', scale: 0.001(선택), avg: 4(선택: 최근 N개 이동평균) }
+ */
+async function fetchEia(src) {
+  if (!EIA_KEY) throw new SkipError('EIA_API_KEY 없음');
+  const j = await getJSON(`https://api.eia.gov/v2/seriesid/${encodeURIComponent(src.eia)}?api_key=${encodeURIComponent(EIA_KEY)}`);
+  const resp = j && j.response;
+  if (!resp || !Array.isArray(resp.data)) throw new Error('EIA 응답 형식 오류' + (j && j.error ? `: ${String(j.error).slice(0, 200)}` : ''));
+  let obs = resp.data
+    .map(r => {
+      const t = String(r.period);
+      const date = /^\d{4}-\d{2}$/.test(t) ? `${t}-01` : /^\d{4}$/.test(t) ? `${t}-01-01` : t.slice(0, 10);
+      return [date, r.value == null || r.value === '' ? NaN : Number(r.value)];
+    })
+    .filter(o => Number.isFinite(o[1]))
+    .sort((a, b) => (a[0] < b[0] ? -1 : 1));
+  if (src.avg) {
+    const n = src.avg;
+    obs = obs.map((o, i) => i < n - 1 ? [o[0], NaN] : [o[0], obs.slice(i - n + 1, i + 1).reduce((s, x) => s + x[1], 0) / n]);
+  }
+  return obs;
+}
+
+const FETCHERS = { fred: fetchFred, yahoo: fetchYahoo, ecos: fetchEcos, eurostat: fetchEurostat, eia: fetchEia };
+const sourceLabel = src => src.fred ? `FRED:${src.fred}` : src.yahoo ? `Yahoo:${src.yahoo}`
+  : src.eurostat ? `Eurostat:${src.eurostat}` : src.eia ? `EIA:${src.eia}` : `ECOS:${src.ecos}/${src.item}`;
 
 /** 지표 하나: 소스를 순서대로 시도 */
 async function collect(id, sources) {
@@ -177,6 +241,7 @@ async function main() {
   }
   if (!FRED_KEY) console.warn('⚠ FRED_API_KEY 가 없어 FRED 지표를 건너뜁니다.');
   if (!ECOS_KEY) console.warn('⚠ ECOS_API_KEY 가 없어 한국은행 지표를 건너뜁니다.');
+  if (!EIA_KEY) console.warn('⚠ EIA_API_KEY 가 없어 EIA 지표를 건너뜁니다.');
 
   const series = {};
   const errors = [];

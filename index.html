@@ -122,6 +122,24 @@
   .checklist label { display: flex; gap: 10px; cursor: pointer; width: 100%; }
   .checklist input { position: absolute; opacity: 0; pointer-events: none; }
 
+  /* 매크로 인사이트 */
+  .insights { margin-top: 12px; }
+  .insights h2 small { font-weight: 400; font-size: 12px; color: var(--text-2); }
+  .insight { border-top: 1px solid var(--border); padding: 8px 0; }
+  .insight:first-child { border-top: 0; padding-top: 0; }
+  .insight summary { cursor: pointer; list-style: none; display: flex; flex-direction: column; gap: 1px; }
+  .insight summary::-webkit-details-marker { display: none; }
+  .insight summary b { font-size: 14.5px; }
+  .insight summary b::before { content: '▸ '; color: var(--text-2); }
+  .insight[open] summary b::before { content: '▾ '; }
+  .insight summary span { font-size: 12.5px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+  .insight ul { margin: 6px 0 0; padding-left: 18px; font-size: 13.5px; }
+  .insight li { margin: 3px 0; }
+  .insight .check { font-size: 12.5px; margin: 6px 0 0; color: var(--text-2); }
+  .insight .check b { color: var(--text); font-weight: 600; }
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+  .chips button { border: 1px solid var(--border); background: var(--surface-2); border-radius: 999px; padding: 2px 9px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px; }
+
   /* 탭 */
   .tabs-bar { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 10px 0 8px; margin-top: 12px; }
   .tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px; }
@@ -286,6 +304,11 @@
       <ul class="checklist" id="checklist"></ul>
     </section>
 
+    <section class="panel insights" aria-label="매크로 인사이트">
+      <h2>매크로 인사이트 <small>규칙 기반 일반 해석</small></h2>
+      <div id="insights"></div>
+    </section>
+
     <div class="tabs-bar">
       <nav class="tabs" role="tablist" id="tabs" aria-label="카테고리"></nav>
     </div>
@@ -410,6 +433,7 @@ const CONFIG = {
   staleBasis: 'updated',     // 직접 입력 값의 기준: 'updated' = 입력한 날, 'date' = 기준일
   checklistMin: 3,
   checklistMax: 5,
+  insightMax: 3,             // 매크로 인사이트 최대 개수
 
   categories: [
     { id: 'rates',     label: '금리' },
@@ -419,6 +443,7 @@ const CONFIG = {
     { id: 'fx',        label: '환율' },
     { id: 'energy',    label: '에너지' },
     { id: 'freight',   label: '운임' },
+    { id: 'stocks',    label: '비축·재고' },
     { id: 'metals',    label: '금속' },
     { id: 'grains',    label: '곡물' },
     { id: 'etf',       label: 'ETF' }
@@ -564,6 +589,32 @@ const CONFIG = {
       change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
     { id: 'soybean', cat: 'grains', name: '대두', unit: '$/t', dp: 1, changeMode: 'pct', profile: 'grain',
       change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
+
+    // ── 비축·재고 ──
+    { id: 'us_spr', cat: 'stocks', name: '미국 전략비축유(SPR)', sub: '주간, EIA', unit: '백만 bbl', dp: 1, changeMode: 'pct', profile: 'spr',
+      level: { dir: 'down', warn: 400, danger: 350 }, change: { dir: 'both', flat: 0.05, warn: 1, danger: 2 } },
+    { id: 'us_crude', cat: 'stocks', name: '미국 상업 원유 재고', sub: 'SPR 제외, 주간', unit: '백만 bbl', dp: 1, changeMode: 'pct', profile: 'stocks',
+      level: { seasonal: { warn: -5, danger: -10 }, dir: 'down', warn: 420, danger: 400 }, change: { dir: 'both', flat: 0.3, warn: 2, danger: 4 } },
+    { id: 'us_gasoline', cat: 'stocks', name: '미국 휘발유 재고', sub: '주간', unit: '백만 bbl', dp: 1, changeMode: 'pct', profile: 'stocks',
+      level: { seasonal: { warn: -5, danger: -10 }, dir: 'down', warn: 220, danger: 210 }, change: { dir: 'both', flat: 0.3, warn: 2, danger: 4 } },
+    { id: 'us_distill', cat: 'stocks', name: '미국 디젤·난방유 재고', sub: '중간유분, 주간', unit: '백만 bbl', dp: 1, changeMode: 'pct', profile: 'stocks',
+      level: { seasonal: { warn: -5, danger: -10 }, dir: 'down', warn: 115, danger: 105 }, change: { dir: 'both', flat: 0.3, warn: 2, danger: 4 } },
+    { id: 'ng_storage', cat: 'stocks', name: '미국 천연가스 저장량', sub: '본토 48개 주, 주간 (EIA)', unit: 'Bcf', dp: 0, changeMode: 'pct', profile: 'gasStorage',
+      level: { seasonal: { warn: -5, danger: -10 }, dir: 'down', warn: 2500, danger: 2000 }, change: { flat: 0.5 } },
+    { id: 'cushing', cat: 'stocks', name: '쿠싱 원유 재고', sub: 'WTI 인도 지점, 주간 (EIA)', unit: '백만 bbl', dp: 1, changeMode: 'pct', profile: 'cushing',
+      level: { fixed: true, dir: 'down', warn: 25, danger: 22 }, change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
+    { id: 'refinery_util', cat: 'stocks', name: '미국 정제 가동률', sub: '주간 (EIA)', unit: '%', dp: 1, changeMode: 'pp', profile: 'refinery',
+      level: { fixed: true, dir: 'down', warn: 85, danger: 80 }, change: { dir: 'both', flat: 0.5, warn: 2, danger: 4 } },
+    { id: 'us_crude_prod', cat: 'stocks', name: '미국 원유 생산', sub: '주간 (EIA)', unit: '백만 b/d', dp: 2, changeMode: 'pct', profile: 'crudeProd',
+      change: { dir: 'both', flat: 0.3, warn: 1.5, danger: 3 } },
+    { id: 'gasoline_demand', cat: 'stocks', name: '미국 휘발유 수요', sub: '제품 공급량 4주 평균 (EIA)', unit: '백만 b/d', dp: 2, changeMode: 'pct', profile: 'gasolineDemand',
+      change: { dir: 'both', flat: 0.5, warn: 3, danger: 6 } },
+    { id: 'distill_demand', cat: 'stocks', name: '미국 디젤·난방유 수요', sub: '제품 공급량 4주 평균 (EIA)', unit: '백만 b/d', dp: 2, changeMode: 'pct', profile: 'distillDemand',
+      change: { dir: 'both', flat: 0.5, warn: 3, danger: 6 } },
+    { id: 'crude_net_imports', cat: 'stocks', name: '미국 원유 순수입', sub: '주간 (EIA)', unit: '백만 b/d', dp: 2, changeMode: 'abs', profile: 'netImports',
+      change: { dir: 'both', flat: 0.1, warn: 0.6, danger: 1.2 } },
+    { id: 'eu_oil_stock', cat: 'stocks', name: 'EU 비상 석유 비축', sub: '순수입 대비 일수, 월간 (수개월 지연)', unit: '일', dp: 1, changeMode: 'pct', profile: 'stocks',
+      staleDays: 220, level: { fixed: true, dir: 'down', warn: 95, danger: 90 }, change: { dir: 'both', flat: 0.5, warn: 3, danger: 6 } },
 
     // ── 매크로 ETF (섹터별 대표, Yahoo 일간 종가) ──
     { id: 'etf_tlt', cat: 'etf', name: 'TLT', sub: '미국 20년+ 국채 — 장기 금리 (금리↑ → 가격↓)', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
@@ -896,6 +947,61 @@ const COMMENTS = {
     fall: '니켈 하락 — 공급 확대 또는 수요 둔화 반영 가능성',
     flat: '니켈 보합 — 큰 변동 없음'
   },
+  spr: {
+    rise: '전략비축유 증가 — 정부 재비축 매입, 비상 완충 여력 회복',
+    fall: '전략비축유 감소 — 정부 방출·판매로 비상 완충 여력 축소',
+    high: '전략비축유 낮은 수준 — 공급 충격 시 정책 대응 여력 제한',
+    warn: '전략비축유 낮은 편 — 비축 정책 변화 확인',
+    flat: '전략비축유 변화 없음'
+  },
+  stocks: {
+    rise: '{name} 증가 — 수급 여유 확대, 가격 상승 압력 완화 가능성',
+    fall: '{name} 감소 — 수급 완충 축소, 가격 민감도 상승 가능성',
+    high: '{name} 낮은 수준 — 공급 차질 시 가격 변동폭 확대 가능성',
+    warn: '{name} 평소보다 낮은 편 — 계절 요인과 함께 확인',
+    flat: '{name} 보합 — 큰 변화 없음'
+  },
+  gasStorage: {
+    high: '가스 저장량 평년 대비 크게 부족 — 겨울 가격 급등 위험, 난방·발전 비용 점검',
+    warn: '가스 저장량 평년보다 적음 — 날씨 변화에 가격이 민감해질 수 있음',
+    rise: '가스 저장량 증가(주입기) — 겨울 대비 재고 확충',
+    fall: '가스 저장량 감소(인출기) — 평년 대비 수준과 함께 확인',
+    flat: '가스 저장량 변화 작음'
+  },
+  cushing: {
+    high: '쿠싱 재고 운영 하한 근접 — WTI 근월물 변동성 확대 가능성',
+    warn: '쿠싱 재고 낮은 편 — WTI 단기 수급 빠듯',
+    rise: '쿠싱 재고 증가 — WTI 단기 수급 완화',
+    fall: '쿠싱 재고 감소 — WTI 단기 수급 빠듯해지는 방향',
+    flat: '쿠싱 재고 보합'
+  },
+  refinery: {
+    high: '정제 가동률 크게 낮음 — 설비 차질·정비 여부 확인, 휘발유·디젤 공급 부족 가능성',
+    warn: '정제 가동률 낮은 편 — 계절 정비 여부와 제품 재고 함께 확인',
+    rise: '정제 가동률 상승 — 제품 공급 여력 확대',
+    fall: '정제 가동률 하락 — 제품 가격 상승 압력 가능성',
+    flat: '정제 가동률 안정'
+  },
+  crudeProd: {
+    rise: '원유 생산 증가 — 공급 여유 확대 방향',
+    fall: '원유 생산 감소 — 기상 차질·투자 둔화 여부 확인',
+    flat: '원유 생산 안정'
+  },
+  gasolineDemand: {
+    rise: '휘발유 수요 증가 — 소비·이동 수요 견조 (계절 요인 함께 확인)',
+    fall: '휘발유 수요 감소 — 소비 둔화 또는 계절 요인 확인',
+    flat: '휘발유 수요 안정'
+  },
+  distillDemand: {
+    rise: '디젤 수요 증가 — 화물·산업 활동 회복 신호일 수 있음',
+    fall: '디젤 수요 감소 — 화물·산업 활동 둔화 신호일 수 있음',
+    flat: '디젤 수요 안정'
+  },
+  netImports: {
+    rise: '원유 순수입 증가 — 국내 공급 대비 정제 수요 확대',
+    fall: '원유 순수입 감소 — 국내 생산 증가 또는 수출 확대',
+    flat: '원유 순수입 큰 변화 없음'
+  },
   etf: {
     flat: '{name} 보합 — 큰 변동 없음'
   },
@@ -938,6 +1044,8 @@ const CHECKLIST = [
   { priority: 62,  test: S => S.lvl('nfci') >= 1 || S.lvl('stlfsi') >= 1, text: '금융여건 긴축 — 자금 조달·유동성 점검', why: '금융여건·스트레스 지수 평균 상회' },
   { priority: 60,  test: S => S.count(['wheat', 'corn', 'soybean'], S.up) >= 2, text: '곡물 가격 동반 상승 — 식품 원가·물가 영향 점검', why: '곡물 2개 이상 상승' },
   { priority: 58,  test: S => S.count(['wti', 'brent', 'natgas', 'coal', 'gasoline', 'diesel'], id => S.surge(id) || S.plunge(id)) >= 1, text: '에너지 가격 급변 — 운송·전력 원가 영향 점검', why: '에너지 급등락' },
+  { priority: 59,  test: S => (S.down('us_spr') || S.lvl('us_spr') >= 1) && S.lvl('us_crude') >= 1 && (S.up('wti') || S.up('brent')),
+    text: '석유 재고 완충 축소 — 유가 변동성 확대 가능성 점검', why: '비축·상업 재고 낮음 + 유가 상승' },
   { priority: 57,  test: S => S.surge('bdry') || S.surge('scfi') || S.lvl('freight_ppi') >= 1 || (S.up('diesel') && (S.up('bdry') || S.up('scfi'))),
     text: '운임·물류비 상승 — 수입 원가·물류비 영향 점검', why: '해상 운임 또는 디젤 가격 상승' },
   { priority: 55,  test: S => S.count(['copper', 'aluminum', 'nickel', 'lithium', 'iron_ore'], id => S.surge(id) || S.plunge(id)) >= 1, text: '산업금속 급변 — 제조업 원가·재고 부담 점검', why: '산업금속 급등락' },
@@ -949,12 +1057,122 @@ const CHECKLIST = [
   { priority: 8,  default: true, text: '비상자금(생활비 몇 개월분) 수준 확인', why: '정기 점검' }
 ];
 
+/* ---------------------------------------------------------------------
+ * INSIGHTS — 여러 지표 조합으로 만드는 짧은 매크로 해석 (규칙 기반, 최대 insightMax 개)
+ *   test(S) 가 참이면 표시. 위 CHECKLIST 의 S 도우미에 더해
+ *   S.pos(id) 최근 분포 내 위치(0~100, 클수록 높은 값), S.ago(id, 일) 그 시점 값,
+ *   S.fmt(id) 현재 값 표시, S.m1t(id) 1개월 변화 표시, S.season(id) 평년(같은 주 5년 평균) 대비 % 를 쓸 수 있음
+ *   summary 는 현재 수치를 넣은 한 줄, points 는 2~4줄 해석, check 는 확인할 것, watch 는 관련 지표
+ *   일반적 해석만 쓰고 종목·매매 표현은 쓰지 않습니다.
+ * --------------------------------------------------------------------- */
+const INSIGHTS = [
+  { priority: 100, title: '고금리 장기화',
+    test: S => S.v('us10y') >= 4.75 && S.ago('us10y', 90) >= 4.5,
+    summary: S => `미국 10년물 ${S.fmt('us10y')}% — 3개월 전에도 ${S.ago('us10y', 90).toFixed(2)}%`,
+    points: [
+      '신규 투자: 장기금리 + 위험 가산금리가 요구수익률 — 회수기간이 길고 수익성 낮은 사업부터 착공이 어려워짐',
+      '차환 부담: 금리가 더 오르지 않아도 저금리 고정부채가 만기 때 현재 금리로 바뀜 (1조 원 3%→8%면 연 이자 300억→800억)',
+      '자산가치: 할인율 상승 → 담보가치 하락 → 차환 한도 축소, 모자란 원금은 증자·자산 매각으로 메워야 함',
+      '공기가 긴 사업(원전·인프라·데이터센터)은 1년 지연이 IRR과 현금을 크게 깎음'
+    ],
+    check: '향후 차환액 · 고정/변동금리 비중 · 1년 지연 시 추가 자금 · 지연 비용 부담 주체',
+    watch: ['us10y', 'real10y', 'hy_spread', 'mortgage', 'etf_kre', 'etf_itb'] },
+
+  { priority: 95, title: '신용 여건 악화 조짐',
+    test: S => S.lvl('hy_spread') >= 1 || (S.up('hy_spread') && S.pos('hy_spread') >= 70) || (S.down('etf_kre') && S.up('nfci')),
+    summary: S => `하이일드 스프레드 ${S.fmt('hy_spread')}%p (1개월 ${S.m1t('hy_spread')})`,
+    points: [
+      '스프레드 확대 = 저신용 기업의 차환 비용 상승',
+      '금융기관이 대출 조건을 강화하면 멀쩡한 사업의 조달도 막히는 악순환 가능',
+      '지역은행(KRE) 약세가 겹치면 부동산·중소기업 대출 위축 신호'
+    ],
+    check: '관심 기업의 신용등급과 1~2년 내 만기 부채 규모',
+    watch: ['hy_spread', 'ig_spread', 'etf_kre', 'etf_hyg', 'nfci', 'stlfsi'] },
+
+  { priority: 90, title: '경기 둔화 신호',
+    test: S => S.slowCount() >= 2,
+    summary: S => `고용·경기 지표 중 둔화 신호 ${S.slowCount()}개`,
+    points: [
+      '고용 둔화는 가계 소득·소비 약화로 번지기 쉬움',
+      '기업은 금융비용과 수요 둔화를 동시에 겪을 수 있음 — 현금이 부족한 곳부터 채용·투자 축소',
+      '과거 침체 초기에는 장단기 금리차가 역전에서 정상화되는 경우가 많았음'
+    ],
+    check: '다음 고용·소매판매 발표, 기업 실적의 수요 관련 언급',
+    watch: ['us_unemp', 'sahm', 'claims', 'payems', 'retail', 'umcsent', 'copper'] },
+
+  { priority: 85, title: '물가 재가속 압력',
+    test: S => [S.up('wti') || S.up('brent'), S.up('diesel') || S.up('gasoline'), S.up('bei10y'),
+                S.lvl('us_core_pce') >= 1 || S.lvl('us_cpi') >= 1, S.up('bdry') || S.lvl('freight_ppi') >= 1].filter(Boolean).length >= 3,
+    summary: S => `근원 PCE ${S.fmt('us_core_pce')}%, 디젤 1개월 ${S.m1t('diesel')}`,
+    points: [
+      '에너지·운임 상승은 시차를 두고 소비자물가로 전가',
+      '물가 압력이 남으면 금리 인하 기대가 약해져 고금리 장기화와 맞물림',
+      '요금을 쉽게 못 올리는 부문(공공요금·생활 인프라)일수록 수익성 압박'
+    ],
+    check: '다음 CPI·PCE 발표, 기업의 원가 전가 여부',
+    watch: ['wti', 'diesel', 'bei10y', 'us_core_pce', 'freight_ppi', 'bdry'] },
+
+  { priority: 80, title: '달러 강세·원화 약세 압력',
+    test: S => S.lvl('usdkrw') >= 1 || S.pos('usdkrw') >= 85 || (S.up('dxy') && S.pos('dxy') >= 70),
+    summary: S => `원/달러 ${S.fmt('usdkrw')}원 (1개월 ${S.m1t('usdkrw')})`,
+    points: [
+      '수입물가·원자재의 원화 가격 상승 → 국내 물가 부담',
+      '외화 부채가 있는 기업은 원리금 부담 증가, 수출기업은 환산 이익',
+      '해외자산은 원화 환산 가치 증가 — 환헤지 여부에 따라 결과가 갈림'
+    ],
+    check: '환노출 규모, 외화 지출 일정',
+    watch: ['usdkrw', 'dxy', 'usdjpy', 'usdcny', 'etf_ewy'] },
+
+  { priority: 75, title: '석유 재고 완충 축소',
+    test: S => (S.down('us_spr') || S.pos('us_spr') <= 15) && S.pos('us_crude') <= 30 && (S.up('wti') || S.up('brent')),
+    summary: S => `SPR ${S.fmt('us_spr')}백만 bbl, 상업 재고 ${S.fmt('us_crude')}백만 bbl`,
+    points: [
+      '전략·상업 재고가 모두 낮으면 공급 충격 때 가격 변동폭이 커짐',
+      'SPR 방출은 일시적 완충 — 나중의 재비축 매입은 수요 요인',
+      '디젤 재고가 낮으면 물류·농업 비용으로 먼저 전가'
+    ],
+    check: '매주 수요일 EIA 재고 발표, 산유국 회의 일정',
+    watch: ['us_spr', 'us_crude', 'us_distill', 'wti', 'diesel'] },
+
+  { priority: 78, title: '겨울철 가스 저장량 부족',
+    test: S => [9, 10, 11, 12, 1, 2, 3].includes(new Date().getMonth() + 1) && S.season('ng_storage') <= -5,
+    summary: S => `미국 가스 저장량 ${S.fmt('ng_storage')}Bcf — 평년 대비 ${S.season('ng_storage').toFixed(1)}%`,
+    points: [
+      '저장량이 평년보다 적은 채 겨울에 들어가면 한파 때 가격이 급등하기 쉬움',
+      '가스 가격은 전력 요금·비료·화학 원가로 이어짐',
+      '유럽 저장률·LNG 수출 흐름과 함께 보면 국제 가스 가격 방향을 가늠할 수 있음'
+    ],
+    check: '매주 목요일 EIA 저장량, 장기 기상 전망',
+    watch: ['ng_storage', 'natgas'] },
+
+  { priority: 76, title: '정제 병목',
+    test: S => S.lvl('refinery_util') >= 1 && S.season('us_distill') <= -5 && (S.up('diesel') || S.up('gasoline')),
+    summary: S => `정제 가동률 ${S.fmt('refinery_util')}%, 디젤 재고 평년 대비 ${S.season('us_distill').toFixed(1)}%`,
+    points: [
+      '원유보다 정제 설비가 병목이면 휘발유·디젤 가격이 원유보다 더 크게 오름',
+      '디젤 비용은 물류·농업·건설 원가로 빠르게 전가',
+      '정비 시즌(봄·가을)인지, 설비 사고인지에 따라 지속 기간이 다름'
+    ],
+    check: '매주 수요일 EIA 가동률·제품 재고',
+    watch: ['refinery_util', 'us_distill', 'us_gasoline', 'diesel', 'gasoline'] },
+
+  { priority: 70, title: '낙관 국면 (위험 가격이 낮음)',
+    test: S => S.pos('vix') <= 15 && S.pos('hy_spread') <= 20,
+    summary: S => `VIX ${S.fmt('vix')}, 하이일드 스프레드 ${S.fmt('hy_spread')}%p — 모두 최근 분포 하단`,
+    points: [
+      '변동성과 신용 스프레드가 함께 낮음 — 위험에 붙는 값이 싼 상태',
+      '충격이 오면 낮은 출발점에서 급등하기 쉬움',
+      '레버리지·집중도를 점검해 두기 좋은 시기'
+    ],
+    watch: ['vix', 'hy_spread', 'sp500', 'etf_hyg'] }
+];
+
 /* =====================================================================
  * 이하 앱 로직 — 보통은 수정할 필요 없음
  * ===================================================================== */
 const IND = Object.fromEntries(CONFIG.indicators.map(i => [i.id, i]));
 const SIGNAL_LABEL = ['양호', '주의', '경고'];
-const SOURCE_LABEL = { FRED: 'FRED', Yahoo: 'Yahoo', ECOS: '한국은행', manual: '직접 입력', import: '직접 입력', derived: '자동 계산', sample: '샘플' };
+const SOURCE_LABEL = { FRED: 'FRED', Yahoo: 'Yahoo', ECOS: '한국은행', EIA: 'EIA', Eurostat: 'Eurostat', manual: '직접 입력', import: '직접 입력', derived: '자동 계산', sample: '샘플' };
 const RANGES = [['1M', 31], ['3M', 92], ['6M', 183], ['1Y', 366], ['2Y', 731], ['5Y', 1827], ['10Y', 3653]];
 const $ = sel => document.querySelector(sel);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -1011,6 +1229,20 @@ function valueAgo(history, days) {
 }
 
 /** 최근 N년 분포에서의 위치(0~100, 높을수록 큰 값)와 주의·경고선 값 */
+/** 주간 자동 데이터: 같은 주(±4일)의 과거 5년 평균과 비교 */
+function seasonalInfo(a) {
+  if (a.freq !== 'W' || a.cur.source !== 'auto') return null;
+  const t = Date.parse(a.cur.date), vals = [];
+  for (let k = 1; k <= 5; k++) {
+    const target = t - k * 364 * DAY;
+    const e = a.history.find(x => Math.abs(Date.parse(x.date) - target) <= 4 * DAY);
+    if (e) vals.push(e.value);
+  }
+  if (vals.length < 3) return null;
+  const avg = vals.reduce((x, y) => x + y, 0) / vals.length;
+  return { avg, years: vals.length, dev: avg ? (a.value - avg) / Math.abs(avg) * 100 : NaN };
+}
+
 function percentileInfo(ind, a) {
   if (!a.freq || a.cur.source !== 'auto') return null;
   const years = CONFIG.percentileYears[a.freq] || 2;
@@ -1037,9 +1269,16 @@ function analyze(ind) {
   // ── 수준 신호 ──
   const L = ind.level;
   a.pctl = a.isSample ? null : percentileInfo(ind, a);
+  a.season = a.isSample ? null : seasonalInfo(a);
   a.lvl = 0;
   if (L) {
-    if (a.pctl && CONFIG.levelMode === 'percentile' && !L.fixed) {
+    if (L.seasonal && a.season) {
+      // 계절성이 큰 재고: 같은 주 5년 평균 대비 % 로 판단
+      const sw = L.seasonal, d = a.season.dev;
+      a.lvl = L.dir === 'down' ? (d <= sw.danger ? 2 : d <= sw.warn ? 1 : 0) : (d >= sw.danger ? 2 : d >= sw.warn ? 1 : 0);
+      a.levelMode = 'seasonal';
+      a.levelLines = [{ k: 'warn', v: a.season.avg * (1 + sw.warn / 100) }, { k: 'danger', v: a.season.avg * (1 + sw.danger / 100) }];
+    } else if (a.pctl && CONFIG.levelMode === 'percentile' && !L.fixed) {
       const P = CONFIG.percentile;
       const pos = L.dir === 'down' ? 100 - a.pctl.rank : a.pctl.rank;   // '나쁜 쪽'으로 얼마나 치우쳤나
       a.lvl = pos >= P.danger ? 2 : pos >= P.warn ? 1 : 0;
@@ -1111,6 +1350,9 @@ function positionText(a) {
   if (top <= 50) return `${yrs} 중 상위 ${Math.max(1, Math.round(top))}%`;
   return `${yrs} 중 하위 ${Math.max(1, Math.round(a.pctl.rank))}%`;
 }
+function seasonText(a) {
+  return a.season ? `평년 대비 ${fmtSigned(a.season.dev, 1)}%` : '';
+}
 function m1Text(a) {
   if (!a.m1) return '';
   const ind = a.ind;
@@ -1141,24 +1383,47 @@ function analyzeAll() {
   return map;
 }
 
-function buildChecklist(R) {
+function makeS(R) {
   const all = Object.values(R);
+  const A = id => R[id] || {};
   const S = {
     total: all.length,
-    has: id => !!(R[id] && R[id].cur),
-    v: id => (R[id] ? R[id].value : null),
-    sig: id => (R[id] && R[id].signal != null ? R[id].signal : -1),
-    lvl: id => (R[id] && R[id].lvl != null ? R[id].lvl : -1),
-    trend: id => (R[id] ? R[id].trend : null),
-    up: id => ['rise', 'surge'].includes(R[id] && R[id].trend),
-    down: id => ['fall', 'plunge'].includes(R[id] && R[id].trend),
-    surge: id => (R[id] && R[id].trend) === 'surge',
-    plunge: id => (R[id] && R[id].trend) === 'plunge',
+    has: id => !!A(id).cur,
+    v: id => (A(id).value != null ? A(id).value : null),
+    sig: id => (A(id).signal != null ? A(id).signal : -1),
+    lvl: id => (A(id).lvl != null ? A(id).lvl : -1),
+    trend: id => A(id).trend || null,
+    up: id => ['rise', 'surge'].includes(A(id).trend),
+    down: id => ['fall', 'plunge'].includes(A(id).trend),
+    surge: id => A(id).trend === 'surge',
+    plunge: id => A(id).trend === 'plunge',
     count: (ids, fn) => ids.filter(fn).length,
+    pos: id => (A(id).pctl ? A(id).pctl.rank : NaN),               // 없으면 NaN → 비교식은 항상 거짓
+    season: id => (A(id).season ? A(id).season.dev : NaN),         // 같은 주 5년 평균 대비 %
+    ago: (id, days) => { const h = A(id).history; if (!h || !h.length) return NaN; const e = valueAgo(h, days); return e ? e.value : NaN; },
+    fmt: id => (A(id).cur ? fmt(A(id).value, A(id).ind.dp) : '-'),
+    m1t: id => (A(id).m1 ? m1Text(A(id)).replace(/^1개월 /, '') : '-'),
     redCount: all.filter(a => a.signal === 2).length,
     staleCount: all.filter(a => a.stale).length,
     missingCount: all.filter(a => !a.cur).length
   };
+  S.slowCount = () => [S.lvl('sahm') >= 1, S.up('claims'), S.lvl('payems') >= 1, S.down('copper'),
+                       S.pos('umcsent') <= 15, S.up('us_unemp')].filter(Boolean).length;
+  return S;
+}
+
+function buildInsights(R) {
+  const S = makeS(R);
+  return INSIGHTS.filter(r => safeTest(r, S)).sort((x, y) => y.priority - x.priority).slice(0, CONFIG.insightMax)
+    .map(r => {
+      let summary = '';
+      try { summary = typeof r.summary === 'function' ? r.summary(S) : (r.summary || ''); } catch (e) {}
+      return { title: r.title, summary, points: r.points || [], check: r.check, watch: (r.watch || []).filter(id => IND[id]) };
+    });
+}
+
+function buildChecklist(R) {
+  const S = makeS(R);
   const pick = rules => rules
     .sort((x, y) => y.priority - x.priority)
     .map(r => ({ text: typeof r.text === 'function' ? r.text(S) : r.text, why: r.why }));
@@ -1192,6 +1457,18 @@ function render() {
     return `<li class="${isDone ? 'done' : ''}"><label for="${id}"><input type="checkbox" id="${id}" data-check="${esc(item.text)}" ${isDone ? 'checked' : ''}>
       <span class="box" aria-hidden="true"></span><span class="txt">${esc(item.text)}<span class="why">${esc(item.why || '')}</span></span></label></li>`;
   }).join('');
+
+  const ins = buildInsights(R);
+  $('#insights').innerHTML = ins.length ? ins.map((it, i) => `
+    <details class="insight" ${i === 0 ? 'open' : ''}>
+      <summary><b>${esc(it.title)}</b>${it.summary ? `<span>${esc(it.summary)}</span>` : ''}</summary>
+      <ul>${it.points.map(t => `<li>${esc(t)}</li>`).join('')}</ul>
+      ${it.check ? `<p class="check"><b>점검</b> ${esc(it.check)}</p>` : ''}
+      ${it.watch.length ? `<div class="chips">${it.watch.map(id => {
+        const a = R[id], sg = a && a.signal != null ? 's' + a.signal : '';
+        return `<button type="button" data-edit="${id}"><span class="dot ${sg}" aria-hidden="true"></span>${esc(IND[id].name)}</button>`;
+      }).join('')}</div>` : ''}
+    </details>`).join('') : '<p class="hint" style="margin:0">지금은 여러 지표가 함께 가리키는 두드러진 흐름이 없습니다. 개별 지표 추이만 확인하세요.</p>';
 
   $('#tabs').innerHTML = CONFIG.categories.map(cat => {
     const sigs = all.filter(a => a.ind.cat === cat.id && a.signal != null).map(a => a.signal);
@@ -1263,7 +1540,7 @@ function cardHTML(a) {
     <div class="card-head"><div class="card-title">${title}</div><span class="light ${s}"><span class="dot ${s}"></span>${lightLabel}</span></div>
     <div class="value-row"><span class="value num">${fmt(a.value, ind.dp)}<span class="unit">${esc(ind.unit)}</span></span>${changeHTML(a)}${sparkSVG(a)}</div>
     <div class="meta">${badges}<span>${dateTxt}</span></div>
-    ${!a.isSample && (a.m1 || a.pctl) ? `<div class="meta" style="margin-top:2px">${[m1Text(a), positionText(a)].filter(Boolean).map(t => `<span>${esc(t)}</span>`).join('<span aria-hidden="true">·</span>')}</div>` : ''}
+    ${!a.isSample && (a.m1 || a.pctl || a.season) ? `<div class="meta" style="margin-top:2px">${[m1Text(a), a.season ? seasonText(a) : positionText(a)].filter(Boolean).map(t => `<span>${esc(t)}</span>`).join('<span aria-hidden="true">·</span>')}</div>` : ''}
     <div class="comment">${esc(a.comment || '')}</div>
   </button>`;
 }
@@ -1392,7 +1669,11 @@ function thresholdText(ind, a) {
   const u = ind.changeMode === 'pp' ? '%p' : ind.changeMode === 'abs' ? (ind.unit ? ' ' + ind.unit : '') : '%';
   const parts = [];
   if (ind.level) {
-    if (a && a.levelMode === 'percentile') {
+    if (a && a.levelMode === 'seasonal') {
+      const sw = ind.level.seasonal;
+      parts.push(`수준: 같은 주 과거 ${a.season.years}년 평균(${fmt(a.season.avg, ind.dp)}) 대비 — ${sw.warn}% 이하 주의, ${sw.danger}% 이하 경고`);
+      parts.push(`현재: ${seasonText(a)}`);
+    } else if (a && a.levelMode === 'percentile') {
       const side = ind.level.dir === 'down' ? '하위' : '상위';
       const P = CONFIG.percentile;
       parts.push(`수준: 최근 ${a.pctl.years}년 분포 기준 — ${side} ${100 - P.warn}% 주의(${fmt(a.levelLines[0].v, ind.dp)}), ${side} ${100 - P.danger}% 경고(${fmt(a.levelLines[1].v, ind.dp)})`);
