@@ -28,14 +28,14 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
 
       - id: pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: 이전 배포 데이터 받기 (이번에 실패한 지표는 이전 값 유지)
         run: curl -fsSL "${{ steps.pages.outputs.base_url }}/data/latest.json" -o previous.json || echo "이전 데이터 없음"
@@ -49,7 +49,7 @@ jobs:
       - name: 사이트 파일 구성
         run: cp -r index.html data.js manifest.json sw.js icons .nojekyll _site/
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: _site
 
@@ -61,4 +61,17 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
+
+  # 공개 저장소는 60일간 활동이 없으면 예약 실행이 자동으로 꺼집니다.
+  # 예약 실행 때마다 워크플로를 '활성화' API로 다시 켜 두어 멈추지 않게 합니다 (커밋 없음).
+  keepalive:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: 예약 실행 유지
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api --method PUT "repos/${{ github.repository }}/actions/workflows/update-data.yml/enable"

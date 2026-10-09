@@ -101,7 +101,12 @@ async function fetchYahoo(src) {
   if (!r || !r.timestamp) throw new Error((j && j.chart && j.chart.error && j.chart.error.description) || '응답 없음');
   const offset = (r.meta && r.meta.gmtoffset) || 0;   // 거래소 현지 날짜 기준
   const close = r.indicators.quote[0].close;
-  return r.timestamp.map((t, i) => [iso(new Date((t + offset) * 1000)), close[i] == null ? NaN : close[i]]);
+  let rows = r.timestamp.map((t, i) => [iso(new Date((t + offset) * 1000)), close[i] == null ? NaN : close[i]]);
+  // 정규장이 진행 중이면 오늘 봉은 종가가 아닌 장중 가격 → 제외하고 직전 종가까지만 사용
+  const reg = r.meta && r.meta.currentTradingPeriod && r.meta.currentTradingPeriod.regular;
+  const now = Date.now() / 1000;
+  if (reg && now >= reg.start && now < reg.end && r.timestamp[r.timestamp.length - 1] >= reg.start) rows = rows.slice(0, -1);
+  return rows;
 }
 
 /* ---------- 한국은행 ECOS ---------- */
