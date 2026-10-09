@@ -401,6 +401,7 @@ const CONFIG = {
     { id: 'market',    label: '시장·신용' },
     { id: 'fx',        label: '환율' },
     { id: 'energy',    label: '에너지' },
+    { id: 'freight',   label: '운임' },
     { id: 'metals',    label: '금속' },
     { id: 'grains',    label: '곡물' }
   ],
@@ -509,6 +510,18 @@ const CONFIG = {
       change: { dir: 'both', flat: 2, warn: 8, danger: 15 } },
     { id: 'coal', cat: 'energy', name: '석탄', sub: '호주 뉴캐슬, 월간', unit: '$/t', dp: 1, changeMode: 'pct', profile: 'coal',
       change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
+    { id: 'gasoline', cat: 'energy', name: '휘발유', sub: 'RBOB 선물 (RB=F)', unit: '$/gal', dp: 3, changeMode: 'pct', profile: 'gasoline',
+      level: { dir: 'up', warn: 2.8, danger: 3.2 }, change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
+    { id: 'diesel', cat: 'energy', name: '디젤', sub: '초저유황 경유 선물 (HO=F)', unit: '$/gal', dp: 3, changeMode: 'pct', profile: 'diesel',
+      level: { dir: 'up', warn: 3.0, danger: 3.5 }, change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
+
+    // ── 운임 ──
+    { id: 'bdry', cat: 'freight', name: '벌크선 운임', sub: 'BDRY ETF — BDI 대용, 지수 아님', unit: '$', dp: 2, changeMode: 'pct', profile: 'bulkFreight',
+      change: { dir: 'both', flat: 1, warn: 7, danger: 15 } },
+    { id: 'scfi', cat: 'freight', name: '컨테이너 운임 SCFI', sub: '상하이 컨테이너 운임지수, 직접 입력 (매주 금요일 발표)', unit: '', dp: 1, changeMode: 'pct', profile: 'containerFreight',
+      change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
+    { id: 'freight_ppi', cat: 'freight', name: '미국 원양 화물운송 PPI', sub: '전년비, 월간', unit: '%', dp: 1, changeMode: 'pp', profile: 'freightPpi',
+      level: { dir: 'up', warn: 10, danger: 20 }, change: { flat: 1 } },
 
     // ── 금속·광물 ──
     { id: 'copper', cat: 'metals', name: '구리', unit: '$/t', dp: 0, changeMode: 'pct', profile: 'copper',
@@ -761,6 +774,40 @@ const COMMENTS = {
     fall: '석탄 가격 하락 — 발전 원가 부담 완화 가능성',
     flat: '석탄 보합 — 큰 변동 없음'
   },
+  gasoline: {
+    surge: '휘발유 급등 — 소비자 유가·물가 상방 압력, 차량 연료비 점검',
+    rise: '휘발유 상승 — 소비자 물가·소비 여력 부담 가능성',
+    fall: '휘발유 하락 — 소비자 유가 부담 완화 가능성',
+    high: '휘발유 고가 구간 — 물가·소비 심리 영향 확인',
+    flat: '휘발유 보합 — 큰 변동 없음'
+  },
+  diesel: {
+    surge: '디젤 급등 — 운송·물류·농업 비용 부담 확대, 물가 전가 여부 확인',
+    rise: '디젤 상승 — 화물 운송·산업용 연료 비용 증가 가능성',
+    fall: '디젤 하락 — 물류·산업 연료 비용 부담 완화 가능성',
+    high: '디젤 고가 구간 — 물류비·생산원가 부담 점검',
+    flat: '디젤 보합 — 큰 변동 없음'
+  },
+  bulkFreight: {
+    surge: '벌크 운임 급등 — 원자재 해상 운송비 상승, 철광석·곡물 수입 원가 점검',
+    rise: '벌크 운임 상승 — 원자재 물동량 증가 또는 선박 공급 부족 반영 가능성',
+    plunge: '벌크 운임 급락 — 원자재 수요 둔화 반영 가능성',
+    fall: '벌크 운임 하락 — 원자재 운송비 부담 완화',
+    flat: '벌크 운임 보합 — 큰 변동 없음'
+  },
+  containerFreight: {
+    surge: '컨테이너 운임 급등 — 수출입 물류비 상승, 공급망 차질 여부 확인',
+    rise: '컨테이너 운임 상승 — 수입 원가·물류비 부담 증가 가능성',
+    fall: '컨테이너 운임 하락 — 물류비 부담 완화',
+    flat: '컨테이너 운임 보합 — 큰 변동 없음'
+  },
+  freightPpi: {
+    high: '해상운송 물가 급등 구간 — 수입 원가 전가 가능성 점검',
+    warn: '해상운송 물가 상승률 높음 — 물류비 부담 확인',
+    rise: '해상운송 물가 상승률 확대',
+    fall: '해상운송 물가 상승률 둔화',
+    flat: '해상운송 물가 흐름 유지'
+  },
   copper: {
     surge: '경기 기대 반영 가능성, 제조업 원가 부담 점검',
     rise: '구리 상승 — 경기 회복 기대 반영 가능성',
@@ -826,7 +873,7 @@ const CHECKLIST = [
     text: '신용 스프레드 확대 — 저등급 채권·레버리지 노출 점검', why: '하이일드 스프레드 확대' },
   { priority: 90,  test: S => (S.up('us10y') || S.up('us2y')) && (S.up('dxy') || S.up('usdkrw')), text: '환율·수입 원가 점검', why: '금리 상승 + 달러 강세' },
   { priority: 88,  test: S => S.plunge('usdjpy'), text: '엔화 급강세 — 엔캐리 청산 등 위험회피 흐름 확인', why: '엔/달러 급락' },
-  { priority: 85,  test: S => (S.up('wti') || S.up('brent')) && (S.lvl('us_cpi') >= 1 || S.lvl('kr_cpi') >= 1 || S.up('bei10y')),
+  { priority: 85,  test: S => (S.up('wti') || S.up('brent') || S.up('gasoline') || S.up('diesel')) && (S.lvl('us_cpi') >= 1 || S.lvl('kr_cpi') >= 1 || S.up('bei10y')),
     text: '물가 재가속 가능성 — 물가 발표 일정·실질금리 확인', why: '유가 상승 + 물가·기대인플레이션 부담' },
   { priority: 80,  test: S => S.lvl('usdkrw') >= 1 || S.surge('usdkrw'), text: '해외자산 환노출·외화 지출 시점 점검', why: '원/달러 높은 수준 또는 급변' },
   { priority: 75,  test: S => S.up('us_unemp') || S.lvl('us_unemp') >= 1 || S.lvl('claims') >= 1 || S.surge('claims') || S.lvl('payems') >= 1,
@@ -837,7 +884,9 @@ const CHECKLIST = [
   { priority: 65,  test: S => S.up('copper') && !S.up('gold'), text: '경기 기대 신호 — 제조업 지표와 함께 해석', why: '구리 상승, 금 상승 없음' },
   { priority: 62,  test: S => S.lvl('nfci') >= 1 || S.lvl('stlfsi') >= 1, text: '금융여건 긴축 — 자금 조달·유동성 점검', why: '금융여건·스트레스 지수 평균 상회' },
   { priority: 60,  test: S => S.count(['wheat', 'corn', 'soybean'], S.up) >= 2, text: '곡물 가격 동반 상승 — 식품 원가·물가 영향 점검', why: '곡물 2개 이상 상승' },
-  { priority: 58,  test: S => S.count(['wti', 'brent', 'natgas', 'coal'], id => S.surge(id) || S.plunge(id)) >= 1, text: '에너지 가격 급변 — 운송·전력 원가 영향 점검', why: '에너지 급등락' },
+  { priority: 58,  test: S => S.count(['wti', 'brent', 'natgas', 'coal', 'gasoline', 'diesel'], id => S.surge(id) || S.plunge(id)) >= 1, text: '에너지 가격 급변 — 운송·전력 원가 영향 점검', why: '에너지 급등락' },
+  { priority: 57,  test: S => S.surge('bdry') || S.surge('scfi') || S.lvl('freight_ppi') >= 1 || (S.up('diesel') && (S.up('bdry') || S.up('scfi'))),
+    text: '운임·물류비 상승 — 수입 원가·물류비 영향 점검', why: '해상 운임 또는 디젤 가격 상승' },
   { priority: 55,  test: S => S.count(['copper', 'aluminum', 'nickel', 'lithium', 'iron_ore'], id => S.surge(id) || S.plunge(id)) >= 1, text: '산업금속 급변 — 제조업 원가·재고 부담 점검', why: '산업금속 급등락' },
   { priority: 50,  test: S => S.redCount >= 3, text: S => `경고 지표 ${S.redCount}개 — 전체 위험 노출 규모 점검`, why: '빨간불 3개 이상' },
   // 기본 항목 (개수가 모자랄 때)
