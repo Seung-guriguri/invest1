@@ -1,0 +1,994 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>매크로 대시보드</title>
+<meta name="description" content="금리·물가·환율·원자재 지표를 한눈에 보는 개인용 대시보드">
+<meta name="theme-color" content="#f4f5f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="매크로">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f4f5f7;
+    --surface: #ffffff;
+    --surface-2: #eef0f3;
+    --text: #15181d;
+    --text-2: #5d6471;
+    --border: #dfe2e7;
+    --accent: #2f5bd3;
+    --accent-text: #ffffff;
+    --green: #198a4a;   --green-bg: #e2f4e9;
+    --yellow: #a87800;  --yellow-bg: #fff3d1;
+    --red: #cf2e2e;     --red-bg: #fde4e4;
+    --grey: #8a919c;    --grey-bg: #eceef1;
+    --sample: #6b4fd8;  --sample-bg: #efeafe;
+    --shadow: 0 1px 2px rgba(16, 24, 40, .06);
+    --radius: 14px;
+    --footer-h: 44px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #0f1115; --surface: #181b21; --surface-2: #22262e;
+      --text: #e9ebef; --text-2: #9ca3af; --border: #2b3039;
+      --accent: #7f9dff; --accent-text: #0f1115;
+      --green: #45d17f; --green-bg: rgba(69, 209, 127, .14);
+      --yellow: #f3c34f; --yellow-bg: rgba(243, 195, 79, .14);
+      --red: #ff6f6f; --red-bg: rgba(255, 111, 111, .14);
+      --grey: #7d8490; --grey-bg: rgba(125, 132, 144, .16);
+      --sample: #b3a1ff; --sample-bg: rgba(179, 161, 255, .14);
+      --shadow: none;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0f1115; --surface: #181b21; --surface-2: #22262e;
+    --text: #e9ebef; --text-2: #9ca3af; --border: #2b3039;
+    --accent: #7f9dff; --accent-text: #0f1115;
+    --green: #45d17f; --green-bg: rgba(69, 209, 127, .14);
+    --yellow: #f3c34f; --yellow-bg: rgba(243, 195, 79, .14);
+    --red: #ff6f6f; --red-bg: rgba(255, 111, 111, .14);
+    --grey: #7d8490; --grey-bg: rgba(125, 132, 144, .16);
+    --sample: #b3a1ff; --sample-bg: rgba(179, 161, 255, .14);
+    --shadow: none;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.45;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button, input, select { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  .wrap { max-width: 480px; margin: 0 auto; padding: 0 16px; }
+  .num { font-variant-numeric: tabular-nums; }
+  [hidden] { display: none !important; }
+
+  /* 상단 바 */
+  .topbar {
+    display: flex; align-items: center; gap: 8px;
+    padding-top: calc(12px + env(safe-area-inset-top)); padding-bottom: 8px;
+  }
+  .topbar h1 { font-size: 20px; margin: 0; letter-spacing: -.3px; }
+  .topbar .sub { margin: 0; font-size: 13px; color: var(--text-2); }
+  .topbar .grow { flex: 1; min-width: 0; }
+  .icon-btn {
+    border: 1px solid var(--border); background: var(--surface); border-radius: 10px;
+    height: 38px; min-width: 38px; padding: 0 10px; display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+    font-size: 14px;
+  }
+  .icon-btn svg { width: 18px; height: 18px; }
+
+  /* 샘플 배너 */
+  .banner {
+    background: var(--sample-bg); color: var(--sample); border: 1px dashed var(--sample);
+    border-radius: var(--radius); padding: 10px 12px; margin: 4px 0 12px; font-size: 13.5px;
+    display: flex; gap: 10px; align-items: center;
+  }
+  .banner b { font-weight: 700; }
+  .banner .grow { flex: 1; }
+  .banner button { border: 0; background: var(--sample); color: var(--surface); border-radius: 8px; padding: 6px 10px; font-size: 13px; white-space: nowrap; }
+
+  /* 요약 */
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 14px; }
+  .counts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 12px; }
+  .count { border-radius: 10px; padding: 8px 4px; text-align: center; background: var(--surface-2); }
+  .count b { display: block; font-size: 18px; line-height: 1.2; }
+  .count span { font-size: 12px; color: var(--text-2); }
+  .count.red b { color: var(--red); } .count.yellow b { color: var(--yellow); } .count.green b { color: var(--green); } .count.stale b { color: var(--text-2); }
+  .panel h2 { font-size: 15px; margin: 0 0 8px; display: flex; align-items: center; gap: 6px; }
+  .checklist { list-style: none; margin: 0; padding: 0; }
+  .checklist li { display: flex; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border); }
+  .checklist li:first-child { border-top: 0; padding-top: 2px; }
+  .checklist .box { flex: 0 0 18px; height: 18px; border: 2px solid var(--text-2); border-radius: 5px; margin-top: 2px; }
+  .checklist li.done .box { background: var(--accent); border-color: var(--accent); }
+  .checklist li.done .txt { text-decoration: line-through; color: var(--text-2); }
+  .checklist .txt { font-size: 14.5px; }
+  .checklist .why { display: block; font-size: 12px; color: var(--text-2); margin-top: 1px; }
+  .checklist label { display: flex; gap: 10px; cursor: pointer; width: 100%; }
+  .checklist input { position: absolute; opacity: 0; pointer-events: none; }
+
+  /* 탭 */
+  .tabs-bar { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 10px 0 8px; margin-top: 12px; }
+  .tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab {
+    flex: 0 0 auto; border: 1px solid var(--border); background: var(--surface); border-radius: 999px;
+    padding: 7px 14px; font-size: 14px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  }
+  .tab[aria-selected="true"] { background: var(--text); color: var(--bg); border-color: var(--text); font-weight: 600; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--grey); flex: 0 0 8px; }
+  .dot.s0 { background: var(--green); } .dot.s1 { background: var(--yellow); } .dot.s2 { background: var(--red); }
+
+  /* 카드 */
+  .cards { display: grid; gap: 10px; padding-bottom: calc(var(--footer-h) + 24px + env(safe-area-inset-bottom)); }
+  .card {
+    position: relative; background: var(--surface); border: 1px solid var(--border); border-left-width: 4px;
+    border-radius: var(--radius); box-shadow: var(--shadow); padding: 12px 14px; text-align: left; width: 100%;
+  }
+  .card.s0 { border-left-color: var(--green); } .card.s1 { border-left-color: var(--yellow); } .card.s2 { border-left-color: var(--red); } .card.sn { border-left-color: var(--grey); }
+  .card.sample { background-image: repeating-linear-gradient(-45deg, transparent 0 14px, var(--sample-bg) 14px 28px); }
+  .card-head { display: flex; align-items: flex-start; gap: 8px; }
+  .card-title { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 600; }
+  .card-title small { display: block; font-weight: 400; color: var(--text-2); font-size: 12px; }
+  .light { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 600; border-radius: 999px; padding: 3px 9px 3px 7px; }
+  .light.s0 { color: var(--green); background: var(--green-bg); }
+  .light.s1 { color: var(--yellow); background: var(--yellow-bg); }
+  .light.s2 { color: var(--red); background: var(--red-bg); }
+  .light.sn { color: var(--grey); background: var(--grey-bg); }
+  .value-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin: 6px 0 4px; }
+  .value { font-size: 26px; font-weight: 700; letter-spacing: -.5px; line-height: 1.15; }
+  .value .unit { font-size: 13px; font-weight: 500; color: var(--text-2); margin-left: 3px; letter-spacing: 0; }
+  .card.sample .value { color: var(--sample); }
+  .change { font-size: 14px; font-weight: 600; color: var(--text-2); }
+  .change .pct { font-weight: 400; }
+  .meta { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12px; color: var(--text-2); align-items: center; }
+  .badge { display: inline-block; font-size: 11.5px; font-weight: 700; padding: 1px 7px; border-radius: 6px; }
+  .badge.sample { color: var(--sample); background: var(--sample-bg); border: 1px dashed var(--sample); }
+  .badge.stale { color: var(--red); background: var(--red-bg); }
+  .badge.auto { color: var(--text-2); background: var(--surface-2); }
+  .comment { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); font-size: 13.5px; }
+  .empty { color: var(--text-2); font-size: 14px; }
+
+  /* 하단 고정 문구 */
+  .disclaimer {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+    background: var(--surface); border-top: 1px solid var(--border);
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); text-align: center;
+    font-size: 12.5px; color: var(--text-2);
+  }
+
+  /* 설정 화면 */
+  .view { position: fixed; inset: 0; z-index: 30; background: var(--bg); overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .view .topbar { position: sticky; top: 0; background: var(--bg); z-index: 2; }
+  .view-body { padding-bottom: calc(var(--footer-h) + 32px + env(safe-area-inset-bottom)); display: grid; gap: 14px; }
+  .section h2 { font-size: 16px; margin: 0 0 4px; }
+  .hint { font-size: 12.5px; color: var(--text-2); margin: 0 0 10px; }
+  .field { display: grid; gap: 4px; margin-bottom: 10px; }
+  .field > span { font-size: 13px; color: var(--text-2); }
+  input[type="number"], input[type="date"], input[type="text"], input[type="password"], input[type="url"], select {
+    width: 100%; min-width: 0; height: 42px; padding: 0 10px; border: 1px solid var(--border); border-radius: 10px;
+    background: var(--surface-2); font-size: 16px; /* 16px 미만이면 iOS가 확대함 */
+  }
+  input:focus, select:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .btn { border: 1px solid var(--border); background: var(--surface-2); border-radius: 10px; padding: 0 14px; height: 42px; font-size: 14.5px; font-weight: 600; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  .btn.danger { color: var(--red); }
+  .btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .btn-row .btn { flex: 1 1 auto; }
+  .bulk-group h3 { font-size: 13px; color: var(--text-2); margin: 14px 0 6px; font-weight: 600; }
+  .bulk-row { display: grid; grid-template-columns: minmax(0, 1fr) 130px; align-items: center; gap: 8px; padding: 4px 0; }
+  .bulk-row label { font-size: 14px; }
+  .bulk-row label small { display: block; color: var(--text-2); font-size: 11.5px; }
+  .log { font-size: 12px; color: var(--text-2); white-space: pre-wrap; margin: 8px 0 0; max-height: 160px; overflow: auto; }
+
+  /* 편집 시트 */
+  dialog.sheet {
+    border: 0; padding: 0; width: 100%; max-width: 480px; margin: auto auto 0; max-height: 88vh;
+    border-radius: 18px 18px 0 0; background: var(--surface); color: var(--text);
+  }
+  dialog.sheet::backdrop { background: rgba(0, 0, 0, .45); }
+  .sheet-inner { padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); }
+  .sheet-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .sheet-head h2 { flex: 1; margin: 0; font-size: 17px; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .thresholds { font-size: 12.5px; color: var(--text-2); background: var(--surface-2); border-radius: 10px; padding: 8px 10px; margin: 8px 0 12px; }
+  .history { list-style: none; padding: 0; margin: 6px 0 0; }
+  .history li { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-top: 1px solid var(--border); font-size: 14px; }
+  .history li .grow { flex: 1; }
+  .history .del { border: 0; background: none; color: var(--red); font-size: 13px; padding: 4px 6px; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: calc(var(--footer-h) + 20px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+    background: var(--text); color: var(--bg); padding: 9px 14px; border-radius: 10px; font-size: 14px; z-index: 50;
+    max-width: calc(100% - 32px); box-shadow: 0 4px 16px rgba(0, 0, 0, .2);
+  }
+</style>
+</head>
+<body>
+
+<!-- ===================== 메인 화면 ===================== -->
+<div id="mainView">
+  <header class="wrap topbar">
+    <div class="grow">
+      <h1>매크로 대시보드</h1>
+      <p class="sub" id="todayLabel"></p>
+    </div>
+    <button class="icon-btn" id="btnRefresh" hidden aria-label="자동 조회">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>
+    </button>
+    <button class="icon-btn" id="btnSettings" aria-label="설정 및 값 입력">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+      입력·설정
+    </button>
+  </header>
+
+  <main class="wrap">
+    <div class="banner" id="sampleBanner" hidden>
+      <div class="grow"><b>샘플 데이터 표시 중</b> — 화면 예시용 가짜 값이며 실제 시세가 아닙니다.</div>
+      <button type="button" data-action="go-settings">값 입력</button>
+    </div>
+
+    <section class="panel" aria-label="요약">
+      <div class="counts" id="counts"></div>
+      <h2>오늘의 체크리스트</h2>
+      <ul class="checklist" id="checklist"></ul>
+    </section>
+
+    <div class="tabs-bar">
+      <nav class="tabs" role="tablist" id="tabs" aria-label="카테고리"></nav>
+    </div>
+
+    <section class="cards" id="cards" role="tabpanel" aria-live="polite"></section>
+  </main>
+</div>
+
+<!-- ===================== 설정 화면 ===================== -->
+<div class="view" id="settingsView" hidden>
+  <header class="wrap topbar">
+    <button class="icon-btn" data-action="go-home" aria-label="뒤로">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <div class="grow"><h1>입력 · 설정</h1></div>
+  </header>
+
+  <div class="wrap view-body">
+    <section class="panel section">
+      <h2>값 일괄 입력</h2>
+      <p class="hint">입력한 칸만 저장됩니다. 저장하면 기존 현재 값은 자동으로 "직전 값"이 됩니다. 같은 기준일로 다시 저장하면 덮어씁니다. 지표 카드를 누르면 개별 수정·이력 삭제가 가능합니다.</p>
+      <label class="field"><span>기준일 (모든 칸 공통)</span><input type="date" id="bulkDate"></label>
+      <form id="bulkForm"></form>
+      <div class="btn-row" style="margin-top:12px"><button class="btn primary" id="btnBulkSave" type="button">저장</button></div>
+    </section>
+
+    <section class="panel section">
+      <h2>백업</h2>
+      <p class="hint">데이터는 이 기기 브라우저(localStorage)에만 저장됩니다. 기기 변경·브라우저 데이터 삭제 전에 내보내 두세요. API 키는 백업 파일에 포함되지 않습니다.</p>
+      <div class="btn-row">
+        <button class="btn" id="btnExport" type="button">JSON 내보내기</button>
+        <button class="btn" id="btnImport" type="button">JSON 불러오기</button>
+        <input type="file" id="importFile" accept="application/json,.json" hidden>
+      </div>
+    </section>
+
+    <section class="panel section">
+      <h2>자동 조회 (선택)</h2>
+      <p class="hint">FRED API 키를 넣으면 미국 금리·CPI·실업률·VIX·유가·원/달러 등 일부 지표를 자동으로 가져옵니다. 키는 이 기기 localStorage에만 저장됩니다. 브라우저 보안(CORS) 때문에 직접 호출이 막히면 프록시 URL이 필요합니다(README 참고).</p>
+      <label class="field"><span>FRED API 키</span><input type="password" id="fredKey" autocomplete="off" spellcheck="false" placeholder="32자리 키"></label>
+      <label class="field"><span>프록시 URL (선택) — 예: https://내워커.workers.dev/?url={url}</span><input type="url" id="proxyUrl" autocomplete="off" spellcheck="false" placeholder="비워두면 직접 호출"></label>
+      <div class="btn-row">
+        <button class="btn" id="btnSaveApi" type="button">저장</button>
+        <button class="btn primary" id="btnFetchNow" type="button">지금 조회</button>
+      </div>
+      <pre class="log" id="fetchLog"></pre>
+    </section>
+
+    <section class="panel section">
+      <h2>화면</h2>
+      <label class="field"><span>테마</span>
+        <select id="themeSelect">
+          <option value="system">시스템 설정 따름</option>
+          <option value="light">라이트</option>
+          <option value="dark">다크</option>
+        </select>
+      </label>
+    </section>
+
+    <section class="panel section">
+      <h2>데이터 관리</h2>
+      <p class="hint">신호등 임계값·코멘트·체크리스트 규칙은 index.html 상단의 <code>CONFIG</code> 객체에서 수정합니다.</p>
+      <div class="btn-row">
+        <button class="btn" id="btnSample" type="button">샘플 데이터 불러오기</button>
+        <button class="btn danger" id="btnClear" type="button">전체 삭제</button>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- ===================== 지표 편집 시트 ===================== -->
+<dialog class="sheet" id="editSheet" aria-labelledby="editTitle">
+  <div class="sheet-inner">
+    <div class="sheet-head">
+      <h2 id="editTitle"></h2>
+      <button class="icon-btn" type="button" data-action="close-sheet" aria-label="닫기">✕</button>
+    </div>
+    <div id="editBody"></div>
+  </div>
+</dialog>
+
+<footer class="disclaimer" role="note">정보 정리용이며 투자 권유나 매매 판단이 아닙니다.</footer>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script src="data.js"></script>
+<script>
+'use strict';
+
+/* =====================================================================
+ * CONFIG — 임계값·코멘트·체크리스트 규칙은 여기 한 곳에서 수정합니다.
+ *
+ * 지표 필드
+ *   unit       : 단위 표시
+ *   dp         : 소수 자릿수
+ *   changeMode : 'pp' = 직전 대비 변화를 %p(차이)로 판단 (금리·물가 등 % 단위 지표)
+ *                'pct' = 직전 대비 변화율(%)로 판단 (가격 지표)
+ *   level      : 수준 기준 신호등. dir:'up'  → 값 ≥ warn 노랑, 값 ≥ danger 빨강
+ *                               dir:'down'→ 값 < warn 노랑,  값 < danger 빨강
+ *   change     : 변화 기준 신호등. dir:'up'(상승만) | 'down'(하락만) | 'both'(양방향 절대값)
+ *                flat 미만 변화는 "보합", danger 이상은 "급등/급락"으로 해설
+ *   → 최종 신호등 = 수준 신호와 변화 신호 중 더 나쁜 쪽
+ *   profile    : COMMENTS 의 해설 묶음 이름. comments 로 지표별 문구 덮어쓰기 가능
+ *   source     : 자동 조회 정보 (data.js Provider 참고). 없으면 직접 입력 전용
+ *   derived    : 다른 지표에서 계산 (현재는 금리차만)
+ * ===================================================================== */
+const CONFIG = {
+  staleDays: 7,              // 마지막 업데이트 후 며칠 지나면 "오래된 데이터"
+  staleBasis: 'updated',     // 'updated' = 입력/조회한 날 기준, 'date' = 기준일 기준
+  checklistMin: 3,
+  checklistMax: 5,
+
+  categories: [
+    { id: 'rates',     label: '금리' },
+    { id: 'inflation', label: '물가' },
+    { id: 'fx',        label: '환율' },
+    { id: 'energy',    label: '에너지' },
+    { id: 'metals',    label: '금속' },
+    { id: 'grains',    label: '곡물' }
+  ],
+
+  indicators: [
+    // ── 금리·채권 ──
+    { id: 'kr_base', cat: 'rates', name: '한국 기준금리', unit: '%', dp: 2, changeMode: 'pp', profile: 'policyRate',
+      level: { dir: 'up', warn: 3.5, danger: 4.5 }, change: { dir: 'both', flat: 0.01, warn: 0.25, danger: 0.5 } },
+    { id: 'us_ffr', cat: 'rates', name: '미국 기준금리', sub: 'FFR 목표 상단', unit: '%', dp: 2, changeMode: 'pp', profile: 'policyRate',
+      level: { dir: 'up', warn: 4.0, danger: 5.0 }, change: { dir: 'both', flat: 0.01, warn: 0.25, danger: 0.5 },
+      source: { fred: { series: 'DFEDTARU' } } },
+    { id: 'us10y', cat: 'rates', name: '미국 10년물 금리', unit: '%', dp: 2, changeMode: 'pp', profile: 'marketRate',
+      level: { dir: 'up', warn: 4.5, danger: 5.0 }, change: { dir: 'both', flat: 0.03, warn: 0.15, danger: 0.3 },
+      source: { fred: { series: 'DGS10' } } },
+    { id: 'us2y', cat: 'rates', name: '미국 2년물 금리', unit: '%', dp: 2, changeMode: 'pp', profile: 'marketRate',
+      level: { dir: 'up', warn: 4.5, danger: 5.0 }, change: { dir: 'both', flat: 0.03, warn: 0.15, danger: 0.3 },
+      source: { fred: { series: 'DGS2' } } },
+    { id: 'spread', cat: 'rates', name: '장단기 금리차', sub: '10Y − 2Y', unit: '%p', dp: 2, changeMode: 'pp', profile: 'spread',
+      level: { dir: 'down', warn: 0.25, danger: 0 }, change: { dir: 'down', flat: 0.03, warn: 0.15, danger: 0.3 },
+      derived: { op: 'diff', a: 'us10y', b: 'us2y' } },
+
+    // ── 물가·경기 ──
+    { id: 'us_cpi', cat: 'inflation', name: '미국 CPI 상승률', sub: '전년 동월 대비', unit: '%', dp: 1, changeMode: 'pp', profile: 'inflation',
+      level: { dir: 'up', warn: 3.0, danger: 4.0 }, change: { dir: 'up', flat: 0.1, warn: 0.3, danger: 0.6 },
+      source: { fred: { series: 'CPIAUCSL', units: 'pc1' } } },
+    { id: 'kr_cpi', cat: 'inflation', name: '한국 CPI 상승률', sub: '전년 동월 대비', unit: '%', dp: 1, changeMode: 'pp', profile: 'inflation',
+      level: { dir: 'up', warn: 3.0, danger: 4.0 }, change: { dir: 'up', flat: 0.1, warn: 0.3, danger: 0.6 },
+      source: { fred: { series: 'KORCPIALLMINMEI', units: 'pc1' } } },
+    { id: 'us_unemp', cat: 'inflation', name: '미국 실업률', unit: '%', dp: 1, changeMode: 'pp', profile: 'unemployment',
+      level: { dir: 'up', warn: 4.5, danger: 5.5 }, change: { dir: 'up', flat: 0.1, warn: 0.2, danger: 0.4 },
+      source: { fred: { series: 'UNRATE' } } },
+
+    // ── 환율·변동성 ──
+    { id: 'usdkrw', cat: 'fx', name: '원/달러 환율', unit: '원', dp: 1, changeMode: 'pct', profile: 'usdkrw',
+      level: { dir: 'up', warn: 1400, danger: 1450 }, change: { dir: 'both', flat: 0.2, warn: 1.0, danger: 2.0 },
+      source: { fred: { series: 'DEXKOUS' } } },
+    { id: 'dxy', cat: 'fx', name: '달러인덱스', sub: 'DXY', unit: '', dp: 2, changeMode: 'pct', profile: 'dxy',
+      level: { dir: 'up', warn: 105, danger: 110 }, change: { dir: 'both', flat: 0.2, warn: 1.0, danger: 2.0 } },
+    { id: 'vix', cat: 'fx', name: 'VIX', sub: 'S&P500 변동성 지수', unit: '', dp: 2, changeMode: 'pct', profile: 'vix',
+      level: { dir: 'up', warn: 20, danger: 30 }, change: { dir: 'up', flat: 3, warn: 15, danger: 30 },
+      source: { fred: { series: 'VIXCLS' } } },
+
+    // ── 에너지 ──
+    { id: 'wti', cat: 'energy', name: 'WTI 원유', unit: '$/bbl', dp: 2, changeMode: 'pct', profile: 'oil',
+      level: { dir: 'up', warn: 90, danger: 100 }, change: { dir: 'both', flat: 1, warn: 5, danger: 10 },
+      source: { fred: { series: 'DCOILWTICO' } } },
+    { id: 'natgas', cat: 'energy', name: '천연가스', sub: '헨리허브', unit: '$/MMBtu', dp: 2, changeMode: 'pct', profile: 'gas',
+      change: { dir: 'both', flat: 2, warn: 8, danger: 15 },
+      source: { fred: { series: 'DHHNGSP' } } },
+    { id: 'coal', cat: 'energy', name: '석탄', sub: '뉴캐슬', unit: '$/t', dp: 1, changeMode: 'pct', profile: 'coal',
+      change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
+
+    // ── 금속·광물 ──
+    { id: 'copper', cat: 'metals', name: '구리', unit: '$/t', dp: 0, changeMode: 'pct', profile: 'copper',
+      change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
+    { id: 'gold', cat: 'metals', name: '금', unit: '$/oz', dp: 1, changeMode: 'pct', profile: 'gold',
+      change: { dir: 'both', flat: 0.5, warn: 3, danger: 6 } },
+    { id: 'silver', cat: 'metals', name: '은', unit: '$/oz', dp: 2, changeMode: 'pct', profile: 'silver',
+      change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
+    { id: 'iron_ore', cat: 'metals', name: '철광석', unit: '$/t', dp: 1, changeMode: 'pct', profile: 'ironOre',
+      change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
+    { id: 'lithium', cat: 'metals', name: '리튬', sub: '탄산리튬', unit: 'CNY/t', dp: 0, changeMode: 'pct', profile: 'lithium',
+      change: { dir: 'both', flat: 2, warn: 10, danger: 20 } },
+    { id: 'nickel', cat: 'metals', name: '니켈', unit: '$/t', dp: 0, changeMode: 'pct', profile: 'nickel',
+      change: { dir: 'both', flat: 1, warn: 7, danger: 15 } },
+
+    // ── 곡물 ──
+    { id: 'wheat', cat: 'grains', name: '밀', unit: '$/t', dp: 1, changeMode: 'pct', profile: 'grain',
+      change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
+    { id: 'corn', cat: 'grains', name: '옥수수', unit: '$/t', dp: 1, changeMode: 'pct', profile: 'grain',
+      change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
+    { id: 'soybean', cat: 'grains', name: '대두', unit: '$/t', dp: 1, changeMode: 'pct', profile: 'grain',
+      change: { dir: 'both', flat: 1, warn: 5, danger: 10 } }
+  ]
+};
+
+/* ---------------------------------------------------------------------
+ * COMMENTS — 지표 상태별 한 줄 해설 (규칙 기반 일반 해설만, 종목·매매 표현 금지)
+ *   선택 순서: special(a) → 급등(surge)/급락(plunge) → 수준 경고(high) → 상승(rise)/하락(fall)
+ *             → 수준 주의(warn) → 보합(flat).  키가 없으면 비슷한 키로 대체 (surge→rise 등)
+ *   {name} 은 지표 이름으로 바뀜. a = 분석 결과(value, prev, trend, lvl ...)
+ * --------------------------------------------------------------------- */
+const COMMENTS = {
+  policyRate: {
+    rise: '금리 상승 국면 — 성장주 밸류에이션 부담, 변동금리 대출·레버리지 이자 부담, 채권 가격 하락 주의',
+    fall: '금리 인하 국면 — 이자 부담 완화, 다만 경기 둔화 대응인지 함께 확인',
+    high: '높은 금리 수준 유지 — 대출 이자 비용과 부채 상환 계획 점검',
+    flat: '금리 동결 — 다음 통화정책 회의 일정과 발표 문구 확인'
+  },
+  marketRate: {
+    surge: '시장금리 급등 — 채권 가격 하락폭 확대, 성장주 밸류에이션·대출 금리 부담 점검',
+    rise: '금리 상승 국면 — 성장주 밸류에이션 부담, 변동금리 대출·레버리지 이자 부담, 채권 가격 하락 주의',
+    fall: '금리 하락 — 채권 가격에 우호적, 경기 둔화 우려 반영 여부 확인',
+    high: '높은 금리 구간 — 자금 조달 비용 부담, 채권 금리 수준 자체가 주목받는 구간',
+    flat: '금리 보합 — 큰 방향성 변화 없음'
+  },
+  spread: {
+    special(a) {
+      if (a.value < 0) return '장단기 금리차 역전 — 경기 둔화 신호로 해석되는 경우가 많음, 지표 추이 확인';
+      if (a.prev != null && a.prev < 0) return '역전 해소 — 과거 경기 변곡점과 겹친 사례가 있어 고용·경기 지표 함께 확인';
+      if (a.value < CONFIG_LEVEL('spread').warn) return '금리차 축소 — 역전 진입 여부와 경기 지표 추이 관찰';
+      return null;
+    },
+    flat: '정상적인 우상향 수익률 곡선 — 특이 신호 제한적'
+  },
+  inflation: {
+    high: '물가 상승률 높음 — 금리 인하 기대 약화 가능성, 실질 구매력·실질금리 점검',
+    rise: '물가 재상승 — 긴축 기조 장기화 가능성 점검',
+    fall: '물가 둔화 — 통화정책 완화 기대와 연결되는지 확인',
+    warn: '물가 목표(2%) 상회 — 근원물가 등 세부 항목 확인',
+    flat: '물가 흐름 횡보 — 근원물가 등 세부 항목 확인'
+  },
+  unemployment: {
+    surge: '실업률 급등 — 경기 침체 우려 확대 가능성, 소득·현금흐름 안정성 점검',
+    rise: '실업률 상승 — 고용 둔화 신호 여부와 소비 경기 영향 점검',
+    high: '실업률 높은 수준 — 경기 둔화 국면 가능성, 비상자금 수준 점검',
+    fall: '고용 개선 — 경기 견조, 금리 인하 기대는 약해질 수 있음',
+    flat: '고용 지표 안정 — 추세 변화 여부 관찰'
+  },
+  usdkrw: {
+    surge: '원화 급약세 — 수입 물가·해외 결제 비용 급등, 환율 변동성 확대 주의',
+    rise: '원화 약세 — 수입 물가·해외 결제 비용 상승, 해외자산 원화 환산 가치 증가',
+    plunge: '원화 급강세 — 해외자산 원화 환산 가치 감소폭 확대',
+    fall: '원화 강세 — 해외자산 원화 환산 가치 감소, 수입 원가 부담 완화',
+    high: '원/달러 고점 구간 — 환노출 규모와 외화 지출 시점 점검',
+    warn: '원/달러 높은 수준 — 환율 민감 자산·지출 점검',
+    flat: '환율 안정 — 큰 변동 없음'
+  },
+  dxy: {
+    rise: '달러 강세 — 신흥국 통화·원자재 가격에 하방 압력 가능성',
+    fall: '달러 약세 — 원자재·신흥국 자산에 우호적인 환경일 수 있음',
+    high: '달러 강세 구간 — 글로벌 유동성 위축 가능성 점검',
+    flat: '달러 보합 — 큰 방향성 없음'
+  },
+  vix: {
+    surge: '변동성 급등 — 시장 불안 확대, 레버리지·신용 비중 점검',
+    high: '공포 구간 — 가격 변동폭 확대, 무리한 포지션 여부 점검',
+    rise: '변동성 상승 — 위험 회피 심리 확대 여부 관찰',
+    warn: '변동성 경계 구간 — 위험 노출 규모 확인',
+    fall: '변동성 하락 — 시장 심리 안정 쪽으로 이동',
+    flat: '변동성 안정 — 시장 심리 비교적 평온, 과도한 낙관 여부도 점검'
+  },
+  oil: {
+    surge: '유가 급등 — 물가 상방 압력, 운송·제조 원가 부담 점검',
+    rise: '유가 상승 — 인플레이션 기대 자극 가능성',
+    plunge: '유가 급락 — 수요 둔화 우려 반영 가능성, 경기 지표 확인',
+    fall: '유가 하락 — 원가 부담 완화, 수요 둔화 반영 여부 확인',
+    high: '고유가 구간 — 물가·소비 여력 영향 점검',
+    flat: '유가 안정 — 큰 변동 없음'
+  },
+  gas: {
+    surge: '천연가스 급등 — 난방·전력 비용 상승 압력, 계절 수요·재고 확인',
+    rise: '천연가스 상승 — 에너지 비용 부담 증가 가능성',
+    fall: '천연가스 하락 — 에너지 비용 부담 완화 가능성',
+    flat: '천연가스 보합 — 계절 수요 변화 관찰'
+  },
+  coal: {
+    rise: '석탄 가격 상승 — 발전 원가·전력 요금 영향 점검',
+    fall: '석탄 가격 하락 — 발전 원가 부담 완화 가능성',
+    flat: '석탄 보합 — 큰 변동 없음'
+  },
+  copper: {
+    surge: '경기 기대 반영 가능성, 제조업 원가 부담 점검',
+    rise: '구리 상승 — 경기 회복 기대 반영 가능성',
+    plunge: '구리 급락 — 경기 둔화 우려 반영 가능성, 제조업 지표와 함께 확인',
+    fall: '구리 하락 — 수요 둔화 반영 여부 확인',
+    flat: '구리 보합 — 경기 기대 변화 제한적'
+  },
+  gold: {
+    surge: '금 급등 — 안전자산 선호·실질금리 하락 반영 가능성, 위험 요인 점검',
+    rise: '금 상승 — 안전자산 선호 또는 달러 약세 반영 가능성',
+    fall: '금 하락 — 위험선호 회복 또는 실질금리 상승 반영 가능성',
+    flat: '금 보합 — 큰 변동 없음'
+  },
+  silver: {
+    rise: '은 상승 — 귀금속·산업 수요 동반 반영 가능성, 변동성 큰 자산 특성 유의',
+    fall: '은 하락 — 산업 수요 둔화 또는 귀금속 약세 반영 가능성',
+    flat: '은 보합 — 큰 변동 없음'
+  },
+  ironOre: {
+    rise: '철광석 상승 — 철강·건설 수요(특히 중국) 기대 반영 가능성',
+    fall: '철광석 하락 — 철강·건설 수요 둔화 반영 가능성',
+    flat: '철광석 보합 — 큰 변동 없음'
+  },
+  lithium: {
+    rise: '리튬 상승 — 2차전지 공급망 수급 변화 반영, 변동성 큰 품목',
+    fall: '리튬 하락 — 공급 과잉 또는 전기차 수요 둔화 반영 가능성',
+    flat: '리튬 보합 — 큰 변동 없음'
+  },
+  nickel: {
+    rise: '니켈 상승 — 배터리·스테인리스 수요 또는 공급 이슈 반영 가능성',
+    fall: '니켈 하락 — 공급 확대 또는 수요 둔화 반영 가능성',
+    flat: '니켈 보합 — 큰 변동 없음'
+  },
+  grain: {
+    surge: '{name} 급등 — 식품 원가·물가 상승 압력, 기상·수출 이슈 확인',
+    rise: '{name} 상승 — 식품 원가 부담 증가 가능성',
+    fall: '{name} 하락 — 식품 원가 부담 완화 가능성',
+    flat: '{name} 보합 — 큰 변동 없음'
+  }
+};
+
+/* ---------------------------------------------------------------------
+ * CHECKLIST — "오늘의 체크리스트" 규칙. 조건이 참인 규칙을 priority 높은 순으로 3~5개 표시.
+ *   S 도우미: S.v(id) 값, S.sig(id) 신호(0~2), S.lvl(id) 수준신호, S.trend(id),
+ *            S.up(id)/S.down(id) 상승·하락(급등락 포함), S.surge(id)/S.plunge(id),
+ *            S.count(ids, fn), S.redCount, S.staleCount, S.missingCount
+ *   default: true 인 규칙은 조건과 무관하게 개수가 모자랄 때 채우는 용도
+ * --------------------------------------------------------------------- */
+const CHECKLIST = [
+  { priority: 120, test: S => S.missingCount === S.total, text: '지표 값 입력 필요', why: '입력된 데이터가 없음' },
+  { priority: 110, test: S => S.staleCount > 0, text: S => `오래된 데이터 ${S.staleCount}개 — 값 업데이트 먼저`, why: `마지막 업데이트 ${CONFIG.staleDays}일 이상 경과` },
+  { priority: 100, test: S => S.sig('vix') === 2 || S.surge('vix'), text: '레버리지·신용 비중 점검', why: 'VIX 급등 또는 경고 구간' },
+  { priority: 95,  test: S => S.has('spread') && S.v('spread') < 0, text: '장단기 금리차 역전 — 경기 지표 추이 확인', why: '10Y−2Y < 0' },
+  { priority: 90,  test: S => (S.up('us10y') || S.up('us2y')) && (S.up('dxy') || S.up('usdkrw')), text: '환율·수입 원가 점검', why: '금리 상승 + 달러 강세' },
+  { priority: 85,  test: S => S.up('wti') && (S.lvl('us_cpi') >= 1 || S.lvl('kr_cpi') >= 1), text: '물가 재가속 가능성 — 물가 발표 일정·실질금리 확인', why: '유가 상승 + 물가 높은 수준' },
+  { priority: 80,  test: S => S.lvl('usdkrw') >= 1 || S.surge('usdkrw'), text: '해외자산 환노출·외화 지출 시점 점검', why: '원/달러 높은 수준 또는 급변' },
+  { priority: 75,  test: S => S.up('us_unemp') || S.lvl('us_unemp') >= 1, text: '고용 둔화 여부 확인 — 비상자금·현금흐름 점검', why: '미국 실업률 상승' },
+  { priority: 70,  test: S => S.up('kr_base') || S.up('us_ffr'), text: '변동금리 대출·레버리지 이자 부담 점검', why: '기준금리 인상' },
+  { priority: 66,  test: S => S.up('gold') && S.lvl('vix') >= 1, text: '안전자산 선호 강화 — 포트폴리오 위험 노출 점검', why: '금 상승 + VIX 경계' },
+  { priority: 65,  test: S => S.up('copper') && !S.up('gold'), text: '경기 기대 신호 — 제조업 지표와 함께 해석', why: '구리 상승, 금 상승 없음' },
+  { priority: 60,  test: S => S.count(['wheat', 'corn', 'soybean'], S.up) >= 2, text: '곡물 가격 동반 상승 — 식품 원가·물가 영향 점검', why: '곡물 2개 이상 상승' },
+  { priority: 58,  test: S => S.count(['wti', 'natgas', 'coal'], id => S.surge(id) || S.plunge(id)) >= 1, text: '에너지 가격 급변 — 운송·전력 원가 영향 점검', why: '에너지 급등락' },
+  { priority: 55,  test: S => S.count(['copper', 'nickel', 'lithium', 'iron_ore'], id => S.surge(id) || S.plunge(id)) >= 1, text: '산업금속 급변 — 제조업 원가·재고 부담 점검', why: '산업금속 급등락' },
+  { priority: 50,  test: S => S.redCount >= 3, text: S => `경고 지표 ${S.redCount}개 — 전체 위험 노출 규모 점검`, why: '빨간불 3개 이상' },
+  // 기본 항목 (개수가 모자랄 때)
+  { priority: 10, default: true, text: '주요 일정(FOMC·금통위·CPI 발표) 확인', why: '정기 점검' },
+  { priority: 9,  default: true, text: '자산 배분 비율이 계획 범위 안에 있는지 점검', why: '정기 점검' },
+  { priority: 8,  default: true, text: '비상자금(생활비 몇 개월분) 수준 확인', why: '정기 점검' }
+];
+
+/* =====================================================================
+ * 이하 앱 로직 — 보통은 수정할 필요 없음
+ * ===================================================================== */
+const IND = Object.fromEntries(CONFIG.indicators.map(i => [i.id, i]));
+function CONFIG_LEVEL(id) { return IND[id].level || {}; }
+const SIGNAL_LABEL = ['양호', '주의', '경고'];
+const $ = sel => document.querySelector(sel);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const todayISO = () => DataStore.isoDate(new Date());
+
+function fmt(v, dp) {
+  return Number(v).toLocaleString('ko-KR', { minimumFractionDigits: dp, maximumFractionDigits: dp });
+}
+function fmtSigned(v, dp) { return (v > 0 ? '+' : v < 0 ? '−' : '') + fmt(Math.abs(v), dp); }
+function shortDate(iso) { return iso ? iso.slice(0, 10) : '-'; }
+
+/* ---------- 분석 ---------- */
+function snapshot(ind) {
+  if (!ind.derived) return DataStore.getSnapshot(ind.id);
+  const A = DataStore.getSnapshot(ind.derived.a), B = DataStore.getSnapshot(ind.derived.b);
+  const combine = (x, y) => {
+    if (!x || !y) return null;
+    return {
+      value: Math.round((x.value - y.value) * 10000) / 10000,
+      date: x.date < y.date ? x.date : y.date,
+      updatedAt: x.updatedAt < y.updatedAt ? x.updatedAt : y.updatedAt,
+      source: x.source === 'sample' || y.source === 'sample' ? 'sample' : 'derived'
+    };
+  };
+  return { current: combine(A.current, B.current), prev: combine(A.prev, B.prev), history: [] };
+}
+
+function analyze(ind) {
+  const snap = snapshot(ind);
+  const cur = snap.current, prevE = snap.prev;
+  const a = { ind, cur, prevE, value: cur ? cur.value : null, prev: prevE ? prevE.value : null,
+              lvl: null, cs: 0, signal: null, trend: null, diff: null, pct: null, stale: false, isSample: false };
+  if (!cur) return a;
+
+  a.isSample = cur.source === 'sample';
+  const L = ind.level;
+  a.lvl = !L ? 0 : L.dir === 'down'
+    ? (a.value < L.danger ? 2 : a.value < L.warn ? 1 : 0)
+    : (a.value >= L.danger ? 2 : a.value >= L.warn ? 1 : 0);
+
+  if (a.prev != null) {
+    a.diff = Math.round((a.value - a.prev) * 1e8) / 1e8; // 부동소수 오차 제거 (4.5-4.2=0.2999… 방지)
+    a.pct = a.prev !== 0 ? (a.diff / Math.abs(a.prev)) * 100 : null;
+    const basis = ind.changeMode === 'pp' ? a.diff : a.pct;
+    const C = ind.change;
+    if (C && basis != null) {
+      const x = C.dir === 'up' ? basis : C.dir === 'down' ? -basis : Math.abs(basis);
+      a.cs = x >= C.danger ? 2 : x >= C.warn ? 1 : 0;
+      const flat = C.flat != null ? C.flat : C.warn / 3;
+      const eps = 1e-9;
+      if (Math.abs(basis) < flat - eps) a.trend = 'flat';
+      else if (basis > 0) a.trend = basis >= C.danger - eps ? 'surge' : 'rise';
+      else a.trend = -basis >= C.danger - eps ? 'plunge' : 'fall';
+    }
+  }
+  a.signal = Math.max(a.lvl, a.cs);
+
+  if (!a.isSample) {
+    const basisDate = CONFIG.staleBasis === 'date' ? new Date(cur.date + 'T00:00:00') : new Date(cur.updatedAt);
+    const days = (Date.now() - basisDate.getTime()) / 86400000;
+    a.stale = days >= (ind.staleDays || CONFIG.staleDays);
+  }
+  a.comment = pickComment(ind, a);
+  return a;
+}
+
+function pickComment(ind, a) {
+  const p = Object.assign({}, COMMENTS[ind.profile] || {}, ind.comments || {});
+  const fill = s => (s || '').replace(/\{name\}/g, ind.name);
+  if (p.special) { const s = p.special(a); if (s) return fill(s); }
+  const t = a.trend, L = a.lvl;
+  let key;
+  if (t === 'surge') key = p.surge ? 'surge' : 'rise';
+  else if (t === 'plunge') key = p.plunge ? 'plunge' : 'fall';
+  else if (L === 2 && p.high) key = 'high';
+  else if (t === 'rise' || t === 'fall') key = t;
+  else if (L >= 1 && p.warn) key = 'warn';
+  else if (L >= 1 && p.high) key = 'high';
+  else if (t == null) return '직전 값이 없어 변화 판단 불가 — 이전 값을 함께 입력하면 해설이 정확해집니다';
+  else key = 'flat';
+  return fill(p[key] || p.flat);
+}
+
+function analyzeAll() {
+  const map = {};
+  CONFIG.indicators.forEach(ind => { map[ind.id] = analyze(ind); });
+  return map;
+}
+
+function buildChecklist(R) {
+  const all = Object.values(R);
+  const S = {
+    total: all.length,
+    has: id => !!(R[id] && R[id].cur),
+    v: id => (R[id] ? R[id].value : null),
+    sig: id => (R[id] && R[id].signal != null ? R[id].signal : -1),
+    lvl: id => (R[id] && R[id].lvl != null ? R[id].lvl : -1),
+    trend: id => (R[id] ? R[id].trend : null),
+    up: id => ['rise', 'surge'].includes(R[id] && R[id].trend),
+    down: id => ['fall', 'plunge'].includes(R[id] && R[id].trend),
+    surge: id => (R[id] && R[id].trend) === 'surge',
+    plunge: id => (R[id] && R[id].trend) === 'plunge',
+    count: (ids, fn) => ids.filter(fn).length,
+    redCount: all.filter(a => a.signal === 2).length,
+    staleCount: all.filter(a => a.stale).length,
+    missingCount: all.filter(a => !a.cur).length
+  };
+  const pick = (rules) => rules
+    .sort((x, y) => y.priority - x.priority)
+    .map(r => ({ text: typeof r.text === 'function' ? r.text(S) : r.text, why: r.why, key: r.priority }));
+  const hits = pick(CHECKLIST.filter(r => !r.default && safeTest(r, S))).slice(0, CONFIG.checklistMax);
+  if (hits.length < CONFIG.checklistMin) {
+    hits.push(...pick(CHECKLIST.filter(r => r.default)).slice(0, CONFIG.checklistMin - hits.length));
+  }
+  return hits;
+}
+function safeTest(rule, S) { try { return !!rule.test(S); } catch (e) { console.warn('체크리스트 규칙 오류', e); return false; } }
+
+/* ---------- 렌더링 ---------- */
+let R = {};
+let activeTab = DataStore.getSettings().tab;
+if (!CONFIG.categories.some(c => c.id === activeTab)) activeTab = CONFIG.categories[0].id;
+
+function render() {
+  R = analyzeAll();
+  const all = Object.values(R);
+
+  $('#sampleBanner').hidden = !all.some(a => a.isSample);
+  $('#btnRefresh').hidden = !DataStore.canAutoFetch();
+
+  const c = s => all.filter(a => a.signal === s).length;
+  $('#counts').innerHTML = [
+    ['red', c(2), '경고'], ['yellow', c(1), '주의'], ['green', c(0), '양호'], ['stale', all.filter(a => a.stale).length, '오래됨']
+  ].map(([cls, n, label]) => `<div class="count ${cls}"><b class="num">${n}</b><span>${label}</span></div>`).join('');
+
+  const done = loadChecks();
+  $('#checklist').innerHTML = buildChecklist(R).map((item, i) => {
+    const id = 'chk' + i, isDone = done.includes(item.text);
+    return `<li class="${isDone ? 'done' : ''}"><label for="${id}"><input type="checkbox" id="${id}" data-check="${esc(item.text)}" ${isDone ? 'checked' : ''}>
+      <span class="box" aria-hidden="true"></span><span class="txt">${esc(item.text)}<span class="why">${esc(item.why || '')}</span></span></label></li>`;
+  }).join('');
+
+  $('#tabs').innerHTML = CONFIG.categories.map(cat => {
+    const sigs = all.filter(a => a.ind.cat === cat.id && a.signal != null).map(a => a.signal);
+    const worst = sigs.length ? Math.max(...sigs) : null;
+    const sel = cat.id === activeTab;
+    return `<button class="tab" role="tab" aria-selected="${sel}" data-tab="${cat.id}">
+      <span class="dot ${worst == null ? '' : 's' + worst}" aria-hidden="true"></span>${esc(cat.label)}</button>`;
+  }).join('');
+
+  const list = all.filter(a => a.ind.cat === activeTab);
+  $('#cards').innerHTML = list.map(cardHTML).join('');
+}
+
+function cardHTML(a) {
+  const ind = a.ind;
+  const s = a.signal == null ? 'sn' : 's' + a.signal;
+  const lightLabel = a.signal == null ? '데이터 없음' : SIGNAL_LABEL[a.signal];
+  const title = `${esc(ind.name)}${ind.sub ? `<small>${esc(ind.sub)}</small>` : ''}`;
+  if (!a.cur) {
+    return `<button class="card sn" data-edit="${ind.id}" type="button">
+      <div class="card-head"><div class="card-title">${title}</div><span class="light sn"><span class="dot"></span>${lightLabel}</span></div>
+      <p class="empty">${ind.derived ? '10년물·2년물 금리를 입력하면 자동 계산됩니다.' : '눌러서 값을 입력하세요.'}</p></button>`;
+  }
+  let change = '<span class="change">직전 값 없음</span>';
+  if (a.diff != null) {
+    const arrow = a.diff > 0 ? '▲' : a.diff < 0 ? '▼' : '–';
+    const pctTxt = a.pct == null ? '' : `${fmtSigned(a.pct, 2)}%`;
+    change = ind.changeMode === 'pp'
+      ? `<span class="change num">${arrow} ${fmt(Math.abs(a.diff), 2)}%p <span class="pct">(${pctTxt || '-'})</span></span>`
+      : `<span class="change num">${arrow} ${pctTxt.replace(/^[+−]/, '')} <span class="pct">(${fmtSigned(a.diff, ind.dp)})</span></span>`;
+  }
+  const badges = [
+    a.isSample ? '<span class="badge sample">샘플</span>' : '',
+    a.stale ? '<span class="badge stale">오래된 데이터</span>' : '',
+    ind.derived && !a.isSample ? '<span class="badge auto">자동 계산</span>' : '',
+    a.cur.source === 'fred' ? '<span class="badge auto">FRED</span>' : ''
+  ].join('');
+  const dateTxt = a.isSample
+    ? '기준일 샘플'
+    : `기준일 ${esc(a.cur.date)} · 업데이트 ${esc(shortDate(a.cur.updatedAt && toLocalISO(a.cur.updatedAt)))}`;
+  return `<button class="card ${s}${a.isSample ? ' sample' : ''}" data-edit="${ind.id}" type="button" aria-label="${esc(ind.name)} ${lightLabel}, 눌러서 수정">
+    <div class="card-head"><div class="card-title">${title}</div><span class="light ${s}"><span class="dot ${s}"></span>${lightLabel}</span></div>
+    <div class="value-row"><span class="value num">${fmt(a.value, ind.dp)}<span class="unit">${esc(ind.unit)}</span></span>${change}</div>
+    <div class="meta">${badges}<span>${dateTxt}</span></div>
+    <div class="comment">${esc(a.comment || '')}</div>
+  </button>`;
+}
+function toLocalISO(isoStr) { const d = new Date(isoStr); return isNaN(d) ? '' : DataStore.isoDate(d); }
+
+/* ---------- 체크 상태 (하루 단위로 초기화) ---------- */
+const CHECK_KEY = 'macroDash.checks';
+function loadChecks() {
+  try { const o = JSON.parse(localStorage.getItem(CHECK_KEY)); return o && o.date === todayISO() ? o.items : []; } catch (e) { return []; }
+}
+function saveChecks(items) { try { localStorage.setItem(CHECK_KEY, JSON.stringify({ date: todayISO(), items })); } catch (e) {} }
+
+/* ---------- 편집 시트 ---------- */
+function thresholdText(ind) {
+  const u = ind.changeMode === 'pp' ? '%p' : '%';
+  const parts = [];
+  if (ind.level) {
+    const op = ind.level.dir === 'down' ? '<' : '≥';
+    parts.push(`수준: 주의 ${op} ${fmt(ind.level.warn, ind.dp)}, 경고 ${op} ${fmt(ind.level.danger, ind.dp)}`);
+  }
+  if (ind.change) {
+    const sign = ind.change.dir === 'up' ? '+' : ind.change.dir === 'down' ? '−' : '±';
+    parts.push(`직전 대비: 주의 ${sign}${ind.change.warn}${u}, 경고 ${sign}${ind.change.danger}${u}`);
+  }
+  return parts.join('<br>');
+}
+
+function openEdit(id) {
+  const ind = IND[id];
+  $('#editTitle').textContent = ind.name + (ind.unit ? ` (${ind.unit})` : '');
+  const body = $('#editBody');
+  if (ind.derived) {
+    body.innerHTML = `<p class="hint">${esc(IND[ind.derived.a].name)} − ${esc(IND[ind.derived.b].name)} 으로 자동 계산됩니다. 두 지표 값을 입력하세요.</p>
+      <div class="thresholds">${thresholdText(ind)}</div>
+      <div class="btn-row"><button class="btn" type="button" data-edit="${ind.derived.a}">10년물 입력</button><button class="btn" type="button" data-edit="${ind.derived.b}">2년물 입력</button></div>`;
+  } else {
+    const snap = DataStore.getSnapshot(id);
+    body.innerHTML = `
+      <div class="thresholds">${thresholdText(ind)}</div>
+      <form id="editForm" class="two">
+        <label class="field"><span>값</span><input type="number" step="any" name="value" required placeholder="${snap.current ? esc(snap.current.value) : ''}"></label>
+        <label class="field"><span>기준일</span><input type="date" name="date" required value="${todayISO()}"></label>
+      </form>
+      <div class="btn-row"><button class="btn primary" type="button" id="btnEditSave">저장 (현재 값으로 추가)</button></div>
+      <h3 style="font-size:14px;margin:16px 0 0">이력 <small style="color:var(--text-2);font-weight:400">— 맨 위가 현재 값, 그다음이 직전 값</small></h3>
+      <ul class="history">${snap.history.length ? snap.history.map(e => `
+        <li><span class="num">${esc(e.date)}</span><span class="grow num"><b>${fmt(e.value, ind.dp)}</b> ${e.source === 'sample' ? '<span class="badge sample">샘플</span>' : e.source === 'fred' ? '<span class="badge auto">FRED</span>' : ''}</span>
+        <button class="del" type="button" data-del="${esc(e.date)}" data-id="${id}">삭제</button></li>`).join('') : '<li class="empty">아직 값이 없습니다.</li>'}</ul>`;
+    $('#btnEditSave').onclick = () => {
+      const f = $('#editForm');
+      if (!f.reportValidity()) return;
+      try {
+        DataStore.upsert(id, { value: f.value.value, date: f.date.value, source: 'manual' });
+        toast('저장했습니다');
+        render();
+        openEdit(id);
+      } catch (e) { toast(e.message); }
+    };
+  }
+  const dlg = $('#editSheet');
+  if (!dlg.open) dlg.showModal();
+}
+
+/* ---------- 설정 화면 ---------- */
+function buildBulkForm() {
+  $('#bulkDate').value = todayISO();
+  $('#bulkForm').innerHTML = CONFIG.categories.map(cat => {
+    const rows = CONFIG.indicators.filter(i => i.cat === cat.id && !i.derived).map(ind => {
+      const cur = DataStore.getSnapshot(ind.id).current;
+      const ph = cur ? `${fmt(cur.value, ind.dp)}${cur.source === 'sample' ? ' (샘플)' : ''}` : '';
+      return `<div class="bulk-row"><label for="b_${ind.id}">${esc(ind.name)}<small>${esc(ind.unit || '')}${cur && cur.source !== 'sample' ? ' · 현재 ' + esc(cur.date) : ''}</small></label>
+        <input type="number" step="any" id="b_${ind.id}" data-id="${ind.id}" placeholder="${esc(ph)}"></div>`;
+    }).join('');
+    return `<div class="bulk-group"><h3>${esc(cat.label)}</h3>${rows}</div>`;
+  }).join('');
+}
+
+function syncSettingsFields() {
+  const st = DataStore.getSettings();
+  $('#themeSelect').value = st.theme;
+  $('#proxyUrl').value = st.proxy || '';
+  $('#fredKey').value = DataStore.getSecrets().fredKey || '';
+  buildBulkForm();
+}
+
+function applyTheme() {
+  const t = DataStore.getSettings().theme;
+  if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+  else document.documentElement.removeAttribute('data-theme');
+}
+
+function route() {
+  const settings = location.hash === '#settings';
+  $('#settingsView').hidden = !settings;
+  $('#mainView').setAttribute('aria-hidden', String(settings));
+  if (settings) { syncSettingsFields(); $('#settingsView').scrollTop = 0; } else render();
+}
+
+let toastTimer;
+function toast(msg) {
+  const el = $('#toast');
+  el.textContent = msg; el.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.hidden = true; }, 2200);
+}
+
+async function runFetch(logEl) {
+  if (logEl) logEl.textContent = '조회 중…\n';
+  const res = await DataStore.refreshAll(CONFIG.indicators, msg => { if (logEl) logEl.textContent += msg + '\n'; });
+  const msg = `자동 조회: 성공 ${res.ok} · 실패 ${res.fail} · 미지원 ${res.skipped}`;
+  if (logEl) logEl.textContent += msg;
+  toast(msg);
+  render();
+}
+
+/* ---------- 이벤트 ---------- */
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-tab],[data-edit],[data-del],[data-action]');
+  if (!t) return;
+  if (t.dataset.tab) {
+    activeTab = t.dataset.tab; DataStore.setSettings({ tab: activeTab }); render();
+  } else if (t.dataset.edit) {
+    openEdit(t.dataset.edit);
+  } else if (t.dataset.del) {
+    if (confirm(`${t.dataset.del} 값을 삭제할까요?`)) { DataStore.removeEntry(t.dataset.id, t.dataset.del); render(); openEdit(t.dataset.id); }
+  } else if (t.dataset.action === 'go-settings') {
+    location.hash = 'settings';
+  } else if (t.dataset.action === 'go-home') {
+    if (history.length > 1 && location.hash === '#settings') history.back(); else location.hash = '';
+  } else if (t.dataset.action === 'close-sheet') {
+    $('#editSheet').close();
+  }
+});
+$('#editSheet').addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.close(); });
+$('#checklist').addEventListener('change', e => {
+  const items = loadChecks().filter(x => x !== e.target.dataset.check);
+  if (e.target.checked) items.push(e.target.dataset.check);
+  saveChecks(items); render();
+});
+$('#btnSettings').onclick = () => { location.hash = 'settings'; };
+$('#btnRefresh').onclick = () => runFetch(null);
+
+$('#btnBulkSave').onclick = () => {
+  const date = $('#bulkDate').value;
+  if (!date) return toast('기준일을 입력하세요');
+  let n = 0;
+  try {
+    document.querySelectorAll('#bulkForm input[data-id]').forEach(inp => {
+      if (inp.value.trim() === '') return;
+      DataStore.upsert(inp.dataset.id, { value: inp.value, date, source: 'manual' }); n++;
+    });
+  } catch (e) { return toast(e.message); }
+  toast(n ? `${n}개 지표 저장` : '입력한 값이 없습니다');
+  if (n) buildBulkForm();
+};
+$('#btnExport').onclick = () => {
+  const blob = new Blob([DataStore.exportJSON()], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `macro-dashboard-backup-${todayISO()}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
+$('#btnImport').onclick = () => $('#importFile').click();
+$('#importFile').onchange = async e => {
+  const file = e.target.files[0]; e.target.value = '';
+  if (!file) return;
+  if (!confirm('현재 데이터를 백업 파일 내용으로 바꿀까요?')) return;
+  try { const n = DataStore.importJSON(await file.text()); toast(`${n}개 지표 불러옴`); buildBulkForm(); }
+  catch (err) { toast(err.message); }
+};
+$('#btnSaveApi').onclick = () => {
+  DataStore.setSecrets({ fredKey: $('#fredKey').value.trim() });
+  DataStore.setSettings({ proxy: $('#proxyUrl').value.trim() });
+  toast('저장했습니다 (이 기기에만 저장)');
+};
+$('#btnFetchNow').onclick = () => {
+  $('#btnSaveApi').click();
+  if (!DataStore.canAutoFetch()) return toast('API 키를 먼저 입력하세요');
+  runFetch($('#fetchLog')).then(buildBulkForm);
+};
+$('#themeSelect').onchange = e => { DataStore.setSettings({ theme: e.target.value }); applyTheme(); };
+$('#btnSample').onclick = () => {
+  if (DataStore.hasAnyData() && !DataStore.isSampleOnly() && !confirm('입력한 데이터가 모두 샘플로 바뀝니다. 계속할까요? (먼저 내보내기 권장)')) return;
+  DataStore.loadSample(); toast('샘플 데이터를 불러왔습니다'); buildBulkForm();
+};
+$('#btnClear').onclick = () => {
+  if (!confirm('모든 지표 데이터를 삭제할까요? (API 키·설정은 유지)')) return;
+  DataStore.clearAll(); toast('삭제했습니다'); buildBulkForm();
+};
+window.addEventListener('hashchange', route);
+
+/* ---------- 시작 ---------- */
+$('#todayLabel').textContent = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
+applyTheme();
+if (!DataStore.hasAnyData() && !localStorage.getItem('macroDash.started')) {
+  DataStore.loadSample();
+  try { localStorage.setItem('macroDash.started', '1'); } catch (e) {}
+}
+route();
+
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+</script>
+</body>
+</html>
