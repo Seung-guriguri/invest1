@@ -87,6 +87,14 @@ export const SOURCES = {
   us_crude:    [{ fred: 'WCESTUS1', scale: 0.001 }],   // 미국 상업 원유 재고 (SPR 제외)
   us_gasoline: [{ fred: 'WGTSTUS1', scale: 0.001 }],   // 미국 휘발유 재고
   us_distill:  [{ fred: 'WDISTUS1', scale: 0.001 }],   // 미국 디젤·난방유(중간유분) 재고
+  // 미국 에너지 수급 (EIA, 주간)
+  ng_storage:   [{ eia: 'NG.NW2_EPG0_SWO_R48_BCF.W' }],                   // 천연가스 저장량, 본토 48개 주 (Bcf)
+  cushing:      [{ eia: 'PET.W_EPC0_SAX_YCUOK_MBBL.W', scale: 0.001 }],  // 쿠싱 원유 재고 (백만 배럴)
+  refinery_util:[{ eia: 'PET.WPULEUS3.W' }],                              // 정제 가동률 (%)
+  us_crude_prod:[{ eia: 'PET.WCRFPUS2.W', scale: 0.001 }],                // 원유 생산 (백만 배럴/일)
+  gasoline_demand: [{ eia: 'PET.WGFUPUS2.W', scale: 0.001, avg: 4 }],     // 휘발유 제품 공급 = 수요, 4주 평균 (백만 배럴/일)
+  distill_demand:  [{ eia: 'PET.WDIUPUS2.W', scale: 0.001, avg: 4 }],     // 디젤·난방유 수요, 4주 평균
+  crude_net_imports: [{ eia: 'PET.WCRNTUS2.W', scale: 0.001 }],           // 원유 순수입 (백만 배럴/일)
   // EU 비상 석유 비축 (월간, 수개월 지연). 단위는 '일수'만 허용 — 다른 단위면 로그에 가능한 값 표시
   eu_oil_stock: [{ eurostat: 'nrg_stk_oem', filters: { geo: 'EU27_2020' }, prefer: { unit: /day/i } }],
 
