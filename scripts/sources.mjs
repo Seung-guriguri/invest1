@@ -49,6 +49,14 @@ export const SOURCES = {
   retail:   [{ fred: 'RSAFS', units: 'pc1' }],
   umcsent:  [{ fred: 'UMCSENT' }],
   gdp:      [{ fred: 'A191RL1Q225SBEA' }],
+  // 제조업 체감지수 (ISM PMI는 유료 → 연준 무료 지역 제조업 지수·전미활동지수로 대용)
+  pmi_philly: [{ fred: 'GACDFSA066MSFRBPHI' }],    // 필라델피아 연준 제조업 현재 활동 (확산지수, 0 기준)
+  pmi_empire: [{ fred: 'GACDINA066MSFRBNY' }],     // 뉴욕 연준 Empire State 제조업 (확산지수, 0 기준)
+  pmi_dallas: [{ fred: 'BACTSAMFRBDAL' }],         // 댈러스 연준 텍사스 제조업 (확산지수, 0 기준)
+  cfnai:      [{ fred: 'CFNAIMA3' }],              // 시카고 연준 전미활동지수 3개월 평균 (0 = 추세 성장)
+  bci_us:     [{ fred: 'BSCICP03USM665S' }],       // OECD 기업신뢰지수 미국 (100 기준)
+  bci_cn:     [{ fred: 'BSCICP03CNM665S' }],       // OECD 기업신뢰지수 중국 (100 기준)
+  bci_kr:     [{ fred: 'BSCICP03KRM665S' }],       // OECD 기업신뢰지수 한국 (100 기준)
 
   // ── 시장·신용 ──
   sp500:     [{ yahoo: '^GSPC' }, { fred: 'SP500' }],
