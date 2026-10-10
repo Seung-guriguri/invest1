@@ -73,6 +73,7 @@ export const SOURCES = {
   wti:    [{ yahoo: 'CL=F' }, { fred: 'DCOILWTICO' }],
   brent:  [{ yahoo: 'BZ=F' }, { fred: 'DCOILBRENTEU' }],
   natgas: [{ yahoo: 'NG=F' }, { fred: 'DHHNGSP' }],
+  ttf: [{ yahoo: 'TTF=F' }],                                 // 유럽 천연가스 TTF (€/MWh)
   coal:   [{ fred: 'PCOALAUUSDM' }],                       // IMF 호주(뉴캐슬) 석탄, 월간
   gasoline: [{ yahoo: 'RB=F' }, { fred: 'DGASNYH' }],       // RBOB 휘발유 선물 (실패 시 뉴욕항 현물)
   diesel:   [{ yahoo: 'HO=F' }, { fred: 'DDFUELNYH' }],     // 초저유황 디젤(ULSD) 선물 (실패 시 뉴욕항 현물)
@@ -80,6 +81,9 @@ export const SOURCES = {
   // ── 운임 ──
   bdry:        [{ yahoo: 'BDRY' }],                          // 벌크선 운임 선물 ETF (BDI 대용)
   freight_ppi: [{ fred: 'PCU483111483111', units: 'pc1' }],  // 미국 PPI 원양 화물운송, 전년비
+  tanker_fro:  [{ yahoo: 'FRO' }],                           // Frontline — VLCC 원유선사 (VLCC 운임 대용)
+  tanker_stng: [{ yahoo: 'STNG' }],                          // Scorpio Tankers — 석유제품선사
+  lng_flng:    [{ yahoo: 'FLNG' }],                          // Flex LNG — LNG 운반선사 (LNG선 운임 대용)
   // scfi: 상하이 컨테이너 운임지수 — 무료 API 없음 → 직접 입력
 
   // ── 비축·재고 (EIA 주간, 천 배럴 → 백만 배럴) ──
