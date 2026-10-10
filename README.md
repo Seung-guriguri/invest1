@@ -15,7 +15,8 @@ scripts/ai-insight.mjs          AI 인사이트 생성 (Gemini, 하루 1회)
 notes.js                        지표별 인사이트 문구 (의미·함께 볼 지표·확인할 것)
 data.js                         데이터 모듈: 자동 데이터(data/latest.json) + 직접 입력(localStorage) 병합, 백업
 scripts/sources.mjs             지표별 자동 수집 소스 (FRED 시리즈, Yahoo 심볼, 한국은행 통계코드)
-scripts/fetch-data.mjs          수집 스크립트 (Node 18+, 외부 패키지 없음)
+scripts/fetch-data.mjs          수집 스크립트 (Node 18+, 외부 패키지 없음). 계산 지표(3-2-1 크랙 스프레드)도 여기서
+scripts/alerts.mjs              긴급 경고 판단(정제 가동률 급락 등) + 선택적 텔레그램 알림
 .github/workflows/update-data.yml  정기 수집 + Pages 배포 워크플로
 manifest.json, sw.js, icons/    PWA (홈 화면 설치, 오프라인 열람)
 ```
@@ -106,6 +107,20 @@ Yahoo 시세는 수집 시점에 정규장이 열려 있으면 그날 봉(장중
 - 생성 결과 전문과 길이 점검 결과가 Actions 로그(AI 인사이트 단계)에 그대로 남아 검토할 수 있습니다.
 - 무료 등급에서는 보낸 내용(공개 시장 데이터)이 Google의 서비스 개선에 쓰일 수 있습니다. 개인이 직접 입력한 값은 보내지 않습니다.
 
+## 긴급 경고 (정제 가동률 급락 등)
+
+- 수집 때마다(하루 3번) `scripts/alerts.mjs` 가 판단해 `data/alerts.json` 을 만들고, 앱 맨 위에 **빨간 배너**와 체크리스트 1순위로 띄웁니다.
+- **정제 가동률 급락**
+  - 🚨 긴급: 한 주 −3%p 이상 또는 3주 −5%p 이상 (허리케인·사고·정전 등 설비 차질 신호)
+  - ⚠ 주의: 한 주 −2%p 또는 3주 −3.5%p
+  - 배너에 크랙 스프레드 변화, 디젤·휘발유 재고(평년 대비), 정비 시즌 여부가 함께 표시됩니다.
+- **휴대폰 알림 (선택, 텔레그램)** — 긴급 경고가 새로 생기면 한 번만 보냅니다 (같은 경고는 다시 안 보냄).
+  1. 텔레그램에서 `@BotFather` → `/newbot` → 봇 토큰 받기
+  2. 만든 봇에게 아무 메시지나 보낸 뒤, 브라우저에서 `https://api.telegram.org/bot<토큰>/getUpdates` 를 열어 `"chat":{"id":숫자}` 확인
+  3. 저장소 Settings → Secrets and variables → Actions 에 `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` 등록
+  - 설정하지 않으면 앱 배너로만 표시됩니다.
+- 새 경고 규칙은 `scripts/alerts.mjs` 의 `RULES` 에 추가합니다.
+
 ## 2. 지표 목록
 
 | 탭 | 지표 | 자동 소스 |
@@ -119,6 +134,7 @@ Yahoo 시세는 수집 시점에 정규장이 열려 있으면 그날 봉(장중
 | | 하이일드·투자등급 스프레드, 금융여건지수(NFCI), 금융스트레스지수, 연준 총자산, M2 증가율 | FRED |
 | 환율 | 원/달러, 달러인덱스, 엔/달러, 유로/달러, 위안/달러, VIX | Yahoo → FRED |
 | 에너지 | WTI, 브렌트, 천연가스, 휘발유(RBOB, RB=F), 디젤(ULSD, HO=F) | Yahoo → FRED |
+| | 3-2-1 크랙 스프레드 (정유 마진 = (휘발유×42×2 + 디젤×42 − WTI×3) ÷ 3, $/배럴) | 위 세 선물로 자동 계산 |
 | | 석탄(호주 뉴캐슬) | FRED(IMF, 월간) |
 | 운임 | 벌크선 운임 (BDRY ETF — BDI 원지수는 무료 API가 없어 대용) | Yahoo |
 | | 미국 원양 화물운송 PPI (전년비) | FRED (월간) |

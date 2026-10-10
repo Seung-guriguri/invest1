@@ -3,6 +3,7 @@
 #    사이트 파일과 함께 GitHub Pages 에 배포합니다. (데이터는 저장소에 커밋하지 않음)
 #  - 저장소 Settings → Pages → Source 를 "GitHub Actions" 로 설정해야 합니다.
 #  - API 키: Settings → Secrets and variables → Actions → FRED_API_KEY, ECOS_API_KEY, EIA_API_KEY, GEMINI_API_KEY
+#    (선택) TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID — 긴급 경고를 텔레그램으로 받기
 #  - AI 인사이트(Gemini)는 평일 아침 07:23 실행에서만 하루 1회 생성, 나머지 실행은 아침 해설을 그대로 유지
 name: 데이터 수집 및 배포
 
@@ -47,6 +48,7 @@ jobs:
         run: |
           curl -fsSL "${{ steps.pages.outputs.base_url }}/data/latest.json" -o previous.json || echo "이전 데이터 없음"
           curl -fsSL "${{ steps.pages.outputs.base_url }}/data/ai.json" -o ai-previous.json || echo "이전 AI 해설 없음"
+          curl -fsSL "${{ steps.pages.outputs.base_url }}/data/alerts.json" -o alerts-previous.json || echo "이전 경고 기록 없음"
 
       - name: 지표 수집
         env:
@@ -54,6 +56,12 @@ jobs:
           ECOS_API_KEY: ${{ secrets.ECOS_API_KEY }}
           EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
         run: node scripts/fetch-data.mjs --previous previous.json --out _site/data/latest.json
+
+      - name: 긴급 경고 판단 (정제 가동률 급락 등, 텔레그램 알림은 설정 시에만)
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: node scripts/alerts.mjs --data _site/data/latest.json --out _site/data/alerts.json --previous alerts-previous.json
 
       - name: AI 인사이트 (Gemini, 평일 07:23 또는 수동 실행 때만)
         env:
