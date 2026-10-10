@@ -7,7 +7,7 @@
  * 환경 변수
  *   GEMINI_API_KEY  — 없으면 건너뜀 (이전 해설 유지)
  *   GEMINI_MODEL    — 선택. 비우면 사용 가능한 Flash 계열을 자동 선택
- *   AI_RUN          — 'true' 일 때만 호출 (평일 06:23 예약 실행 또는 수동 실행). 그 외에는 이전 해설을 그대로 복사
+ *   AI_RUN          — 'true' 일 때만 호출 (평일 07:23 예약 실행 또는 수동 실행). 그 외에는 이전 해설을 그대로 복사
  *
  * 프롬프트는 prompts/ai-system.md (역할·규칙), prompts/ai-user.md (데이터 틀) 에서 읽습니다.
  * 실패해도 작업 전체를 실패시키지 않고 이전 해설을 유지합니다.
@@ -108,7 +108,8 @@ function pickTargets(rows, max = 15) {
 /* ---------- Gemini 호출 ---------- */
 async function post(model, body) {
   const res = await fetch(`${API}/models/${encodeURIComponent(model)}:generateContent`, {
-    method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': KEY }, body: JSON.stringify(body)
+    method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': KEY }, body: JSON.stringify(body),
+    signal: AbortSignal.timeout(180000)   // 응답이 3분 넘게 없으면 포기
   });
   const text = await res.text();
   let j; try { j = JSON.parse(text); } catch (e) { j = null; }
@@ -162,7 +163,7 @@ function clean(s, max) {
 }
 
 async function main() {
-  if (!RUN) return keepPrevious('오늘 실행 대상 아님 (평일 06:23 예약 또는 수동 실행에서만 생성)');
+  if (!RUN) return keepPrevious('오늘 실행 대상 아님 (평일 07:23 예약 또는 수동 실행에서만 생성)');
   if (!KEY) return keepPrevious('GEMINI_API_KEY 없음');
 
   const latest = JSON.parse(await readFile(DATA, 'utf8'));
@@ -187,12 +188,19 @@ async function main() {
   const models = MODEL ? [MODEL] : await autoModels();
   let resp = null, used = null, lastErr = null;
   for (const m of models.slice(0, 4)) {
-    for (const withSchema of [true, false]) {
+    // 1차: 형식 지정 / 서버 혼잡(5xx·시간 초과)이면 20초 뒤 같은 방식으로 한 번 더 / 형식 오류(400)면 형식 지정 없이
+    const attempts = [true, true, false];
+    for (let i = 0; i < attempts.length; i++) {
+      const withSchema = attempts[i];
       try { resp = await post(m, body(withSchema)); used = m; break; }
       catch (e) {
         lastErr = e; console.log(`  ${m}${withSchema ? '' : ' (형식 지정 없이)'} → ${e.message}`);
         if (e.status === 429) return keepPrevious('무료 한도 초과 (429)');
         if (e.status === 404 || e.status === 403) break;   // 다른 모델로
+        const busy = !e.status || e.status >= 500;
+        if (busy && i === 0) { await new Promise(r => setTimeout(r, 20000)); continue; }
+        if (busy) break;                                    // 계속 혼잡하면 다른 모델로
+        if (i === 0) i = 1;                                 // 400 등 형식 문제 → 바로 형식 지정 없이
       }
     }
     if (resp) break;
