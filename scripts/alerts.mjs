@@ -50,12 +50,18 @@ function seasonDev(obs) {
  * 각 규칙: (series) => null 또는 { id, level: 'critical'|'warn', date, title, summary, points[], check }
  * 일반적인 해석만 쓰고, 매수·매도 같은 표현은 쓰지 않습니다. */
 const RULES = [
-  /** 정제 가동률 급락: 한 주 −3%p 이상 또는 3주 −5%p 이상 → 심각 / 한 주 −2%p 또는 3주 −3.5%p → 주의 */
+  /** 정제 가동률 급락 ('지금 꺾이는 중'일 때만)
+   *  - 한 주 −3%p 이상 → 긴급, 한 주 −2%p 이상 → 주의
+   *  - 3주 누적 하락은 이번 주도 하락 중일 때만: 평소 −5%p 긴급 / −3.5%p 주의,
+   *    정기 정비 시즌(2~4월, 9~10월)엔 계획된 하락이 흔해 −7%p 긴급 / −5%p 주의 */
   function refineryDrop(S) {
     const s = S.refinery_util; if (!s || s.obs.length < 5) return null;
     const o = s.obs, n = o.length, last = o[n - 1];
     const d1 = last[1] - o[n - 2][1], d3 = last[1] - o[n - 4][1];
-    const level = d1 <= -3 || d3 <= -5 ? 'critical' : d1 <= -2 || d3 <= -3.5 ? 'warn' : null;
+    const m = new Date(last[0]).getUTCMonth() + 1, maint = [2, 3, 4, 9, 10].includes(m);
+    const [c3, w3] = maint ? [-7, -5] : [-5, -3.5];
+    const falling = d1 < 0;
+    const level = d1 <= -3 || (falling && d3 <= c3) ? 'critical' : d1 <= -2 || (falling && d3 <= w3) ? 'warn' : null;
     if (!level) return null;
     const points = [`정제 가동률 ${last[1].toFixed(1)}% — 한 주 ${sign(d1)}%p, 3주 ${sign(d3)}%p`];
     const c = S.crack321;
@@ -68,8 +74,7 @@ const RULES = [
       const dev = seasonDev(x.obs);
       if (dev != null) points.push(`${name} 평년 대비 ${sign(dev)}%${dev <= -5 ? ' — 완충 여력 부족' : ''}`);
     }
-    const m = new Date(last[0]).getUTCMonth() + 1;
-    if ([2, 3, 4, 9, 10].includes(m)) points.push('봄·가을 정기 정비 시즌 — 계획된 하락일 수 있지만, 한 주 3%p 이상은 이례적');
+    if (maint) points.push('봄·가을 정기 정비 시즌 — 계획된 하락일 수 있지만, 한 주 3%p 이상은 이례적');
     return {
       id: 'refinery_drop', level, date: last[0],
       title: level === 'critical' ? '정제 가동률 급락' : '정제 가동률 빠른 하락',
