@@ -1335,6 +1335,66 @@
         { when: S => S.up('etf_eem') && S.up('copper'), text: '구리 등 원자재 강세 동반 → 자원 수출국 증시에 우호적' }
       ],
       watch: '달러 · 중국 경기 · 연준 정책'
+    },
+    etf_ung: {
+      what: 'UNG — 미국 천연가스 선물을 따라감, 가스 가격 흐름을 주식처럼 보여줌',
+      states: etfStates('천연가스 선물'),
+      pairs: [
+        { when: S => S.season('ng_storage') <= -5, text: S => `가스 저장량 평년보다 ${Math.abs(S.season('ng_storage')).toFixed(1)}% 적음 → 날씨에 가격이 민감` },
+        { when: S => S.season('ng_storage') >= 5, text: '가스 저장량 평년보다 많음 → 가격 상승 여력 제한' },
+        { when: S => S.up('etf_ung') && S.up('etf_coal'), text: '석탄 기업도 상승 → 발전 연료 전반이 강세' }
+      ],
+      watch: '매주 목요일 EIA 가스 저장량 · 겨울 기온 전망 · 선물 교체 비용(장기 보유 시 가스값과 괴리)'
+    },
+    etf_coal: {
+      what: 'COAL — 글로벌 석탄 생산 기업, 석탄 가격과 아시아 전력 수요에 민감',
+      states: etfStates('석탄 기업'),
+      pairs: [
+        { when: S => S.up('etf_coal') && S.up('coal'), text: '석탄 가격도 상승 → 업황 개선이 주가에 반영' },
+        { when: S => S.up('etf_coal') && S.down('coal'), text: '석탄값은 내리는데 주가만 상승 → 배당·주식시장 요인' },
+        { when: S => S.up('natgas'), text: '천연가스 상승 → 발전 연료를 석탄으로 바꾸는 수요가 늘 수 있음' }
+      ],
+      watch: '석탄 가격(월간) · 중국·인도 전력 수요 · 천연가스 가격'
+    },
+    etf_ura: {
+      what: 'URA — 우라늄 채굴·원전 관련 기업, 원자력 발전 수요 기대를 보여줌',
+      states: etfStates('우라늄·원전주'),
+      pairs: [
+        { when: S => S.up('natgas') || S.up('coal'), text: '가스·석탄 등 발전 연료 상승 → 원전의 연료비 경쟁력 부각' },
+        { when: S => S.down('etf_ura') && S.up('us10y'), text: '장기금리 상승 → 건설 기간 긴 원전 사업에 부담' },
+        { when: S => S.up('etf_ura') && S.up('etf_copx'), text: '구리 광산주와 동반 상승 → 전력 인프라 투자 기대' }
+      ],
+      watch: '우라늄 현물 가격 · 각국 원전 정책 · 전력 수요(데이터센터 등)'
+    },
+    etf_copx: {
+      what: 'COPX — 구리 광산 기업, 구리 가격보다 크게 움직이는 경향',
+      states: etfStates('구리 광산주'),
+      pairs: [
+        { when: S => S.up('etf_copx') && S.up('copper'), text: '구리 가격과 동반 상승 → 광산 기업 이익 기대' },
+        { when: S => S.up('etf_copx') && S.down('copper'), text: '구리는 내리는데 광산주만 상승 → 주식시장 요인' },
+        { when: S => S.down('etf_copx') && S.up('usdcny'), text: '위안화 약세 동반 → 최대 수요처 중국 걱정' }
+      ],
+      watch: '구리 가격 · 중국 제조업 PMI · 칠레·페루 광산 뉴스'
+    },
+    etf_pick: {
+      what: 'PICK — 글로벌 금속·광산 기업(철광석·구리 비중 큼), 산업금속 경기를 보여줌',
+      states: etfStates('광산 기업'),
+      pairs: [
+        { when: S => S.up('iron_ore') && S.up('copper'), text: '철광석·구리 동반 상승 → 산업금속 경기 기대' },
+        { when: S => S.down('etf_pick') && S.down('iron_ore'), text: '철광석 하락 동반 → 중국 철강·건설 수요 걱정' },
+        { when: S => S.up('dxy'), text: '달러 강세 → 달러로 매겨지는 금속 가격에 하락 압력' }
+      ],
+      watch: '철광석·구리 가격 · 중국 부동산·인프라 정책 · 달러'
+    },
+    etf_remx: {
+      what: 'REMX — 희토류·전략 금속 기업, 공급망 이슈와 중국 수출 통제에 민감',
+      states: etfStates('희토류·전략 금속주'),
+      pairs: [
+        { when: S => S.up('etf_remx') && S.up('etf_lit'), text: '리튬·배터리주와 동반 상승 → 전기차·배터리 공급망 기대' },
+        { when: S => S.surge('etf_remx'), text: '하루 급등 → 수출 통제 등 공급망 뉴스가 원인인 경우가 많음' },
+        { when: S => S.down('etf_remx') && S.up('dxy'), text: '달러 강세 동반 → 원자재 기업 전반에 부담' }
+      ],
+      watch: '중국 희토류 수출 정책 · 전기차·방산 수요 · 리튬 가격'
     }
   });
 })(window);

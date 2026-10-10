@@ -115,6 +115,12 @@ export const SOURCES = {
   etf_kre: [{ yahoo: 'KRE' }],
   etf_ewy: [{ yahoo: 'EWY' }],
   etf_eem: [{ yahoo: 'EEM' }],
+  etf_ung: [{ yahoo: 'UNG' }],
+  etf_coal: [{ yahoo: 'COAL' }],
+  etf_ura: [{ yahoo: 'URA' }],
+  etf_copx: [{ yahoo: 'COPX' }],
+  etf_pick: [{ yahoo: 'PICK' }],
+  etf_remx: [{ yahoo: 'REMX' }],
 
   // ── 금속·광물 ──
   copper:   [{ yahoo: 'HG=F', scale: LB_PER_T }, { fred: 'PCOPPUSDM' }],
