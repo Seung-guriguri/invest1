@@ -1223,7 +1223,12 @@ function fmt(v, dp) {
   return Number(v).toLocaleString('ko-KR', { minimumFractionDigits: dp, maximumFractionDigits: dp });
 }
 function fmtSigned(v, dp) { return (v > 0 ? '+' : v < 0 ? '−' : '') + fmt(Math.abs(v), dp); }
-function toLocalISO(isoStr) { const d = new Date(isoStr); return isNaN(d) ? '' : DataStore.isoDate(d); }
+/** 업데이트(수집·입력) 시각: 2026-10-10 07:25 (기기 시간대) */
+function toLocalISO(isoStr) {
+  const d = new Date(isoStr); if (isNaN(d)) return '';
+  const hasTime = /T\d{2}:\d{2}/.test(String(isoStr));
+  return hasTime ? `${DataStore.isoDate(d)} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` : DataStore.isoDate(d);
+}
 /** 주기에 맞춘 기준일 표시: 월간 2026-08, 분기 2026 Q2 */
 function fmtObsDate(date, freq) {
   if (freq === 'M') return date.slice(0, 7);
