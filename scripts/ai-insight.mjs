@@ -65,6 +65,11 @@ function stats(id, s, m) {
   const monthly = s.freq === 'M' || s.freq === 'Q';
   const c1 = idx => monthly ? (idx > 0 ? change(m.mode, obs[idx - 1][1], obs[idx][1]) : null) : change(m.mode, valueBefore(obs, idx, 30), obs[idx][1]);
   const chg1m = c1(n - 1);
+  // 3개월·1년 변화 (월간은 3·12번째 전 발표, 분기는 1·4번째 전 발표)
+  const back = (k) => n - 1 - k >= 0 ? obs[n - 1 - k][1] : null;
+  const chgOver = (days, mBack, qBack) => s.freq === 'M' ? change(m.mode, back(mBack), last[1])
+    : s.freq === 'Q' ? change(m.mode, back(qBack), last[1]) : change(m.mode, valueBefore(obs, n - 1, days), last[1]);
+  const chg3m = chgOver(91, 3, 1), chg1y = chgOver(365, 12, 4);
   // 평소 1개월 변화폭 (표준편차) 대비 배수
   const hist = []; for (let i = 1; i < n - 1; i++) { const c = c1(i); if (c != null && isFinite(c)) hist.push(c); }
   let z = null;
@@ -88,7 +93,7 @@ function stats(id, s, m) {
   return {
     id, name: m.name + (m.sub ? ` (${m.sub})` : ''), cat: m.cat, unit: m.unit,
     value: round(last[1], Math.max(m.dp, 2)), date: last[0], freq: s.freq,
-    chg_prev: round(change(m.mode, prev[1], last[1]), 2), chg_1m: round(chg1m, 2),
+    chg_prev: round(change(m.mode, prev[1], last[1]), 2), chg_1m: round(chg1m, 2), chg_3m: round(chg3m, 2), chg_1y: round(chg1y, 2),
     chg_unit: m.mode === 'pct' ? '%' : m.mode === 'pp' ? '%p' : m.unit,
     z_1m: round(z, 1), position: round(position, 0), season_dev: round(season, 1)
   };
@@ -104,12 +109,20 @@ function pickTargets(rows, max = 15) {
   return rows.map(r => ({ id: r.id, s: score(r) })).filter(x => x.s >= 1.2)
     .sort((a, b) => b.s - a.s).slice(0, max).map(x => x.id);
 }
+/** 해설 대상 한 줄: 왜 골랐는지 쉬운 말로 */
+function targetLine(r) {
+  const why = [];
+  if (r.z_1m != null && Math.abs(r.z_1m) >= 1.2) why.push(`${r.freq === 'M' || r.freq === 'Q' ? '직전 발표 대비' : '1개월'} ${r.chg_1m > 0 ? '+' : ''}${r.chg_1m}${r.chg_unit} (평소의 ${Math.abs(r.z_1m)}배)`);
+  if (r.position != null && (r.position >= 80 || r.position <= 20)) why.push(`최근 ${({ D: 2, W: 3 })[r.freq] || 10}년 중 ${r.position >= 50 ? '상위' : '하위'} ${Math.max(1, Math.round(r.position >= 50 ? 100 - r.position : r.position))}%`);
+  if (r.season_dev != null && Math.abs(r.season_dev) >= 6) why.push(`평년 대비 ${r.season_dev > 0 ? '+' : ''}${r.season_dev}%`);
+  return `- ${r.id} (${r.name.split(' (')[0]}): ${why.join(', ')}`;
+}
 
 /* ---------- Gemini 호출 ---------- */
 async function post(model, body) {
   const res = await fetch(`${API}/models/${encodeURIComponent(model)}:generateContent`, {
     method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': KEY }, body: JSON.stringify(body),
-    signal: AbortSignal.timeout(180000)   // 응답이 3분 넘게 없으면 포기
+    signal: AbortSignal.timeout(150000)   // 응답이 2분 30초 넘게 없으면 다음 모델로
   });
   const text = await res.text();
   let j; try { j = JSON.parse(text); } catch (e) { j = null; }
@@ -119,16 +132,18 @@ async function post(model, body) {
 
 /** 사용 가능한 Flash 계열 모델 이름 고르기 */
 async function autoModels() {
-  const list = ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-flash-lite-latest'];
+  // 우선순위: 번호가 가장 높은 Flash → gemini-flash-latest → 번호가 가장 높은 Flash-Lite → gemini-flash-lite-latest
+  const ver = n => Number((n.match(/^gemini-(\d+(?:\.\d+)?)-/) || [])[1] || 0);
+  let names = [];
   try {
-    const res = await fetch(`${API}/models?pageSize=200`, { headers: { 'x-goog-api-key': KEY } });
+    const res = await fetch(`${API}/models?pageSize=200`, { headers: { 'x-goog-api-key': KEY }, signal: AbortSignal.timeout(20000) });
     const j = await res.json();
-    const names = (j.models || []).filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
-      .map(m => m.name.replace(/^models\//, ''))
-      .filter(n => /flash/.test(n) && !/(image|tts|audio|live|exp|preview|thinking)/.test(n));
-    names.sort((a, b) => (/lite/.test(a) - /lite/.test(b)) || b.localeCompare(a, 'en', { numeric: true }));
-    return [...new Set([...list.filter(x => names.length === 0 || names.includes(x)), ...names])];
-  } catch (e) { return list; }
+    names = (j.models || []).filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+      .map(m => m.name.replace(/^models\//, ''));
+  } catch (e) { /* 목록을 못 받으면 별칭만 사용 */ }
+  const flash = names.filter(n => /^gemini-\d+(\.\d+)?-flash$/.test(n)).sort((x, y) => ver(y) - ver(x));
+  const lite = names.filter(n => /^gemini-\d+(\.\d+)?-flash-lite$/.test(n)).sort((x, y) => ver(y) - ver(x));
+  return [...new Set([...flash.slice(0, 1), 'gemini-flash-latest', ...lite.slice(0, 1), 'gemini-flash-lite-latest'])];
 }
 
 const CATS = ['rates', 'inflation', 'growth', 'market', 'fx', 'energy', 'freight', 'stocks', 'metals', 'grains', 'etf'];
@@ -162,9 +177,13 @@ const SCHEMA = {
 /* ---------- 응답 검사: 투자 권유·매매 지시 표현 거르기 ---------- */
 const BANNED = /(매수|매도)\s*(하세요|하라|할\s*때|타이밍|기회|추천|권)|사세요|파세요|사야\s*(한다|합니다|할)|팔아야|담아|목표\s*가|추천\s*(종목|ETF)|수익\s*(보장|확정)|저평가|고평가|비중\s*(확대|축소)\s*(하|를|추천)/;
 /** 금지 표현이 들어간 문장만 빼고 나머지는 살림 */
+const FIELD_LEAK = /\b(z_1m|chg_(prev|1m|3m|1y|unit)|season_dev|position)\b/i;
+const fixes = [];
 function clean(s, max) {
   if (typeof s !== 'string' || !s.trim()) return null;
-  const kept = s.trim().split(/(?<=[.!?。])\s+/).filter(x => !BANNED.test(x)).join(' ').trim();
+  // position 은 최근 2~10년 안의 위치일 뿐 → '사상·역대 최고/최저'는 '최근 수년 중 최고/최저'로
+  let t = s.trim().replace(/(사상|역대|역사적(?:인)?)\s*(?=(최고|최저|고점|저점|상위|하위|수준))/g, m0 => { fixes.push(m0 + '→최근 수년 중'); return '최근 수년 중 '; });
+  const kept = t.split(/(?<=[.!?。])\s+/).filter(x => { const bad = BANNED.test(x) || FIELD_LEAK.test(x); if (bad) fixes.push('문장 제거: ' + x.slice(0, 40)); return !bad; }).join(' ').trim();
   return kept ? kept.slice(0, max) : null;
 }
 
@@ -176,12 +195,13 @@ async function main() {
   const meta = await readIndicatorMeta();
   const rows = Object.entries(latest.series).filter(([id]) => meta[id]).map(([id, s]) => stats(id, s, meta[id])).filter(Boolean);
   const targets = pickTargets(rows);
-  const kst = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 16).replace('T', ' ');
+  const kstDate = new Date(Date.now() + 9 * 3600000);
+  const kst = `${kstDate.toISOString().slice(0, 16).replace('T', ' ')} (${'일월화수목금토'[kstDate.getUTCDay()]})`;
 
   const system = await readFile(new URL('../prompts/ai-system.md', import.meta.url), 'utf8');
   const user = (await readFile(new URL('../prompts/ai-user.md', import.meta.url), 'utf8'))
     .replace('{{generatedAt}}', kst)
-    .replace('{{targets}}', targets.map(id => `${id} (${meta[id].name})`).join(', ') || '없음')
+    .replace('{{targets}}', targets.map(id => targetLine(rows.find(r => r.id === id))).join('\n') || '없음')
     .replace('{{data}}', rows.map(r => JSON.stringify(r)).join('\n'));
   console.log(`AI 인사이트: 지표 ${rows.length}개, 해설 대상 ${targets.length}개, 프롬프트 약 ${Math.round((system.length + user.length) / 1000)}천 자`);
 
@@ -193,24 +213,28 @@ async function main() {
 
   const models = MODEL ? [MODEL] : await autoModels();
   let resp = null, used = null, lastErr = null;
-  for (const m of models.slice(0, 4)) {
-    // 1차: 형식 지정 / 서버 혼잡(5xx·시간 초과)이면 20초 뒤 같은 방식으로 한 번 더 / 형식 오류(400)면 형식 지정 없이
-    const attempts = [true, true, false];
-    for (let i = 0; i < attempts.length; i++) {
-      const withSchema = attempts[i];
-      try { resp = await post(m, body(withSchema)); used = m; break; }
+  console.log(`  모델 후보: ${models.join(', ')}`);
+  // 모델마다 한 번 (형식 오류 400 이면 형식 지정 없이 한 번 더). 혼잡(5xx·시간 초과)·없음(404)이면 바로 다음 모델.
+  // 모두 혼잡이었으면 30초 쉬고 첫 모델을 한 번 더.
+  const tryModel = async m => {
+    for (const withSchema of [true, false]) {
+      try { resp = await post(m, body(withSchema)); used = m; return 'ok'; }
       catch (e) {
         lastErr = e; console.log(`  ${m}${withSchema ? '' : ' (형식 지정 없이)'} → ${e.message}`);
-        if (e.status === 429) return keepPrevious('무료 한도 초과 (429)');
-        if (e.status === 404 || e.status === 403) break;   // 다른 모델로
-        const busy = !e.status || e.status >= 500;
-        if (busy && i === 0) { await new Promise(r => setTimeout(r, 20000)); continue; }
-        if (busy) break;                                    // 계속 혼잡하면 다른 모델로
-        if (i === 0) i = 1;                                 // 400 등 형식 문제 → 바로 형식 지정 없이
+        if (e.status === 429) return 'quota';
+        if (e.status !== 400) return !e.status || e.status >= 500 ? 'busy' : 'skip';
       }
     }
-    if (resp) break;
+    return 'skip';
+  };
+  let anyBusy = false;
+  for (const m of models.slice(0, 4)) {
+    const r = await tryModel(m);
+    if (r === 'ok') break;
+    if (r === 'quota') return keepPrevious('무료 한도 초과 (429)');
+    if (r === 'busy') anyBusy = true;
   }
+  if (!resp && anyBusy) { await new Promise(r => setTimeout(r, 30000)); await tryModel(models[0]); }
   if (!resp) return keepPrevious(`호출 실패: ${lastErr && lastErr.message}`);
 
   const cand = resp.candidates && resp.candidates[0];
@@ -239,12 +263,31 @@ async function main() {
   }
   if (!briefing.headline && !briefing.story) return keepPrevious('브리핑 내용이 비어 있음');
 
-  const out = { generatedAt: new Date().toISOString(), model: used, briefing, sections, indicators, targets };
+  const ordered = {}; for (const id of targets) if (indicators[id]) ordered[id] = indicators[id];
+  for (const [k, v] of Object.entries(indicators)) if (!ordered[k]) ordered[k] = v;
+  const out = { generatedAt: new Date().toISOString(), model: used, briefing, sections, indicators: ordered, targets };
   await mkdir(dirname(OUT), { recursive: true });
   await writeFile(OUT, JSON.stringify(out));
   const u = resp.usageMetadata || {};
   console.log(`✓ AI 인사이트 생성 (${used}) — 입력 ${u.promptTokenCount ?? '?'} · 출력 ${u.candidatesTokenCount ?? '?'} · 합계 ${u.totalTokenCount ?? '?'} 토큰, 분류 브리핑 ${Object.keys(sections).length}개, 지표 해설 ${Object.keys(indicators).length}개`);
+  // 검토용 로그 (Actions 로그에서 그대로 읽을 수 있게)
+  const len = x => (x || '').length;
+  const warn = [];
+  if (len(briefing.headline) > 30) warn.push(`제목 ${len(briefing.headline)}자`);
+  if (len(briefing.story) > 250) warn.push(`이야기 ${len(briefing.story)}자`);
+  for (const [k, v] of Object.entries(sections)) { if (len(v.headline) > 20) warn.push(`${k} 제목 ${len(v.headline)}자`); if (len(v.body) > 130) warn.push(`${k} 본문 ${len(v.body)}자`); }
+  const missing = CATS.filter(c => !sections[c]);
+  if (missing.length) warn.push(`빠진 분류: ${missing.join(',')}`);
   console.log(`  제목: ${briefing.headline}`);
+  console.log(`  이야기: ${briefing.story}`);
+  (briefing.points || []).forEach(x => console.log(`  · ${x}`));
+  console.log(`  한국: ${briefing.korea}`);
+  (briefing.watch || []).forEach(x => console.log(`  확인: ${x}`));
+  console.log(`  반론: ${briefing.counterpoint}`);
+  for (const c of CATS) if (sections[c]) console.log(`  [${c}] ${sections[c].headline} | ${sections[c].body}`);
+  for (const [k, v] of Object.entries(indicators)) console.log(`  <${k}> ${v}`);
+  if (fixes.length) console.log(`  후처리 ${fixes.length}건: ${fixes.join(' / ')}`);
+  console.log(warn.length ? `  길이·형식 경고: ${warn.join(', ')}` : '  길이·형식 점검: 모두 기준 이내');
 }
 
 main().catch(e => keepPrevious(`오류: ${e.message}`)).then(() => process.exit(0));
