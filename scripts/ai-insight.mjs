@@ -268,7 +268,7 @@ const fixes = [];
 function clean(s, max) {
   if (typeof s !== 'string' || !s.trim()) return null;
   // position 은 최근 2~10년 안의 위치일 뿐 → '사상·역대 최고/최저'는 '최근 수년 중 최고/최저'로
-  let t = s.trim().replace(/(사상|역대|역사적(?:인)?)\s*(?=(최고|최저|고점|저점|상위|하위|수준))/g, m0 => { fixes.push(m0 + '→최근 수년 중'); return '최근 수년 중 '; });
+  let t = s.trim().replace(/(사상|역대|역사적(?:인)?)\s*(?=(최고|최저|최다|최대|최소|고점|저점|상위|하위|수준))/g, m0 => { fixes.push(m0 + '→최근 수년 중'); return '최근 수년 중 '; });
   const kept = t.split(/(?<=[.!?。])\s+/).filter(x => { const bad = BANNED.test(x) || FIELD_LEAK.test(x); if (bad) fixes.push('문장 제거: ' + x.slice(0, 40)); return !bad; }).join(' ').trim();
   return kept ? kept.slice(0, max) : null;
 }
