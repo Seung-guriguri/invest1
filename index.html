@@ -134,6 +134,14 @@
   .tab-summary b { color: var(--text); }
 
   /* AI 브리핑 */
+  .alert-box { margin-bottom: 12px; border-radius: 14px; padding: 12px 14px; border: 2px solid var(--red); background: var(--red-bg); }
+  .alert-box.warn { border-color: var(--yellow); background: var(--yellow-bg); }
+  .alert-box .alert-tag { display: inline-block; font-size: 12px; font-weight: 800; color: #fff; background: var(--red); border-radius: 6px; padding: 2px 8px; }
+  .alert-box.warn .alert-tag { background: var(--yellow); color: #000; }
+  .alert-box h2 { font-size: 17px; margin: 6px 0 4px; }
+  .alert-box p { margin: 0 0 6px; font-size: 14.5px; line-height: 1.55; }
+  .alert-box ul { margin: 0 0 6px; padding-left: 18px; font-size: 13.5px; }
+  .alert-box .alert-meta { font-size: 12px; color: var(--text-2); }
   .ai-brief { margin-bottom: 12px; border-left: 4px solid var(--accent); }
   .ai-brief .ai-label { font-size: 12px; font-weight: 700; color: var(--accent); letter-spacing: .2px; }
   .ai-brief h2 { font-size: 16.5px; margin: 4px 0 6px; line-height: 1.35; }
@@ -334,6 +342,7 @@
       <button type="button" data-action="go-settings">값 입력</button>
     </div>
 
+    <section id="alerts" aria-label="긴급 경고" hidden></section>
     <section class="panel ai-brief" id="aiBrief" aria-label="오늘의 AI 브리핑" hidden></section>
 
     <section class="panel" aria-label="요약">
@@ -597,6 +606,8 @@ const CONFIG = {
       level: { dir: 'up', warn: 2.8, danger: 3.2 }, change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
     { id: 'diesel', cat: 'energy', name: '디젤', sub: '초저유황 경유 선물 (HO=F)', unit: '$/gal', dp: 3, changeMode: 'pct', profile: 'diesel',
       level: { dir: 'up', warn: 3.0, danger: 3.5 }, change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
+    { id: 'crack321', cat: 'energy', name: '3-2-1 크랙 스프레드', sub: '정유 마진: (휘발유×2 + 디젤×1 − WTI×3) ÷ 3', unit: '$/bbl', dp: 2, changeMode: 'abs', profile: 'crack',
+      level: { dir: 'up', warn: 35, danger: 45 }, change: { dir: 'both', flat: 0.5, warn: 3, danger: 6 } },
 
     // ── 운임 ──
     { id: 'bdry', cat: 'freight', name: '벌크선 운임', sub: 'BDRY ETF — BDI 대용, 지수 아님', unit: '$', dp: 2, changeMode: 'pct', profile: 'bulkFreight',
@@ -644,7 +655,7 @@ const CONFIG = {
     { id: 'cushing', cat: 'stocks', name: '쿠싱 원유 재고', sub: 'WTI 인도 지점, 주간 (EIA)', unit: '백만 bbl', dp: 1, changeMode: 'pct', profile: 'cushing',
       level: { fixed: true, dir: 'down', warn: 25, danger: 22 }, change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
     { id: 'refinery_util', cat: 'stocks', name: '미국 정제 가동률', sub: '주간 (EIA)', unit: '%', dp: 1, changeMode: 'pp', profile: 'refinery',
-      level: { fixed: true, dir: 'down', warn: 85, danger: 80 }, change: { dir: 'both', flat: 0.5, warn: 2, danger: 4 } },
+      level: { fixed: true, dir: 'down', warn: 85, danger: 80 }, change: { dir: 'down', flat: 0.5, warn: 2, danger: 3 } },   // 주간 하락 2%p 주의, 3%p 경고 (급락은 긴급 경고 배너도)
     { id: 'us_crude_prod', cat: 'stocks', name: '미국 원유 생산', sub: '주간 (EIA)', unit: '백만 b/d', dp: 2, changeMode: 'pct', profile: 'crudeProd',
       change: { dir: 'both', flat: 0.3, warn: 1.5, danger: 3 } },
     { id: 'gasoline_demand', cat: 'stocks', name: '미국 휘발유 수요', sub: '제품 공급량 4주 평균 (EIA)', unit: '백만 b/d', dp: 2, changeMode: 'pct', profile: 'gasolineDemand',
@@ -708,7 +719,7 @@ const CONFIG = {
  *             → 수준 주의(warn) → 보합(flat).  키가 없으면 비슷한 키로 대체 (surge→rise 등)
  *   {name} 은 지표 이름으로 바뀜. a = 분석 결과(value, prev, trend, lvl ...)
  *   문체: "상황 → 의미" 한 줄, 45자 안팎. 일간·주간 지표의 상승·하락 문구 앞에는
- *         판단 기준이 자동으로 붙음 ("하루 새" = 직전 대비 급변, "한 달 새" = 1개월 추세)
+ *         판단 기준이 자동으로 붙음 ("하루 새"·"한 주 새" = 직전 관측치 대비 급변, "한 달 새" = 1개월 추세)
  * --------------------------------------------------------------------- */
 const COMMENTS = {
   policyRate: {
@@ -943,6 +954,14 @@ const COMMENTS = {
     high: '디젤 비싼 구간 → 물류비·생산원가 부담 지속',
     flat: '디젤 보합 → 물류비 압력 변화 작음'
   },
+  crack: {
+    surge: '정유 마진 급등 → 휘발유·디젤이 원유보다 훨씬 비싸짐, 정유 설비 차질 확인',
+    rise: '정유 마진 확대 → 석유제품 공급이 원유보다 빡빡, 기름값 상승 압력',
+    plunge: '정유 마진 급락 → 석유제품 수요 둔화 또는 원유만 급등',
+    fall: '정유 마진 축소 → 석유제품 수급 여유, 정유사 이익 감소',
+    high: '정유 마진 최근 수년 중 높은 수준 → 정제 설비가 병목, 소비자 기름값 부담',
+    flat: '정유 마진 보합 → 제품·원유 가격이 같이 움직이는 중'
+  },
   bulkFreight: {
     surge: '벌크선 운임 급등 → 철광석·곡물 수입 운송비 급증',
     rise: '벌크선 운임 상승 → 원자재 물동량 증가 또는 배 부족',
@@ -1030,6 +1049,7 @@ const COMMENTS = {
     flat: '쿠싱 재고 보합'
   },
   refinery: {
+    plunge: '정제 가동률 급락 → 정유 설비 차질 신호, 휘발유·디젤 공급 부족·가격 급등 위험',
     high: '정제 가동률 크게 낮음 → 설비 사고·정비 확인, 휘발유·디젤 공급 부족 위험',
     warn: '정제 가동률 낮은 편 → 정비 시즌인지와 제품 재고 확인',
     rise: '정제 가동률 상승 → 휘발유·디젤 공급 여력↑',
@@ -1076,6 +1096,8 @@ const COMMENTS = {
  * --------------------------------------------------------------------- */
 const CHECKLIST = [
   { priority: 120, test: S => S.missingCount === S.total, text: '지표 값 입력 필요', why: '입력된 데이터가 없음' },
+  { priority: 130, test: S => DataStore.getAlerts().some(a => a.level === 'critical'),
+    text: () => `🚨 ${DataStore.getAlerts().filter(a => a.level === 'critical').map(a => a.title).join(', ')} — 맨 위 긴급 경고 확인`, why: '긴급 경고 발생' },
   { priority: 110, test: S => S.staleCount > 0, text: S => `오래된 데이터 ${S.staleCount}개 — 자동 수집 상태·값 업데이트 확인`, why: '자동 수집 중단 또는 발표 주기보다 오래 새 값 없음' },
   { priority: 100, test: S => S.sig('vix') === 2 || S.surge('vix') || S.count(['sp500', 'nasdaq', 'kospi'], S.plunge) >= 1,
     text: '빚을 낸 투자(레버리지)·신용 규모 점검', why: '공포지수(VIX) 급등·경고 구간 또는 주가지수 급락' },
@@ -1226,7 +1248,7 @@ const INSIGHTS = [
  * ===================================================================== */
 const IND = Object.fromEntries(CONFIG.indicators.map(i => [i.id, i]));
 const SIGNAL_LABEL = ['양호', '주의', '경고'];
-const SOURCE_LABEL = { FRED: 'FRED', Yahoo: 'Yahoo', ECOS: '한국은행', EIA: 'EIA', Eurostat: 'Eurostat', manual: '직접 입력', import: '직접 입력', derived: '자동 계산', sample: '샘플' };
+const SOURCE_LABEL = { FRED: 'FRED', Yahoo: 'Yahoo', ECOS: '한국은행', EIA: 'EIA', Eurostat: 'Eurostat', manual: '직접 입력', import: '직접 입력', derived: '자동 계산', Calc: '자동 계산', sample: '샘플' };
 const RANGES = [['1M', 31], ['3M', 92], ['6M', 183], ['1Y', 366], ['2Y', 731], ['5Y', 1827], ['10Y', 3653]];
 const $ = sel => document.querySelector(sel);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -1438,7 +1460,7 @@ function pickComment(ind, a) {
   const text = fill(p[key] || p.flat);
   // 일간·주간 지표: 카드의 '직전 대비 %'와 헷갈리지 않게 추세 기준을 앞에 붙임
   if ((a.freq === 'D' || a.freq === 'W') && ['rise', 'fall', 'surge', 'plunge'].includes(key) && text) {
-    return (a.trendSrc === '1m' ? '한 달 새 ' : '하루 새 ') + text;
+    return (a.trendSrc === '1m' ? '한 달 새 ' : a.freq === 'W' ? '한 주 새 ' : '하루 새 ') + text;
   }
   return text;
 }
@@ -1524,6 +1546,7 @@ function render() {
       <span class="box" aria-hidden="true"></span><span class="txt">${esc(item.text)}<span class="why">${esc(item.why || '')}</span></span></label></li>`;
   }).join('');
 
+  renderAlerts();
   renderAIBrief();
   const ins = buildInsights(R);
   $('#insights').innerHTML = ins.length ? ins.map((it, i) => `
@@ -1618,6 +1641,19 @@ function aiMetaText(ai) {
   const t = new Date(ai.generatedAt);
   const when = isNaN(t) ? '' : t.toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   return `AI 생성 · ${ai.model || 'Gemini'} · ${when} 기준 · 일반적 해석이며 틀릴 수 있음`;
+}
+/* ---------- 긴급 경고 (data/alerts.json) ---------- */
+function renderAlerts() {
+  const el = $('#alerts'); const list = DataStore.getAlerts();
+  if (!list.length) { el.hidden = true; el.innerHTML = ''; return; }
+  el.innerHTML = list.map(a => `<div class="alert-box ${a.level === 'critical' ? '' : 'warn'}" role="alert">
+    <span class="alert-tag">${a.level === 'critical' ? '🚨 긴급 경고' : '⚠ 주의'}</span>
+    <h2>${esc(a.title)} <small style="font-weight:400;font-size:12px;color:var(--text-2)">${esc(a.date || '')} 기준</small></h2>
+    <p>${esc(a.summary || '')}</p>
+    ${a.points && a.points.length ? `<ul>${a.points.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+    ${a.check ? `<p class="alert-meta"><b>확인할 것</b> ${esc(a.check)}</p>` : ''}
+  </div>`).join('');
+  el.hidden = false;
 }
 function renderAIBrief() {
   const el = $('#aiBrief'); const ai = DataStore.getAI();

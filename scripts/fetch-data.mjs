@@ -31,6 +31,15 @@ const ECOS_KEY = (process.env.ECOS_API_KEY || '').trim();
 const EIA_KEY = (process.env.EIA_API_KEY || '').trim();
 const UA = 'Mozilla/5.0 (macro-dashboard data fetcher)';
 
+/* ---------- 계산 지표 ----------
+ * 3-2-1 크랙 스프레드: 원유 3배럴로 휘발유 2배럴 + 디젤 1배럴을 만들 때의 정제 마진 ($/배럴)
+ *   = (휘발유 $/gal × 42 × 2 + 디젤 $/gal × 42 − WTI $/bbl × 3) ÷ 3   (1배럴 = 42갤런)
+ *   같은 날짜에 세 값이 모두 있는 날만 계산 */
+const COMPUTED = {
+  crack321: { inputs: ['gasoline', 'diesel', 'wti'], label: 'Calc:2RB+HO−3CL',
+              calc: (rb, ho, cl) => (rb * 42 * 2 + ho * 42 - cl * 3) / 3 }
+};
+
 /* ---------- 유틸 ---------- */
 const iso = d => d.toISOString().slice(0, 10);
 const yearsAgo = n => { const d = new Date(); d.setFullYear(d.getFullYear() - n); return d; };
@@ -281,13 +290,33 @@ async function main() {
     }
   });
 
-  const ordered = Object.fromEntries(entries.filter(([id]) => series[id]).map(([id]) => [id, series[id]]));
+  // ── 계산 지표: 다른 지표들로 만드는 값 ──
+  for (const [id, def] of Object.entries(COMPUTED)) {
+    try {
+      const parts = def.inputs.map(k => series[k]);
+      if (parts.some(x => !x)) throw new Error(`재료 지표 없음 (${def.inputs.filter(k => !series[k]).join(', ')})`);
+      const maps = parts.map(x => new Map(x.obs));
+      const obs = parts[0].obs.filter(([d]) => maps.every(m => m.has(d)))
+        .map(([d]) => [d, round(def.calc(...maps.map(m => m.get(d))))]).filter(o => Number.isFinite(o[1]));
+      if (obs.length < 2) throw new Error('겹치는 날짜 부족');
+      series[id] = { source: def.label, freq: parts[0].freq, fetchedAt: new Date().toISOString(), obs };
+      console.log(`✓ ${id.padEnd(12)} ${def.label.padEnd(26)} ${obs[obs.length - 1][0]}  ${obs[obs.length - 1][1]}`);
+    } catch (e) {
+      const prev = previous && previous.series && previous.series[id];
+      if (prev) series[id] = prev;
+      errors.push({ id, message: e.message, keptPrevious: !!prev });
+      console.log(`✗ ${id.padEnd(12)} ${e.message}${prev ? '  (이전 값 유지)' : ''}`);
+    }
+  }
+
+  const ordered = Object.fromEntries([...entries.map(([id]) => id), ...Object.keys(COMPUTED)].filter(id => series[id]).map(id => [id, series[id]]));
   const out = { generatedAt: new Date().toISOString(), series: ordered, errors };
   await mkdir(dirname(OUT), { recursive: true });
   await writeFile(OUT, JSON.stringify(out));
 
-  const fresh = entries.length - errors.length;
-  console.log(`\n완료: 성공 ${fresh} / 실패 ${errors.length} / 전체 ${entries.length} → ${OUT}`);
+  const total = entries.length + Object.keys(COMPUTED).length;
+  const fresh = total - errors.length;
+  console.log(`\n완료: 성공 ${fresh} / 실패 ${errors.length} / 전체 ${total} → ${OUT}`);
   // 하나도 못 받았으면 실패 처리 → 배포를 건너뛰어 기존 사이트 유지
   if (fresh === 0) { console.error('수집된 지표가 없습니다. API 키와 네트워크를 확인하세요.'); process.exit(1); }
 }
