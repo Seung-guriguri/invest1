@@ -566,6 +566,14 @@ const CONFIG = {
       level: { fixed: true, dir: 'down', warn: 2, danger: 0 }, change: { flat: 0.3 } },
     { id: 'umcsent', cat: 'growth', name: '미시간 소비자심리지수', unit: '', dp: 1, changeMode: 'abs', profile: 'sentiment',
       level: { dir: 'down', warn: 70, danger: 60 }, change: { flat: 1.5 } },
+    { id: 'pmi_philly', cat: 'growth', name: '필라델피아 연은 제조업지수', sub: 'PMI 대용 · 0 이상 확장', unit: '', dp: 1, changeMode: 'abs', profile: 'regionalPmi',
+      level: { fixed: true, dir: 'down', warn: 0, danger: -15 }, change: { flat: 3 } },
+    { id: 'pmi_empire', cat: 'growth', name: '뉴욕 연은 제조업지수', sub: 'Empire State · PMI 대용 · 0 이상 확장', unit: '', dp: 1, changeMode: 'abs', profile: 'regionalPmi',
+      level: { fixed: true, dir: 'down', warn: 0, danger: -15 }, change: { flat: 3 } },
+    { id: 'pmi_dallas', cat: 'growth', name: '댈러스 연은 제조업지수', sub: '텍사스 · PMI 대용 · 0 이상 확장', unit: '', dp: 1, changeMode: 'abs', profile: 'regionalPmi',
+      level: { fixed: true, dir: 'down', warn: 0, danger: -15 }, change: { flat: 3 } },
+    { id: 'cfnai', cat: 'growth', name: '시카고 연은 전미활동지수', sub: 'CFNAI 3개월 평균 · 0 = 평균 성장', unit: '', dp: 2, changeMode: 'abs', profile: 'cfnai',
+      level: { fixed: true, dir: 'down', warn: -0.35, danger: -0.7 }, change: { flat: 0.05 } },
     { id: 'gdp', cat: 'growth', name: '미국 실질 GDP 성장률', sub: '전기비 연율, 분기', unit: '%', dp: 1, changeMode: 'pp', profile: 'gdp',
       level: { fixed: true, dir: 'down', warn: 1, danger: 0 }, change: { flat: 0.3 } },
 
@@ -843,6 +851,20 @@ const COMMENTS = {
     rise: '소비자심리 개선 → 소비 회복 기대',
     fall: '소비자심리 악화 → 소비 위축 우려',
     flat: '소비자심리 횡보'
+  },
+  regionalPmi: {
+    high: '{name} −15 아래 → 제조업 경기 뚜렷한 위축',
+    warn: '{name} 0 아래 → 경기가 나빠졌다는 기업이 더 많음',
+    rise: '{name} 개선 → 제조업 체감 경기 회복 조짐',
+    fall: '{name} 하락 → 제조업 체감 경기 식는 중',
+    flat: '{name} 횡보 → 제조업 체감 경기 변화 작음'
+  },
+  cfnai: {
+    high: '전미활동지수 −0.7 아래 → 과거 경기 침체 초입과 자주 겹친 수준',
+    warn: '전미활동지수 평균 밑돎 → 경제 전반이 추세보다 느리게 성장',
+    rise: '전미활동지수 개선 → 생산·고용·소비 전반의 속도 회복',
+    fall: '전미활동지수 하락 → 경제 전반의 속도가 줄어드는 중',
+    flat: '전미활동지수 횡보 → 경기 속도 변화 작음'
   },
   gdp: {
     high: '성장률 마이너스 → 경기 위축, 다음 분기 확인 필요',
@@ -1213,7 +1235,7 @@ const INSIGHTS = [
       '과거 침체 초기에는 장단기 금리차가 역전에서 정상화되는 경우가 많았음'
     ],
     check: '다음 고용·소매판매 발표, 기업 실적의 수요 관련 언급',
-    watch: ['us_unemp', 'sahm', 'claims', 'payems', 'retail', 'umcsent', 'copper'] },
+    watch: ['us_unemp', 'sahm', 'claims', 'payems', 'retail', 'pmi_philly', 'cfnai', 'copper'] },
 
   { priority: 85, title: '물가 재가속 압력',
     test: S => [S.up('wti') || S.up('brent'), S.up('diesel') || S.up('gasoline'), S.up('bei10y'),
@@ -1535,7 +1557,9 @@ function makeS(R) {
     missingCount: all.filter(a => !a.cur).length
   };
   S.slowCount = () => [S.lvl('sahm') >= 1, S.up('claims'), S.lvl('payems') >= 1, S.down('copper'),
-                       S.pos('umcsent') <= 15, S.up('us_unemp')].filter(Boolean).length;
+                       S.pos('umcsent') <= 15, S.up('us_unemp'),
+                       ['pmi_philly', 'pmi_empire', 'pmi_dallas'].filter(id => S.v(id) < 0).length >= 2,
+                       S.lvl('cfnai') >= 1].filter(Boolean).length;
   return S;
 }
 
