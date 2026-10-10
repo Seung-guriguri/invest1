@@ -21,6 +21,10 @@ on:
         description: 'AI 인사이트도 새로 생성 (Gemini 호출 1회)'
         type: boolean
         default: false
+      telegram_test:
+        description: '텔레그램 알림 연결 테스트 메시지 보내기'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -61,6 +65,7 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_TEST: ${{ github.event_name == 'workflow_dispatch' && inputs.telegram_test }}
         run: node scripts/alerts.mjs --data _site/data/latest.json --out _site/data/alerts.json --previous alerts-previous.json
 
       - name: AI 인사이트 (Gemini, 평일 07:23 또는 수동 실행 때만)

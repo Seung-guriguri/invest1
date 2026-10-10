@@ -117,8 +117,11 @@ Yahoo 시세는 수집 시점에 정규장이 열려 있으면 그날 봉(장중
   - 배너에 크랙 스프레드 변화, 디젤·휘발유 재고(평년 대비), 정비 시즌 여부가 함께 표시됩니다.
 - **휴대폰 알림 (선택, 텔레그램)** — 긴급 경고가 새로 생기면 한 번만 보냅니다 (같은 경고는 다시 안 보냄).
   1. 텔레그램에서 `@BotFather` → `/newbot` → 봇 토큰 받기
-  2. 만든 봇에게 아무 메시지나 보낸 뒤, 브라우저에서 `https://api.telegram.org/bot<토큰>/getUpdates` 를 열어 `"chat":{"id":숫자}` 확인
-  3. 저장소 Settings → Secrets and variables → Actions 에 `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` 등록
+  2. 저장소 Settings → Secrets and variables → Actions 에 `TELEGRAM_BOT_TOKEN` 등록
+  3. 텔레그램에서 만든 봇을 열고 **시작(/start)** 을 누름
+  4. 24시간 안에 Actions → 데이터 수집 및 배포 → Run workflow → **"텔레그램 알림 연결 테스트"** 체크 후 실행
+     → 봇이 "연결 성공" 메시지와 **채팅 ID** 를 보내 줍니다
+  5. 그 숫자를 `TELEGRAM_CHAT_ID` Secret 으로 등록 (등록 전에도 24시간 동안은 자동으로 찾아 보냄)
   - 설정하지 않으면 앱 배너로만 표시됩니다.
 - 새 경고 규칙은 `scripts/alerts.mjs` 의 `RULES` 에 추가합니다.
 

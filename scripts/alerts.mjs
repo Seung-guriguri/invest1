@@ -10,7 +10,8 @@
  *
  * 환경 변수 (선택. 없으면 앱 배너만 표시)
  *   TELEGRAM_BOT_TOKEN — 텔레그램 봇 토큰 (@BotFather 에서 발급)
- *   TELEGRAM_CHAT_ID   — 받을 채팅 ID
+ *   TELEGRAM_CHAT_ID   — 받을 채팅 ID (없으면 봇에게 최근 24시간 안에 보낸 메시지에서 자동으로 찾음)
+ *   TELEGRAM_TEST      — 'true' 면 연결 확인용 테스트 메시지를 보냄 (수동 실행의 telegram_test 체크)
  *
  * 경고 규칙은 아래 RULES 에 추가합니다. 실패해도 작업 전체를 실패시키지 않습니다.
  * ===================================================================== */
@@ -23,7 +24,8 @@ const DATA = arg('--data', 'data/latest.json');
 const OUT = arg('--out', 'data/alerts.json');
 const PREV = arg('--previous', null);
 const TG_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
-const TG_CHAT = (process.env.TELEGRAM_CHAT_ID || '').trim();
+let TG_CHAT = (process.env.TELEGRAM_CHAT_ID || '').trim();
+const TG_TEST = String(process.env.TELEGRAM_TEST || '').toLowerCase() === 'true';
 const DAY = 86400000;
 
 const r1 = v => Math.round(v * 10) / 10;
@@ -87,6 +89,16 @@ const RULES = [
   }
 ];
 
+/** 채팅 ID 자동 찾기: 사용자가 봇에게 보낸 최근 메시지(24시간 이내)에서 */
+async function findChatId() {
+  const res = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/getUpdates`, { signal: AbortSignal.timeout(20000) });
+  const j = await res.json();
+  if (!j.ok) throw new Error(j.description || `HTTP ${res.status}`);
+  const ups = (j.result || []).map(u => u.message || u.edited_message || u.channel_post || u.my_chat_member).filter(Boolean);
+  const last = ups[ups.length - 1];
+  return last && last.chat ? String(last.chat.id) : '';
+}
+
 async function sendTelegram(text) {
   const res = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
@@ -100,6 +112,23 @@ async function main() {
   const latest = JSON.parse(await readFile(DATA, 'utf8'));
   let prev = { sent: [] };
   if (PREV) { try { prev = JSON.parse(await readFile(PREV, 'utf8')); } catch (e) { /* 첫 실행 */ } }
+
+  // 채팅 ID 가 없으면 봇의 최근 메시지에서 찾기 (공개 로그에는 ID 를 찍지 않음)
+  let autoChat = false;
+  if (TG_TOKEN && !TG_CHAT) {
+    try { TG_CHAT = await findChatId(); autoChat = !!TG_CHAT; console.log(TG_CHAT ? '  텔레그램 채팅 ID 자동 확인됨 (Secret 미등록)' : '  텔레그램: 채팅 ID 없음 — 봇에게 /start 를 보낸 뒤 24시간 안에 다시 실행하세요'); }
+    catch (e) { console.log(`  텔레그램 채팅 ID 확인 실패: ${e.message}`); }
+  }
+  if (TG_TEST) {
+    if (!TG_TOKEN) console.log('  텔레그램 테스트: TELEGRAM_BOT_TOKEN Secret 이 없습니다');
+    else if (!TG_CHAT) console.log('  텔레그램 테스트: 보낼 채팅을 못 찾음 — 봇에게 /start 를 보낸 뒤 다시 실행하세요');
+    else {
+      const msg = ['✅ 매크로 대시보드 알림 연결 성공', '긴급 경고(정제 가동률 급락 등)가 생기면 여기로 보냅니다.',
+        ...(autoChat ? ['', `이 채팅 ID: ${TG_CHAT}`, '→ 저장소 Secret TELEGRAM_CHAT_ID 에 이 숫자를 등록하면 계속 받을 수 있습니다.'] : [])].join('\n');
+      try { await sendTelegram(msg); console.log('  텔레그램 테스트 메시지 전송 완료'); }
+      catch (e) { console.log(`  텔레그램 테스트 전송 실패: ${e.message}`); }
+    }
+  }
 
   const active = [];
   for (const rule of RULES) {
