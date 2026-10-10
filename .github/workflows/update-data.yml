@@ -2,7 +2,8 @@
 #  - 정해진 시간마다 FRED·Yahoo Finance·한국은행에서 데이터를 받아 data/latest.json 을 만들고
 #    사이트 파일과 함께 GitHub Pages 에 배포합니다. (데이터는 저장소에 커밋하지 않음)
 #  - 저장소 Settings → Pages → Source 를 "GitHub Actions" 로 설정해야 합니다.
-#  - API 키: Settings → Secrets and variables → Actions → FRED_API_KEY, ECOS_API_KEY, EIA_API_KEY
+#  - API 키: Settings → Secrets and variables → Actions → FRED_API_KEY, ECOS_API_KEY, EIA_API_KEY, GEMINI_API_KEY
+#  - AI 인사이트(Gemini)는 평일 아침 07:23 실행에서만 하루 1회 생성, 나머지 실행은 아침 해설을 그대로 유지
 name: 데이터 수집 및 배포
 
 on:
@@ -10,10 +11,15 @@ on:
     branches: [main]
   schedule:
     # cron 은 UTC 기준. 한국시간 = UTC + 9
-    - cron: '23 22 * * 0-4'   # 한국 06:23 (화~토) — 미국 장 마감 후
+    - cron: '23 22 * * 0-4'   # 한국 07:23 (월~금) — 미국 장 마감 후, AI 인사이트 생성
     - cron: '43 7 * * 1-5'    # 한국 16:43 (월~금) — 한국 장 마감 후
     - cron: '13 13 * * 1-5'   # 한국 22:13 (월~금) — 미국 지표 발표(대개 21:30~23:00) 이후
   workflow_dispatch:          # Actions 탭에서 수동 실행
+    inputs:
+      ai:
+        description: 'AI 인사이트도 새로 생성 (Gemini 호출 1회)'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -38,7 +44,9 @@ jobs:
         uses: actions/configure-pages@v6
 
       - name: 이전 배포 데이터 받기 (이번에 실패한 지표는 이전 값 유지)
-        run: curl -fsSL "${{ steps.pages.outputs.base_url }}/data/latest.json" -o previous.json || echo "이전 데이터 없음"
+        run: |
+          curl -fsSL "${{ steps.pages.outputs.base_url }}/data/latest.json" -o previous.json || echo "이전 데이터 없음"
+          curl -fsSL "${{ steps.pages.outputs.base_url }}/data/ai.json" -o ai-previous.json || echo "이전 AI 해설 없음"
 
       - name: 지표 수집
         env:
@@ -46,6 +54,13 @@ jobs:
           ECOS_API_KEY: ${{ secrets.ECOS_API_KEY }}
           EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
         run: node scripts/fetch-data.mjs --previous previous.json --out _site/data/latest.json
+
+      - name: AI 인사이트 (Gemini, 평일 07:23 또는 수동 실행 때만)
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+          AI_RUN: ${{ (github.event_name == 'schedule' && github.event.schedule == '23 22 * * 0-4') || (github.event_name == 'workflow_dispatch' && inputs.ai) }}
+        run: node scripts/ai-insight.mjs --data _site/data/latest.json --out _site/data/ai.json --previous ai-previous.json
 
       - name: "사이트 파일 구성 (배포 버전 = 커밋 번호 + 시각)"
         run: |
