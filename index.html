@@ -157,6 +157,12 @@
   .ai-brief .ai-column summary { font-size: 14.5px; font-weight: 700; color: var(--text); padding: 8px 0; }
   .ai-column h3 { font-size: 15px; margin: 14px 0 6px; }
   .ai-column p { font-size: 14.5px; line-height: 1.75; margin: 0 0 10px; }
+  .ai-report p, .ai-report li { font-size: 14px; line-height: 1.65; }
+  .ai-report p { margin: 0 0 6px; }
+  .ai-report ul, .ai-report ol { margin: 0 0 8px; padding-left: 18px; }
+  .ai-report .ri { border-top: 1px dashed var(--border); padding-top: 8px; margin-top: 8px; }
+  .ai-report .ri small, .ai-report h3 small { color: var(--text-2); font-weight: 400; font-size: 12px; }
+  .ai-report .ri-sub { color: var(--text-2); font-size: 13px; }
   .ai-brief details.ai-sec { margin: 0; border-bottom: 1px solid var(--border); }
   .ai-brief .ai-sec summary { list-style: none; display: flex; gap: 8px; align-items: baseline; padding: 9px 0; font-size: 14.5px; color: var(--text); font-weight: 600; }
   .ai-brief .ai-sec summary::-webkit-details-marker { display: none; }
@@ -1698,6 +1704,7 @@ function renderAIBrief() {
     ${b.headline ? `<h2>${esc(b.headline)}</h2>` : ''}
     ${b.story ? `<p class="story">${esc(b.story)}</p>` : ''}
     ${aiSectionsHTML(ai)}
+    ${aiReportHTML(ai.report)}
     ${ai.column && ai.column.title ? `<details class="ai-column"><summary>📰 오늘의 칼럼 — ${esc(ai.column.title)}</summary>
       ${String(ai.column.body || '').split(/\n\n+/).map(x => x.startsWith('■') ? `<h3>${esc(x.replace(/^■\s*/, ''))}</h3>` : `<p>${esc(x)}</p>`).join('')}
     </details>` : ''}
@@ -1764,6 +1771,25 @@ function noteHTML(a) {
       ${note.watch ? `<div><dt>확인할 것</dt><dd>${esc(note.watch)}</dd></div>` : ''}
     </dl>
   </section>`;
+}
+
+/** 리서치 리포트 (국면·핵심 결론·통합 인사이트·상충 신호·시나리오·모니터링·최종 판단) */
+function aiReportHTML(r) {
+  if (!r) return '';
+  const ul = a => a && a.length ? `<ul>${a.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : '';
+  const p = (k, v) => v ? `<p><b>${k}</b> ${esc(v)}</p>` : '';
+  const g = r.regime || {}, f = r.final || {};
+  return `<details class="ai-column ai-report"><summary>📊 리서치 리포트${g.label ? ` — ${esc(g.label)}` : ''}</summary>
+    ${g.label ? `<h3>현재 국면</h3><p>${esc(g.label)}</p>${ul(g.evidence)}${p('반대 증거', g.counter)}${p('판단을 바꿀 변수', g.shift)}` : ''}
+    ${r.summary && r.summary.length ? `<h3>핵심 결론</h3><ol>${r.summary.map(x => `<li>${esc(x)}</li>`).join('')}</ol>` : ''}
+    ${r.insights && r.insights.length ? `<h3>통합 인사이트</h3>${r.insights.map(x => `<div class="ri"><b>${esc(x.title)}</b> <small>신뢰도 ${esc(x.confidence)}</small>
+      <p>${esc(x.conclusion)}</p>${x.indicators.length ? `<p class="ri-sub">연결 지표: ${esc(x.indicators.join(' · '))}</p>` : ''}${p('메커니즘', x.mechanism)}${p('반대 해석', x.counter)}${p('무효화 조건', x.invalidation)}</div>`).join('')}` : ''}
+    ${r.conflicts && r.conflicts.length ? `<h3>상충 신호</h3>${r.conflicts.map(x => `<div class="ri"><b>${esc(x.signal)}</b>${ul(x.explanations)}${p('→', x.verdict)}</div>`).join('')}` : ''}
+    ${r.scenarios && r.scenarios.length ? `<h3>1~3개월 시나리오 <small>(조건부 전망, 확률 아님)</small></h3>${r.scenarios.map(x => `<div class="ri"><b>${esc(x.name)}</b><p>${esc(x.outlook)}</p>${p('전제', x.premise)}${p('확인 신호', x.trigger)}${p('무효화', x.invalidation)}</div>`).join('')}` : ''}
+    ${r.monitoring && r.monitoring.length ? `<h3>모니터링 지표</h3><ul>${r.monitoring.map(x => `<li><b>${esc(x.indicator)}</b> — ${esc(x.why)}${x.threshold ? ` <small>(기준: ${esc(x.threshold)})</small>` : ''}</li>`).join('')}</ul>` : ''}
+    ${Object.values(f).some(Boolean) ? `<h3>최종 판단</h3>${p('가장 중요한 사실', f.key_fact)}${p('숨은 인사이트', f.hidden_insight)}${p('주의할 상충 신호', f.key_conflict)}${p('판단을 바꿀 데이터', f.change_trigger)}${p('가장 중요한 관찰 지표', f.watch_most)}` : ''}
+    ${r.data_note ? `<p class="ai-meta">${esc(r.data_note)}</p>` : ''}
+  </details>`;
 }
 
 /** 분류별 AI 브리핑 (한 줄 제목 + 짧은 이야기, 눌러서 펼침) */
