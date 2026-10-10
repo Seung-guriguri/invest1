@@ -86,6 +86,59 @@ const RULES = [
       points,
       check: '다음 주 수요일 EIA 가동률 회복 여부 · 미국 걸프만 기상·정유소 사고 뉴스 · 디젤·휘발유 가격'
     };
+  },
+
+  /** 하이일드 스프레드 급확대 (일간, %p)
+   *  최근 5거래일 저점 대비 +0.75%p 또는 1개월(약 22거래일) 저점 대비 +1.5%p → 긴급
+   *  +0.4%p / +0.8%p → 주의. 이미 내려가는 중(직전 대비 −0.1%p 이하)이면 제외 */
+  function hySpike(S) {
+    const s = S.hy_spread; if (!s || s.obs.length < 25) return null;
+    const o = s.obs, n = o.length, v = o[n - 1][1], d1 = v - o[n - 2][1];
+    const lo5 = Math.min(...o.slice(n - 6, n).map(x => x[1])), lo22 = Math.min(...o.slice(n - 23, n).map(x => x[1]));
+    const up5 = v - lo5, up22 = v - lo22;
+    if (d1 <= -0.1) return null;
+    const level = up5 >= 0.75 || up22 >= 1.5 ? 'critical' : up5 >= 0.4 || up22 >= 0.8 ? 'warn' : null;
+    if (!level) return null;
+    const points = [`하이일드 스프레드 ${v.toFixed(2)}%p — 1주 저점 대비 +${up5.toFixed(2)}%p, 1개월 저점 대비 +${up22.toFixed(2)}%p`];
+    const ig = S.ig_spread; if (ig && ig.obs.length > 6) { const io = ig.obs, iv = io[io.length - 1][1]; points.push(`투자등급 스프레드 ${iv.toFixed(2)}%p (1주 ${sign(iv - io[io.length - 6][1], 2)}%p) — 같이 벌어지면 신용 불안이 넓게 번지는 중`); }
+    const vx = S.vix; if (vx) points.push(`VIX ${vx.obs[vx.obs.length - 1][1].toFixed(1)}`);
+    const kre = S.etf_kre; if (kre && kre.obs.length > 6) { const ko = kre.obs; points.push(`지역은행 ETF(KRE) 1주 ${sign((ko[ko.length - 1][1] / ko[ko.length - 6][1] - 1) * 100)}%`); }
+    return {
+      id: 'hy_spike', level, date: o[n - 1][0],
+      title: level === 'critical' ? '하이일드 스프레드 급확대' : '하이일드 스프레드 빠른 확대',
+      summary: level === 'critical'
+        ? '신용 낮은 기업의 자금 조달 비용이 빠르게 오르고 있습니다 → 신용시장 경색·위험자산 급변동 위험'
+        : '신용 가산금리가 빠르게 벌어지고 있습니다 → 신용시장 흐름 주시',
+      points,
+      check: '투자등급 스프레드 동반 확대 여부 · 은행·사모신용 관련 뉴스 · 주가지수·VIX'
+    };
+  },
+
+  /** VIX 급등 (일간)
+   *  긴급: 30 이상이면서 5거래일 저점 대비 +50% 이상, 또는 40 이상, 또는 하루 +50% 이상(25 이상일 때)
+   *  주의: 22 이상이면서 5거래일 저점 대비 +30% 이상, 또는 하루 +25% 이상(18 이상일 때) */
+  function vixSpike(S) {
+    const s = S.vix; if (!s || s.obs.length < 7) return null;
+    const o = s.obs, n = o.length, v = o[n - 1][1], d1p = (v / o[n - 2][1] - 1) * 100;
+    const lo5 = Math.min(...o.slice(n - 6, n).map(x => x[1])), upLo = (v / lo5 - 1) * 100;
+    const level = (v >= 30 && upLo >= 50) || v >= 40 || (d1p >= 50 && v >= 25) ? 'critical'
+      : (v >= 22 && upLo >= 30) || (d1p >= 25 && v >= 18) ? 'warn' : null;
+    if (!level) return null;
+    const points = [`VIX ${v.toFixed(1)} — 하루 ${sign(d1p)}%, 5거래일 저점 대비 +${upLo.toFixed(0)}%`];
+    for (const [id, name] of [['sp500', 'S&P 500'], ['nasdaq', '나스닥'], ['kospi', '코스피']]) {
+      const x = S[id]; if (!x || x.obs.length < 2) continue;
+      const xo = x.obs; points.push(`${name} 직전 대비 ${sign((xo[xo.length - 1][1] / xo[xo.length - 2][1] - 1) * 100)}%`);
+    }
+    const hy = S.hy_spread; if (hy) points.push(`하이일드 스프레드 ${hy.obs[hy.obs.length - 1][1].toFixed(2)}%p — 함께 벌어지면 단순 출렁임이 아닌 신용 불안`);
+    return {
+      id: 'vix_spike', level, date: o[n - 1][0],
+      title: level === 'critical' ? 'VIX 급등 (공포 확대)' : 'VIX 빠른 상승',
+      summary: level === 'critical'
+        ? '시장의 공포 지수가 급등했습니다 → 주가 급변동, 빚을 낸 투자(레버리지)·신용 투자에 큰 부담'
+        : '변동성이 빠르게 커지고 있습니다 → 시장 불안 확대 여부 주시',
+      points,
+      check: '하이일드 스프레드 동반 확대 여부 · 엔화 급강세(엔캐리 청산) · 다음 날 VIX 진정 여부'
+    };
   }
 ];
 
@@ -123,7 +176,7 @@ async function main() {
     if (!TG_TOKEN) console.log('  텔레그램 테스트: TELEGRAM_BOT_TOKEN Secret 이 없습니다');
     else if (!TG_CHAT) console.log('  텔레그램 테스트: 보낼 채팅을 못 찾음 — 봇에게 /start 를 보낸 뒤 다시 실행하세요');
     else {
-      const msg = ['✅ 매크로 대시보드 알림 연결 성공', '긴급 경고(정제 가동률 급락 등)가 생기면 여기로 보냅니다.',
+      const msg = ['✅ 매크로 대시보드 알림 연결 성공', '긴급 경고(정제 가동률 급락·하이일드 스프레드 급확대·VIX 급등)와 아침 AI 브리핑을 여기로 보냅니다.',
         ...(autoChat ? ['', `이 채팅 ID: ${TG_CHAT}`, '→ 저장소 Secret TELEGRAM_CHAT_ID 에 이 숫자를 등록하면 계속 받을 수 있습니다.'] : [])].join('\n');
       try { await sendTelegram(msg); console.log('  텔레그램 테스트 메시지 전송 완료'); }
       catch (e) { console.log(`  텔레그램 테스트 전송 실패: ${e.message}`); }
@@ -136,19 +189,23 @@ async function main() {
     catch (e) { console.log(`  규칙 ${rule.name} 오류: ${e.message}`); }
   }
 
-  // 텔레그램: 새로 생긴 critical 경고만 한 번
-  const sent = new Set(prev.sent || []);
+  active.sort((x, y) => (y.level === 'critical') - (x.level === 'critical'));   // 긴급 먼저
+
+  // 텔레그램: critical 경고가 '새로' 생겼을 때만 (직전 실행에도 critical 이었으면 안 보냄) + 같은 경고는 72시간 안에 다시 안 보냄
+  const prevCrit = new Set((prev.active || []).filter(x => x.level === 'critical').map(x => x.id));
+  const lastSent = Object.assign({}, prev.lastSent || {});
+  for (const k of prev.sent || []) { const [id] = k.split(':'); if (!lastSent[id]) lastSent[id] = prev.generatedAt; }   // 예전 형식 호환
   for (const a of active.filter(x => x.level === 'critical')) {
-    const key = `${a.id}:${a.date}`;
-    if (sent.has(key)) continue;
+    const recent = lastSent[a.id] && Date.now() - Date.parse(lastSent[a.id]) < 72 * 3600000;
+    if (prevCrit.has(a.id) || recent) continue;
     if (!TG_TOKEN || !TG_CHAT) { console.log(`  (텔레그램 미설정 — 앱 배너로만 표시) ${a.title}`); continue; }
     const text = [`🚨 [매크로 대시보드] ${a.title} (${a.date})`, a.summary, ...a.points.map(p => `• ${p}`), `확인: ${a.check}`,
       '※ 정보 정리용이며 투자 권유나 매매 판단이 아닙니다.'].join('\n');
-    try { await sendTelegram(text); sent.add(key); console.log(`  텔레그램 전송: ${a.title}`); }
+    try { await sendTelegram(text); lastSent[a.id] = new Date().toISOString(); console.log(`  텔레그램 전송: ${a.title}`); }
     catch (e) { console.log(`  텔레그램 전송 실패: ${e.message}`); }
   }
 
-  const out = { generatedAt: new Date().toISOString(), active, sent: [...sent].slice(-50) };
+  const out = { generatedAt: new Date().toISOString(), active, lastSent };
   await mkdir(dirname(OUT), { recursive: true });
   await writeFile(OUT, JSON.stringify(out));
   console.log(active.length ? `긴급 경고 ${active.length}건: ${active.map(a => `${a.level} ${a.title} — ${a.points[0]}`).join(' / ')}` : '긴급 경고 없음');

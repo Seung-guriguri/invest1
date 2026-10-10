@@ -7,6 +7,8 @@
  * 환경 변수
  *   GEMINI_API_KEY  — 없으면 건너뜀 (이전 해설 유지)
  *   GEMINI_MODEL    — 선택. 비우면 사용 가능한 Flash 계열을 자동 선택
+ *   TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID — 있으면 새로 만든 브리핑을 텔레그램으로도 보냄
+ *   SITE_URL        — 텔레그램 메시지에 붙일 사이트 주소
  *   AI_RUN          — 'true' 일 때만 호출 (평일 07:23 예약 실행 또는 수동 실행). 그 외에는 이전 해설을 그대로 복사
  *
  * 프롬프트는 prompts/ai-system.md (역할·규칙), prompts/ai-user.md (데이터 틀) 에서 읽습니다.
@@ -23,6 +25,9 @@ const PREV = arg('--previous', null);
 const KEY = (process.env.GEMINI_API_KEY || '').trim();
 const MODEL = (process.env.GEMINI_MODEL || '').trim();
 const RUN = String(process.env.AI_RUN || '').toLowerCase() === 'true';
+const TG_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
+const TG_CHAT = (process.env.TELEGRAM_CHAT_ID || '').trim();
+const SITE_URL = (process.env.SITE_URL || '').trim();
 const API = 'https://generativelanguage.googleapis.com/v1beta';
 const DAY = 86400000;
 
@@ -144,6 +149,30 @@ async function autoModels() {
   const flash = names.filter(n => /^gemini-\d+(\.\d+)?-flash$/.test(n)).sort((x, y) => ver(y) - ver(x));
   const lite = names.filter(n => /^gemini-\d+(\.\d+)?-flash-lite$/.test(n)).sort((x, y) => ver(y) - ver(x));
   return [...new Set([...flash.slice(0, 1), 'gemini-flash-latest', ...lite.slice(0, 1), 'gemini-flash-lite-latest'])];
+}
+
+const CAT_LABEL = { rates: '금리', inflation: '물가', growth: '경기', market: '시장·신용', fx: '환율', energy: '에너지', freight: '운임', stocks: '비축·재고', metals: '금속', grains: '곡물', etf: 'ETF' };
+
+/** 새 브리핑을 텔레그램으로 (4096자 제한 안에서) */
+async function sendBriefingTelegram(b, sections, kst) {
+  if (!TG_TOKEN || !TG_CHAT) { console.log('  (텔레그램 미설정 — 브리핑 전송 건너뜀)'); return; }
+  const lines = [`🌅 오늘의 AI 브리핑 · ${kst}`, '', `📌 ${b.headline || ''}`, '', b.story || ''];
+  if (b.points && b.points.length) lines.push('', '핵심 수치', ...b.points.map(x => `• ${x}`));
+  if (b.korea) lines.push('', `🇰🇷 ${b.korea}`);
+  if (b.watch && b.watch.length) lines.push('', `👀 확인할 것: ${b.watch.join(' · ')}`);
+  if (b.counterpoint) lines.push('', `↔ 반대로 보면: ${b.counterpoint}`);
+  const secs = CATS.filter(c => sections[c] && sections[c].headline).map(c => `• ${CAT_LABEL[c]} — ${sections[c].headline}`);
+  if (secs.length) lines.push('', '분류별 한 줄', ...secs);
+  if (SITE_URL) lines.push('', `전체 보기: ${SITE_URL}`);
+  lines.push('', '※ AI가 생성한 일반적 해석이며 틀릴 수 있습니다. 투자 권유나 매매 판단이 아닙니다.');
+  let text = lines.join('\n'); if (text.length > 4000) text = text.slice(0, 3990) + '…';
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ chat_id: TG_CHAT, text, disable_web_page_preview: true }), signal: AbortSignal.timeout(20000)
+    });
+    console.log(res.ok ? '  텔레그램으로 브리핑 전송 완료' : `  텔레그램 브리핑 전송 실패: HTTP ${res.status}`);
+  } catch (e) { console.log(`  텔레그램 브리핑 전송 실패: ${e.message}`); }
 }
 
 const CATS = ['rates', 'inflation', 'growth', 'market', 'fx', 'energy', 'freight', 'stocks', 'metals', 'grains', 'etf'];
@@ -279,6 +308,7 @@ async function main() {
   const out = { generatedAt: new Date().toISOString(), model: used, briefing, sections, indicators: ordered, targets };
   await mkdir(dirname(OUT), { recursive: true });
   await writeFile(OUT, JSON.stringify(out));
+  await sendBriefingTelegram(briefing, sections, kst);
   const u = resp.usageMetadata || {};
   console.log(`✓ AI 인사이트 생성 (${used}) — 입력 ${u.promptTokenCount ?? '?'} · 출력 ${u.candidatesTokenCount ?? '?'} · 합계 ${u.totalTokenCount ?? '?'} 토큰, 분류 브리핑 ${Object.keys(sections).length}개, 지표 해설 ${Object.keys(indicators).length}개`);
   // 검토용 로그 (Actions 로그에서 그대로 읽을 수 있게)
