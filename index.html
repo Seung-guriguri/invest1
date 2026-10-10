@@ -133,6 +133,20 @@
   .tab-summary { font-size: 13px; color: var(--text-2); background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 8px 12px; margin-bottom: 10px; }
   .tab-summary b { color: var(--text); }
 
+  /* AI 브리핑 */
+  .ai-brief { margin-bottom: 12px; border-left: 4px solid var(--accent); }
+  .ai-brief .ai-label { font-size: 12px; font-weight: 700; color: var(--accent); letter-spacing: .2px; }
+  .ai-brief h2 { font-size: 16.5px; margin: 4px 0 6px; line-height: 1.35; }
+  .ai-brief .story { font-size: 14.5px; margin: 0; line-height: 1.6; }
+  .ai-brief details { margin-top: 8px; }
+  .ai-brief summary { cursor: pointer; font-size: 13px; color: var(--text-2); }
+  .ai-brief ul { margin: 6px 0 0; padding-left: 18px; font-size: 13.5px; }
+  .ai-brief li { margin: 3px 0; }
+  .ai-brief .row { font-size: 13.5px; margin: 8px 0 0; }
+  .ai-brief .row b { font-size: 12px; color: var(--text-2); display: block; }
+  .ai-meta { font-size: 11.5px; color: var(--text-2); margin: 8px 0 0; }
+  .ai-comment { border-left: 3px solid var(--accent); padding-left: 8px; }
+
   /* 매크로 인사이트 */
   .insights { margin-top: 12px; }
   .insights h2 small { font-weight: 400; font-size: 12px; color: var(--text-2); }
@@ -308,6 +322,8 @@
       <div class="grow"><b>샘플 데이터 표시 중</b> — 화면 예시용 가짜 값이며 실제 시세가 아닙니다.</div>
       <button type="button" data-action="go-settings">값 입력</button>
     </div>
+
+    <section class="panel ai-brief" id="aiBrief" aria-label="오늘의 AI 브리핑" hidden></section>
 
     <section class="panel" aria-label="요약">
       <div class="counts" id="counts"></div>
@@ -1471,6 +1487,7 @@ function render() {
       <span class="box" aria-hidden="true"></span><span class="txt">${esc(item.text)}<span class="why">${esc(item.why || '')}</span></span></label></li>`;
   }).join('');
 
+  renderAIBrief();
   const ins = buildInsights(R);
   $('#insights').innerHTML = ins.length ? ins.map((it, i) => `
     <details class="insight" ${i === 0 ? 'open' : ''}>
@@ -1559,6 +1576,28 @@ function cardHTML(a) {
   </button>`;
 }
 
+/* ---------- AI 브리핑 (data/ai.json, 하루 1회 생성) ---------- */
+function aiMetaText(ai) {
+  const t = new Date(ai.generatedAt);
+  const when = isNaN(t) ? '' : t.toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return `AI 생성 · ${ai.model || 'Gemini'} · ${when} 기준 · 일반적 해석이며 틀릴 수 있음`;
+}
+function renderAIBrief() {
+  const el = $('#aiBrief'); const ai = DataStore.getAI();
+  if (!ai) { el.hidden = true; return; }
+  const b = ai.briefing;
+  const list = (title, arr) => arr && arr.length ? `<div class="row"><b>${title}</b><ul>${arr.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>` : '';
+  const row = (title, txt) => txt ? `<div class="row"><b>${title}</b>${esc(txt)}</div>` : '';
+  el.innerHTML = `<div class="ai-label">오늘의 AI 브리핑</div>
+    ${b.headline ? `<h2>${esc(b.headline)}</h2>` : ''}
+    ${b.story ? `<p class="story">${esc(b.story)}</p>` : ''}
+    <details><summary>핵심 수치 · 한국 관점 · 확인할 것</summary>
+      ${list('핵심 수치', b.points)}${row('한국 투자자에게는', b.korea)}${list('확인할 것', b.watch)}${row('반대로 보면', b.counterpoint)}
+    </details>
+    <p class="ai-meta">${esc(aiMetaText(ai))}</p>`;
+  el.hidden = false;
+}
+
 /* ---------- 지표별 인사이트 (notes.js) ---------- */
 const NOTE_FALLBACK = { surge: 'rise', plunge: 'fall', high: 'flat', low: 'flat', rise: 'flat', fall: 'flat' };
 
@@ -1596,6 +1635,8 @@ function noteHTML(a) {
   const S = makeS(R);
   const pairs = (note.pairs || []).filter(p => { try { return !!p.when(S); } catch (e) { return false; } }).slice(0, 3)
     .map(p => { try { return typeof p.text === 'function' ? p.text(S) : p.text; } catch (e) { return ''; } }).filter(Boolean);
+  const aiAll = DataStore.getAI();
+  const aiText = aiAll && aiAll.indicators ? aiAll.indicators[a.ind.id] : null;
   // 관련 지표: 규칙 조건에 등장하는 지표 id (자기 자신 제외)
   const related = [...new Set((note.pairs || []).flatMap(p => [...String(p.when).matchAll(/S\.\w+\('(\w+)'/g)].map(m => m[1])))]
     .filter(id => id !== a.ind.id && IND[id]).slice(0, 6);
@@ -1604,6 +1645,7 @@ function noteHTML(a) {
     <dl>
       <div><dt>지금 상태</dt><dd class="num">${esc(statusLine(a) || '-')}</dd></div>
       <div><dt>의미</dt><dd>${esc(note.what)}${meaning ? `<br>${esc(meaning)}` : ''}</dd></div>
+      ${aiText ? `<div><dt>AI 해설</dt><dd class="ai-comment">${esc(aiText)}<div class="ai-meta">${esc(aiMetaText(aiAll))}</div></dd></div>` : ''}
       <div><dt>함께 보면</dt><dd>${pairs.length ? `<ul>${pairs.map(t => `<li>${esc(t)}</li>`).join('')}</ul>` : '지금은 눈에 띄는 조합 신호 없음'}
         ${related.length ? `<div class="chips">${related.map(id => {
           const r = R[id], sg = r && r.signal != null ? 's' + r.signal : '';

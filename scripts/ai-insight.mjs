@@ -1,0 +1,230 @@
+#!/usr/bin/env node
+/* =====================================================================
+ * AI 인사이트 생성 (Gemini, 하루 1회) — 외부 패키지 없음
+ *
+ *   node scripts/ai-insight.mjs --data _site/data/latest.json --out _site/data/ai.json [--previous ai-previous.json]
+ *
+ * 환경 변수
+ *   GEMINI_API_KEY  — 없으면 건너뜀 (이전 해설 유지)
+ *   GEMINI_MODEL    — 선택. 비우면 사용 가능한 Flash 계열을 자동 선택
+ *   AI_RUN          — 'true' 일 때만 호출 (평일 06:23 예약 실행 또는 수동 실행). 그 외에는 이전 해설을 그대로 복사
+ *
+ * 프롬프트는 prompts/ai-system.md (역할·규칙), prompts/ai-user.md (데이터 틀) 에서 읽습니다.
+ * 실패해도 작업 전체를 실패시키지 않고 이전 해설을 유지합니다.
+ * ===================================================================== */
+import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { dirname } from 'node:path';
+
+const args = process.argv.slice(2);
+const arg = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
+const DATA = arg('--data', 'data/latest.json');
+const OUT = arg('--out', 'data/ai.json');
+const PREV = arg('--previous', null);
+const KEY = (process.env.GEMINI_API_KEY || '').trim();
+const MODEL = (process.env.GEMINI_MODEL || '').trim();
+const RUN = String(process.env.AI_RUN || '').toLowerCase() === 'true';
+const API = 'https://generativelanguage.googleapis.com/v1beta';
+const DAY = 86400000;
+
+/* ---------- 이전 해설 유지 ---------- */
+async function keepPrevious(reason) {
+  console.log(`AI 인사이트: ${reason} → 이전 해설 유지`);
+  if (!PREV) return;
+  try {
+    const prev = await readFile(PREV, 'utf8');
+    JSON.parse(prev);
+    await mkdir(dirname(OUT), { recursive: true });
+    await writeFile(OUT, prev);
+    console.log('  이전 ai.json 복사 완료');
+  } catch (e) { console.log('  이전 ai.json 없음'); }
+}
+
+/* ---------- 지표 정보: index.html CONFIG 에서 이름·단위·변화 방식 읽기 ---------- */
+async function readIndicatorMeta() {
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const re = /\{ id: '([^']+)', cat: '([^']+)', name: '([^']+)'(?:, sub: '([^']*)')?, unit: '([^']*)', dp: (\d+), changeMode: '([a-z]+)'/g;
+  const meta = {};
+  for (const m of html.matchAll(re)) meta[m[1]] = { cat: m[2], name: m[3], sub: m[4] || '', unit: m[5], dp: +m[6], mode: m[7] };
+  return meta;
+}
+
+/* ---------- 지표별 통계 ---------- */
+const round = (v, dp = 2) => (v == null || !isFinite(v) ? null : Number(v.toFixed(dp)));
+function change(mode, from, to) {
+  if (from == null || to == null) return null;
+  return mode === 'pct' ? (from === 0 ? null : (to - from) / Math.abs(from) * 100) : to - from;
+}
+function valueBefore(obs, idx, days) {
+  const t = Date.parse(obs[idx][0]) - days * DAY;
+  for (let i = idx - 1; i >= 0; i--) if (Date.parse(obs[i][0]) <= t) return obs[i][1];
+  return null;
+}
+function stats(id, s, m) {
+  const obs = s.obs; const n = obs.length; if (n < 2) return null;
+  const last = obs[n - 1], prev = obs[n - 2];
+  const monthly = s.freq === 'M' || s.freq === 'Q';
+  const c1 = idx => monthly ? (idx > 0 ? change(m.mode, obs[idx - 1][1], obs[idx][1]) : null) : change(m.mode, valueBefore(obs, idx, 30), obs[idx][1]);
+  const chg1m = c1(n - 1);
+  // 평소 1개월 변화폭 (표준편차) 대비 배수
+  const hist = []; for (let i = 1; i < n - 1; i++) { const c = c1(i); if (c != null && isFinite(c)) hist.push(c); }
+  let z = null;
+  if (hist.length >= 12 && chg1m != null) {
+    const mean = hist.reduce((a, b) => a + b, 0) / hist.length;
+    const sd = Math.sqrt(hist.reduce((a, b) => a + (b - mean) ** 2, 0) / hist.length);
+    if (sd > 0) z = chg1m / sd;
+  }
+  // 분포 위치
+  const years = { D: 2, W: 3, M: 10, Q: 10 }[s.freq] || 2;
+  const from = Date.parse(last[0]) - years * 365.25 * DAY;
+  const win = obs.filter(o => Date.parse(o[0]) >= from).map(o => o[1]);
+  const position = win.length >= 12 ? (win.filter(v => v < last[1]).length + win.filter(v => v === last[1]).length / 2) / win.length * 100 : null;
+  // 평년 대비 (주간 재고·저장량)
+  let season = null;
+  if (s.freq === 'W' && m.cat === 'stocks') {
+    const vals = [];
+    for (let k = 1; k <= 5; k++) { const t = Date.parse(last[0]) - k * 364 * DAY; const e = obs.find(o => Math.abs(Date.parse(o[0]) - t) <= 4 * DAY); if (e) vals.push(e[1]); }
+    if (vals.length >= 3) { const avg = vals.reduce((a, b) => a + b, 0) / vals.length; season = (last[1] - avg) / Math.abs(avg) * 100; }
+  }
+  return {
+    id, name: m.name + (m.sub ? ` (${m.sub})` : ''), cat: m.cat, unit: m.unit,
+    value: round(last[1], Math.max(m.dp, 2)), date: last[0], freq: s.freq,
+    chg_prev: round(change(m.mode, prev[1], last[1]), 2), chg_1m: round(chg1m, 2),
+    chg_unit: m.mode === 'pct' ? '%' : m.mode === 'pp' ? '%p' : m.unit,
+    z_1m: round(z, 1), position: round(position, 0), season_dev: round(season, 1)
+  };
+}
+
+/* 해설 대상: 1개월 변화가 이례적이거나 분포 양 끝·평년 대비 크게 벗어난 지표 */
+function pickTargets(rows, max = 15) {
+  const score = r => Math.max(
+    r.z_1m != null ? Math.abs(r.z_1m) : 0,
+    r.position != null ? Math.abs(r.position - 50) / 25 : 0,   // 0 또는 100 이면 2
+    r.season_dev != null ? Math.abs(r.season_dev) / 5 : 0       // 평년 대비 ±10% 이면 2
+  );
+  return rows.map(r => ({ id: r.id, s: score(r) })).filter(x => x.s >= 1.2)
+    .sort((a, b) => b.s - a.s).slice(0, max).map(x => x.id);
+}
+
+/* ---------- Gemini 호출 ---------- */
+async function post(model, body) {
+  const res = await fetch(`${API}/models/${encodeURIComponent(model)}:generateContent`, {
+    method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': KEY }, body: JSON.stringify(body)
+  });
+  const text = await res.text();
+  let j; try { j = JSON.parse(text); } catch (e) { j = null; }
+  if (!res.ok) { const e = new Error(`HTTP ${res.status} ${(j && j.error && j.error.message) || text.slice(0, 200)}`); e.status = res.status; throw e; }
+  return j;
+}
+
+/** 사용 가능한 Flash 계열 모델 이름 고르기 */
+async function autoModels() {
+  const list = ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-flash-lite-latest'];
+  try {
+    const res = await fetch(`${API}/models?pageSize=200`, { headers: { 'x-goog-api-key': KEY } });
+    const j = await res.json();
+    const names = (j.models || []).filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+      .map(m => m.name.replace(/^models\//, ''))
+      .filter(n => /flash/.test(n) && !/(image|tts|audio|live|exp|preview|thinking)/.test(n));
+    names.sort((a, b) => (/lite/.test(a) - /lite/.test(b)) || b.localeCompare(a, 'en', { numeric: true }));
+    return [...new Set([...list.filter(x => names.length === 0 || names.includes(x)), ...names])];
+  } catch (e) { return list; }
+}
+
+const SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    briefing: {
+      type: 'OBJECT',
+      properties: {
+        headline: { type: 'STRING' }, story: { type: 'STRING' },
+        points: { type: 'ARRAY', items: { type: 'STRING' } },
+        korea: { type: 'STRING' },
+        watch: { type: 'ARRAY', items: { type: 'STRING' } },
+        counterpoint: { type: 'STRING' }
+      },
+      required: ['headline', 'story', 'points', 'korea', 'watch', 'counterpoint']
+    },
+    indicators: {
+      type: 'ARRAY',
+      items: { type: 'OBJECT', properties: { id: { type: 'STRING' }, comment: { type: 'STRING' } }, required: ['id', 'comment'] }
+    }
+  },
+  required: ['briefing', 'indicators']
+};
+
+/* ---------- 응답 검사: 투자 권유·매매 지시 표현 거르기 ---------- */
+const BANNED = /(매수|매도)\s*(하세요|하라|할\s*때|타이밍|기회|추천|권)|사세요|파세요|사야\s*(한다|합니다|할)|팔아야|담아|목표\s*가|추천\s*(종목|ETF)|수익\s*(보장|확정)|저평가|고평가|비중\s*(확대|축소)\s*(하|를|추천)/;
+/** 금지 표현이 들어간 문장만 빼고 나머지는 살림 */
+function clean(s, max) {
+  if (typeof s !== 'string' || !s.trim()) return null;
+  const kept = s.trim().split(/(?<=[.!?。])\s+/).filter(x => !BANNED.test(x)).join(' ').trim();
+  return kept ? kept.slice(0, max) : null;
+}
+
+async function main() {
+  if (!RUN) return keepPrevious('오늘 실행 대상 아님 (평일 06:23 예약 또는 수동 실행에서만 생성)');
+  if (!KEY) return keepPrevious('GEMINI_API_KEY 없음');
+
+  const latest = JSON.parse(await readFile(DATA, 'utf8'));
+  const meta = await readIndicatorMeta();
+  const rows = Object.entries(latest.series).filter(([id]) => meta[id]).map(([id, s]) => stats(id, s, meta[id])).filter(Boolean);
+  const targets = pickTargets(rows);
+  const kst = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 16).replace('T', ' ');
+
+  const system = await readFile(new URL('../prompts/ai-system.md', import.meta.url), 'utf8');
+  const user = (await readFile(new URL('../prompts/ai-user.md', import.meta.url), 'utf8'))
+    .replace('{{generatedAt}}', kst)
+    .replace('{{targets}}', targets.map(id => `${id} (${meta[id].name})`).join(', ') || '없음')
+    .replace('{{data}}', rows.map(r => JSON.stringify(r)).join('\n'));
+  console.log(`AI 인사이트: 지표 ${rows.length}개, 해설 대상 ${targets.length}개, 프롬프트 약 ${Math.round((system.length + user.length) / 1000)}천 자`);
+
+  const body = schema => ({
+    systemInstruction: { parts: [{ text: system }] },
+    contents: [{ role: 'user', parts: [{ text: user }] }],
+    generationConfig: { temperature: 0.4, maxOutputTokens: 8192, responseMimeType: 'application/json', ...(schema ? { responseSchema: SCHEMA } : {}) }
+  });
+
+  const models = MODEL ? [MODEL] : await autoModels();
+  let resp = null, used = null, lastErr = null;
+  for (const m of models.slice(0, 4)) {
+    for (const withSchema of [true, false]) {
+      try { resp = await post(m, body(withSchema)); used = m; break; }
+      catch (e) {
+        lastErr = e; console.log(`  ${m}${withSchema ? '' : ' (형식 지정 없이)'} → ${e.message}`);
+        if (e.status === 429) return keepPrevious('무료 한도 초과 (429)');
+        if (e.status === 404 || e.status === 403) break;   // 다른 모델로
+      }
+    }
+    if (resp) break;
+  }
+  if (!resp) return keepPrevious(`호출 실패: ${lastErr && lastErr.message}`);
+
+  const cand = resp.candidates && resp.candidates[0];
+  const text = cand && cand.content && (cand.content.parts || []).map(p => p.text || '').join('');
+  let parsed;
+  try { parsed = JSON.parse(String(text).replace(/^```(?:json)?\s*|\s*```$/g, '')); }
+  catch (e) { return keepPrevious(`응답 JSON 해석 실패 (finishReason: ${cand && cand.finishReason})`); }
+
+  const b = parsed.briefing || {};
+  const briefing = {
+    headline: clean(b.headline, 80), story: clean(b.story, 700),
+    points: (b.points || []).map(p => clean(p, 140)).filter(Boolean).slice(0, 5),
+    korea: clean(b.korea, 240), watch: (b.watch || []).map(p => clean(p, 100)).filter(Boolean).slice(0, 4),
+    counterpoint: clean(b.counterpoint, 200)
+  };
+  const indicators = {};
+  for (const it of parsed.indicators || []) {
+    const c = it && meta[it.id] ? clean(it.comment, 320) : null;
+    if (c) indicators[it.id] = c;
+  }
+  if (!briefing.headline && !briefing.story) return keepPrevious('브리핑 내용이 비어 있음');
+
+  const out = { generatedAt: new Date().toISOString(), model: used, briefing, indicators, targets };
+  await mkdir(dirname(OUT), { recursive: true });
+  await writeFile(OUT, JSON.stringify(out));
+  const u = resp.usageMetadata || {};
+  console.log(`✓ AI 인사이트 생성 (${used}) — 입력 ${u.promptTokenCount ?? '?'} · 출력 ${u.candidatesTokenCount ?? '?'} · 합계 ${u.totalTokenCount ?? '?'} 토큰, 지표 해설 ${Object.keys(indicators).length}개`);
+  console.log(`  제목: ${briefing.headline}`);
+}
+
+main().catch(e => keepPrevious(`오류: ${e.message}`)).then(() => process.exit(0));

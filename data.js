@@ -27,6 +27,8 @@
   const REMOTE_KEY = 'macroDash.remote.v1';
   const SETTINGS_KEY = 'macroDash.settings.v1';
   const REMOTE_URL = 'data/latest.json';
+  const AI_URL = 'data/ai.json';           // AI 인사이트 (하루 1회 생성, 없을 수 있음)
+  const AI_KEY = 'macroDash.ai.v1';
   const MAX_HISTORY = 60; // 직접 입력 이력 보관 개수
 
   /* ---------- localStorage 래퍼 (사생활 보호 모드 등에서 실패해도 앱은 동작) ---------- */
@@ -63,6 +65,7 @@
   if (!state || typeof state !== 'object' || !state.series) state = { version: 1, series: {} };
   let remote = validRemote(readJSON(REMOTE_KEY));
   let remoteStatus = { loaded: !!remote, fromCache: !!remote, error: null };
+  let ai = readJSON(AI_KEY);
   let cache = {}; // 합친 이력 메모
 
   function validRemote(r) {
@@ -85,9 +88,16 @@
     } catch (e) {
       remoteStatus = { loaded: !!remote, fromCache: !!remote, error: e.message };
     }
+    try {
+      const r = await fetch(AI_URL + '?t=' + Date.now(), { cache: 'no-store' });
+      if (r.ok) { const j = await r.json(); if (j && j.briefing) { ai = j; writeJSON(AI_KEY, j); } }
+    } catch (e) { /* AI 해설은 없어도 됨 — 캐시 유지 */ }
     changed();
     return remoteStatus;
   }
+
+  /** AI 인사이트 (없으면 null) */
+  function getAI() { return ai && ai.briefing ? ai : null; }
 
   function remoteInfo() {
     return Object.assign({}, remoteStatus, {
@@ -226,7 +236,7 @@
   try { localStorage.removeItem('macroDash.secrets.v1'); } catch (e) {}
 
   global.DataStore = {
-    loadRemote, remoteInfo, hasRemote, getMeta,
+    loadRemote, remoteInfo, hasRemote, getMeta, getAI,
     getHistory, getSnapshot, getManual, upsert, removeEntry, clearAll, hasAnyData,
     loadSample, exportJSON, importJSON,
     getSettings, setSettings, isoDate
