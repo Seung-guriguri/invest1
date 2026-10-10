@@ -131,6 +131,8 @@ async function autoModels() {
   } catch (e) { return list; }
 }
 
+const CATS = ['rates', 'inflation', 'growth', 'market', 'fx', 'energy', 'freight', 'stocks', 'metals', 'grains', 'etf'];
+
 const SCHEMA = {
   type: 'OBJECT',
   properties: {
@@ -145,12 +147,16 @@ const SCHEMA = {
       },
       required: ['headline', 'story', 'points', 'korea', 'watch', 'counterpoint']
     },
+    sections: {
+      type: 'ARRAY',
+      items: { type: 'OBJECT', properties: { cat: { type: 'STRING' }, headline: { type: 'STRING' }, body: { type: 'STRING' } }, required: ['cat', 'headline', 'body'] }
+    },
     indicators: {
       type: 'ARRAY',
       items: { type: 'OBJECT', properties: { id: { type: 'STRING' }, comment: { type: 'STRING' } }, required: ['id', 'comment'] }
     }
   },
-  required: ['briefing', 'indicators']
+  required: ['briefing', 'sections', 'indicators']
 };
 
 /* ---------- 응답 검사: 투자 권유·매매 지시 표현 거르기 ---------- */
@@ -182,7 +188,7 @@ async function main() {
   const body = schema => ({
     systemInstruction: { parts: [{ text: system }] },
     contents: [{ role: 'user', parts: [{ text: user }] }],
-    generationConfig: { temperature: 0.4, maxOutputTokens: 8192, responseMimeType: 'application/json', ...(schema ? { responseSchema: SCHEMA } : {}) }
+    generationConfig: { temperature: 0.4, maxOutputTokens: 16384, responseMimeType: 'application/json', ...(schema ? { responseSchema: SCHEMA } : {}) }
   });
 
   const models = MODEL ? [MODEL] : await autoModels();
@@ -220,6 +226,12 @@ async function main() {
     korea: clean(b.korea, 240), watch: (b.watch || []).map(p => clean(p, 100)).filter(Boolean).slice(0, 4),
     counterpoint: clean(b.counterpoint, 200)
   };
+  const sections = {};
+  for (const it of parsed.sections || []) {
+    if (!it || !CATS.includes(it.cat) || sections[it.cat]) continue;
+    const headline = clean(it.headline, 40), body = clean(it.body, 260);
+    if (headline || body) sections[it.cat] = { headline, body };
+  }
   const indicators = {};
   for (const it of parsed.indicators || []) {
     const c = it && meta[it.id] ? clean(it.comment, 320) : null;
@@ -227,11 +239,11 @@ async function main() {
   }
   if (!briefing.headline && !briefing.story) return keepPrevious('브리핑 내용이 비어 있음');
 
-  const out = { generatedAt: new Date().toISOString(), model: used, briefing, indicators, targets };
+  const out = { generatedAt: new Date().toISOString(), model: used, briefing, sections, indicators, targets };
   await mkdir(dirname(OUT), { recursive: true });
   await writeFile(OUT, JSON.stringify(out));
   const u = resp.usageMetadata || {};
-  console.log(`✓ AI 인사이트 생성 (${used}) — 입력 ${u.promptTokenCount ?? '?'} · 출력 ${u.candidatesTokenCount ?? '?'} · 합계 ${u.totalTokenCount ?? '?'} 토큰, 지표 해설 ${Object.keys(indicators).length}개`);
+  console.log(`✓ AI 인사이트 생성 (${used}) — 입력 ${u.promptTokenCount ?? '?'} · 출력 ${u.candidatesTokenCount ?? '?'} · 합계 ${u.totalTokenCount ?? '?'} 토큰, 분류 브리핑 ${Object.keys(sections).length}개, 지표 해설 ${Object.keys(indicators).length}개`);
   console.log(`  제목: ${briefing.headline}`);
 }
 

@@ -144,6 +144,17 @@
   .ai-brief li { margin: 3px 0; }
   .ai-brief .row { font-size: 13.5px; margin: 8px 0 0; }
   .ai-brief .row b { font-size: 12px; color: var(--text-2); display: block; }
+  .ai-secs { margin-top: 10px; border-top: 1px solid var(--border); }
+  .ai-brief details.ai-sec { margin: 0; border-bottom: 1px solid var(--border); }
+  .ai-brief .ai-sec summary { list-style: none; display: flex; gap: 8px; align-items: baseline; padding: 9px 0; font-size: 14.5px; color: var(--text); font-weight: 600; }
+  .ai-brief .ai-sec summary::-webkit-details-marker { display: none; }
+  .ai-brief .ai-sec summary::after { content: '▾'; margin-left: auto; color: var(--text-2); font-size: 12px; }
+  .ai-brief .ai-sec[open] summary::after { content: '▴'; }
+  .ai-cat { flex: none; font-size: 11.5px; font-weight: 700; color: var(--accent); min-width: 40px; }
+  .ai-sec p { margin: 0 0 10px; font-size: 14px; line-height: 1.6; }
+  .tab-ai { font-size: 14px; line-height: 1.6; background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; }
+  .tab-ai b { display: block; font-size: 15px; margin: 2px 0 4px; }
+  .tab-ai .ai-label { font-size: 12px; font-weight: 700; color: var(--accent); }
   .ai-meta { font-size: 11.5px; color: var(--text-2); margin: 8px 0 0; }
   .ai-comment { border-left: 3px solid var(--accent); padding-left: 8px; }
 
@@ -1509,7 +1520,7 @@ function render() {
   }).join('');
 
   const tabList = all.filter(a => a.ind.cat === activeTab);
-  $('#cards').innerHTML = tabSummaryHTML(tabList) + tabList.map(cardHTML).join('');
+  $('#cards').innerHTML = tabAIHTML(activeTab) + tabSummaryHTML(tabList) + tabList.map(cardHTML).join('');
 }
 
 function changeHTML(a) {
@@ -1591,6 +1602,7 @@ function renderAIBrief() {
   el.innerHTML = `<div class="ai-label">오늘의 AI 브리핑</div>
     ${b.headline ? `<h2>${esc(b.headline)}</h2>` : ''}
     ${b.story ? `<p class="story">${esc(b.story)}</p>` : ''}
+    ${aiSectionsHTML(ai)}
     <details><summary>핵심 수치 · 한국 관점 · 확인할 것</summary>
       ${list('핵심 수치', b.points)}${row('한국 투자자에게는', b.korea)}${list('확인할 것', b.watch)}${row('반대로 보면', b.counterpoint)}
     </details>
@@ -1654,6 +1666,22 @@ function noteHTML(a) {
       ${note.watch ? `<div><dt>확인할 것</dt><dd>${esc(note.watch)}</dd></div>` : ''}
     </dl>
   </section>`;
+}
+
+/** 분류별 AI 브리핑 (한 줄 제목 + 짧은 이야기, 눌러서 펼침) */
+function aiSectionsHTML(ai) {
+  const secs = ai.sections || {};
+  const items = CONFIG.categories.filter(c => secs[c.id]).map(c => {
+    const x = secs[c.id];
+    return `<details class="ai-sec"><summary><span class="ai-cat">${esc(c.label)}</span><span>${esc(x.headline || '')}</span></summary>${x.body ? `<p>${esc(x.body)}</p>` : ''}</details>`;
+  });
+  return items.length ? `<div class="ai-secs">${items.join('')}</div>` : '';
+}
+/** 탭 맨 위: 이 분류의 AI 브리핑 */
+function tabAIHTML(cat) {
+  const ai = DataStore.getAI(); const x = ai && ai.sections && ai.sections[cat];
+  if (!x) return '';
+  return `<div class="tab-ai"><span class="ai-label">AI 브리핑</span>${x.headline ? `<b>${esc(x.headline)}</b>` : ''}${x.body ? esc(x.body) : ''}<div class="ai-meta">${esc(aiMetaText(ai))}</div></div>`;
 }
 
 /** 탭 요약: 1개월(또는 직전 발표) 기준 상승·하락 개수, 신호, 가장 크게 움직인 지표 */
