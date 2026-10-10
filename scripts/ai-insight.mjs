@@ -180,7 +180,7 @@ async function sendBriefingTelegram(b, sections, kst) {
 const COLUMN_SCHEMA = { type: 'OBJECT', properties: { title: { type: 'STRING' }, body: { type: 'STRING' } }, required: ['title', 'body'] };
 async function generateColumn(models, first, material) {
   const system = await readFile(new URL('../prompts/ai-column.md', import.meta.url), 'utf8');
-  const user = `기준 시각: ${material.kst}\n\n[오늘의 브리핑]\n${JSON.stringify(material.briefing)}\n\n[분류별 요약]\n${JSON.stringify(material.sections)}\n\n[지표 해설]\n${JSON.stringify(material.indicators)}\n\n[주요 지표 숫자] (position 은 최근 기간 안의 위치 0~100)\n${material.rows.map(r => JSON.stringify(r)).join('\n')}\n\n위 재료로 오늘의 칼럼을 쓰세요.`;
+  const user = `기준 시각: ${material.kst}\n\n[오늘의 브리핑]\n${JSON.stringify(material.briefing)}\n\n[분류별 요약]\n${JSON.stringify(material.sections)}\n\n[지표 해설]\n${JSON.stringify(material.indicators)}${material.report ? `\n\n[리서치 리포트 — 국면·인사이트·상충 신호·시나리오]\n${JSON.stringify({ regime: material.report.regime, insights: material.report.insights, conflicts: material.report.conflicts, scenarios: material.report.scenarios })}` : ''}\n\n[주요 지표 숫자] (position 은 최근 기간 안의 위치 0~100)\n${material.rows.map(r => JSON.stringify(r)).join('\n')}\n\n위 재료로 오늘의 칼럼을 쓰세요.`;
   const body = schema => ({
     systemInstruction: { parts: [{ text: system }] },
     contents: [{ role: 'user', parts: [{ text: user }] }],
@@ -234,6 +234,95 @@ async function sendColumnTelegram(col) {
 
 const CATS = ['rates', 'inflation', 'growth', 'market', 'fx', 'energy', 'freight', 'stocks', 'metals', 'grains', 'etf'];
 
+/* 리서치 리포트 (prompts/ai-system.md 5장 구조의 압축판) */
+const STR = { type: 'STRING' }, STRS = { type: 'ARRAY', items: STR };
+const obj = (props, req = Object.keys(props)) => ({ type: 'OBJECT', properties: props, required: req });
+const REPORT_SCHEMA = obj({
+  data_note: STR, summary: STRS,
+  regime: obj({ label: STR, evidence: STRS, counter: STR, shift: STR }),
+  insights: { type: 'ARRAY', items: obj({ title: STR, conclusion: STR, indicators: STRS, mechanism: STR, counter: STR, invalidation: STR, confidence: STR }) },
+  conflicts: { type: 'ARRAY', items: obj({ signal: STR, explanations: STRS, verdict: STR }) },
+  scenarios: { type: 'ARRAY', items: obj({ name: STR, premise: STR, outlook: STR, trigger: STR, invalidation: STR }) },
+  monitoring: { type: 'ARRAY', items: obj({ indicator: STR, why: STR, threshold: STR }) },
+  final: obj({ key_fact: STR, hidden_insight: STR, key_conflict: STR, change_trigger: STR, watch_most: STR })
+});
+
+/** 리포트 다듬기: 모든 문장에 금지 표현·필드명 제거, '사상 최고' 교정 적용 */
+function cleanReport(r) {
+  if (!r || typeof r !== 'object') return null;
+  const c = (x, n) => clean(x, n), list = (a, n, m) => (Array.isArray(a) ? a : []).map(x => c(x, n)).filter(Boolean).slice(0, m);
+  const reg = r.regime || {};
+  const out = {
+    data_note: c(r.data_note, 240),
+    summary: list(r.summary, 160, 6),
+    regime: { label: c(reg.label, 80), evidence: list(reg.evidence, 140, 4), counter: c(reg.counter, 200), shift: c(reg.shift, 200) },
+    insights: (r.insights || []).slice(0, 5).map(x => x && ({
+      title: c(x.title, 50), conclusion: c(x.conclusion, 240), indicators: list(x.indicators, 40, 5),
+      mechanism: c(x.mechanism, 240), counter: c(x.counter, 200), invalidation: c(x.invalidation, 160),
+      confidence: ['높음', '중간', '낮음'].includes(x.confidence) ? x.confidence : '중간'
+    })).filter(x => x && x.title && x.conclusion),
+    conflicts: (r.conflicts || []).slice(0, 3).map(x => x && ({ signal: c(x.signal, 120), explanations: list(x.explanations, 140, 3), verdict: c(x.verdict, 200) })).filter(x => x && x.signal),
+    scenarios: (r.scenarios || []).slice(0, 3).map(x => x && ({ name: c(x.name, 10), premise: c(x.premise, 160), outlook: c(x.outlook, 260), trigger: c(x.trigger, 140), invalidation: c(x.invalidation, 120) })).filter(x => x && x.name && x.outlook),
+    monitoring: (r.monitoring || []).slice(0, 5).map(x => x && ({ indicator: c(x.indicator, 40), why: c(x.why, 120), threshold: c(x.threshold, 100) })).filter(x => x && x.indicator),
+    final: Object.fromEntries(['key_fact', 'hidden_insight', 'key_conflict', 'change_trigger', 'watch_most'].map(k => [k, c((r.final || {})[k], 200)]))
+  };
+  return out.summary.length || out.insights.length ? out : null;
+}
+
+/** 리포트 → 텔레그램 글 */
+function reportText(r, kst) {
+  const L = [`📊 매크로 리서치 리포트 · ${kst}`];
+  if (r.regime && r.regime.label) {
+    L.push('', `【현재 국면】 ${r.regime.label}`, ...r.regime.evidence.map(x => `• ${x}`));
+    if (r.regime.counter) L.push(`↔ 반대 증거: ${r.regime.counter}`);
+    if (r.regime.shift) L.push(`⚙ 판단을 바꿀 변수: ${r.regime.shift}`);
+  }
+  if (r.summary.length) L.push('', '【핵심 결론】', ...r.summary.map((x, i) => `${i + 1}. ${x}`));
+  if (r.insights.length) {
+    L.push('', '【통합 인사이트】');
+    r.insights.forEach((x, i) => L.push('', `${'①②③④⑤'[i]} ${x.title} (신뢰도 ${x.confidence})`, x.conclusion,
+      ...(x.indicators.length ? [`- 연결 지표: ${x.indicators.join(' · ')}`] : []),
+      ...(x.mechanism ? [`- 메커니즘: ${x.mechanism}`] : []), ...(x.counter ? [`- 반대 해석: ${x.counter}`] : []),
+      ...(x.invalidation ? [`- 무효화 조건: ${x.invalidation}`] : [])));
+  }
+  if (r.conflicts.length) {
+    L.push('', '【상충 신호】');
+    r.conflicts.forEach(x => L.push(`• ${x.signal}`, ...x.explanations.map((e, i) => `  ${i ? '②' : '①'} ${e}`), ...(x.verdict ? [`  → ${x.verdict}`] : [])));
+  }
+  if (r.scenarios.length) {
+    L.push('', '【1~3개월 시나리오】 (확률 아닌 조건부 전망)');
+    r.scenarios.forEach(x => L.push(`▸ ${x.name}: ${x.outlook}`, ...(x.premise ? [`  전제: ${x.premise}`] : []), ...(x.trigger ? [`  확인 신호: ${x.trigger}`] : []), ...(x.invalidation ? [`  무효화: ${x.invalidation}`] : [])));
+  }
+  if (r.monitoring.length) L.push('', '【모니터링 지표】', ...r.monitoring.map(x => `• ${x.indicator} — ${x.why}${x.threshold ? ` (기준: ${x.threshold})` : ''}`));
+  const f = r.final || {};
+  const fin = [['가장 중요한 사실', f.key_fact], ['숨은 인사이트', f.hidden_insight], ['주의할 상충 신호', f.key_conflict], ['판단을 바꿀 데이터', f.change_trigger], ['가장 중요한 관찰 지표', f.watch_most]].filter(x => x[1]);
+  if (fin.length) L.push('', '【최종 판단】', ...fin.map(([k, v]) => `• ${k}: ${v}`));
+  if (r.data_note) L.push('', `ℹ ${r.data_note}`);
+  L.push('', '※ 대시보드 데이터만으로 AI가 작성한 분석이며 틀릴 수 있습니다. 투자 권유나 매매 판단이 아닙니다.');
+  return L.join('\n');
+}
+
+/** 긴 글은 빈 줄 기준으로 나눠 여러 메시지로 (텔레그램 4096자 제한) */
+async function sendTelegramLong(text, label) {
+  if (!TG_TOKEN || !TG_CHAT) return;
+  const parts = []; let cur = '';
+  for (const block of text.split('\n\n')) {
+    if ((cur + '\n\n' + block).length > 3800 && cur) { parts.push(cur); cur = block; } else cur = cur ? cur + '\n\n' + block : block;
+  }
+  if (cur) parts.push(cur);
+  for (let i = 0; i < parts.length; i++) {
+    const body = parts.length > 1 ? `${parts[i]}${i < parts.length - 1 ? `\n\n(${i + 1}/${parts.length} — 계속)` : ''}` : parts[i];
+    try {
+      const res = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ chat_id: TG_CHAT, text: body.slice(0, 4090), disable_web_page_preview: true }), signal: AbortSignal.timeout(20000)
+      });
+      if (!res.ok) { console.log(`  텔레그램 ${label} 전송 실패: HTTP ${res.status}`); return; }
+    } catch (e) { console.log(`  텔레그램 ${label} 전송 실패: ${e.message}`); return; }
+  }
+  console.log(`  텔레그램으로 ${label} 전송 완료 (${parts.length}개 메시지)`);
+}
+
 const SCHEMA = {
   type: 'OBJECT',
   properties: {
@@ -255,9 +344,10 @@ const SCHEMA = {
     indicators: {
       type: 'ARRAY',
       items: { type: 'OBJECT', properties: { id: { type: 'STRING' }, comment: { type: 'STRING' } }, required: ['id', 'comment'] }
-    }
+    },
+    report: REPORT_SCHEMA
   },
-  required: ['briefing', 'sections', 'indicators']
+  required: ['briefing', 'sections', 'indicators', 'report']
 };
 
 /* ---------- 응답 검사: 투자 권유·매매 지시 표현 거르기 ---------- */
@@ -363,16 +453,19 @@ async function main() {
   const ordered = {}; for (const id of targets) if (indicators[id]) ordered[id] = indicators[id];
   for (const [k, v] of Object.entries(indicators)) if (!ordered[k]) ordered[k] = v;
   // 브리핑을 먼저 보내고, 이어서 칼럼 생성 (칼럼이 실패해도 브리핑은 그대로)
+  const report = cleanReport(parsed.report);
+  console.log(report ? `  리서치 리포트: 핵심 결론 ${report.summary.length} · 인사이트 ${report.insights.length} · 상충 ${report.conflicts.length} · 시나리오 ${report.scenarios.length}` : '  리서치 리포트: 없음');
   await sendBriefingTelegram(briefing, sections, kst);
+  if (report) await sendTelegramLong(reportText(report, kst), '리서치 리포트');
   let column = null;
   try {
-    column = await generateColumn(models, used, { kst, briefing, sections, indicators: ordered,
+    column = await generateColumn(models, used, { kst, briefing, sections, indicators: ordered, report,
       rows: rows.filter(r => targets.includes(r.id)).map(({ id, name, value, unit, date, chg_1m, chg_unit, position, season_dev }) => ({ id, name, value, unit, date, chg_1m, chg_unit, position, season_dev })) });
   } catch (e) { console.log(`  칼럼 생성 오류: ${e.message}`); }
   if (column) { await sendColumnTelegram(column); console.log(`  칼럼 제목: ${column.title}`); console.log(column.body.split('\n\n').map(x => '  | ' + x).join('\n')); }
   else console.log('  오늘의 칼럼: 생성 실패 → 브리핑만 전송');
 
-  const out = { generatedAt: new Date().toISOString(), model: used, briefing, sections, indicators: ordered, targets, ...(column ? { column } : {}) };
+  const out = { generatedAt: new Date().toISOString(), model: used, briefing, sections, indicators: ordered, targets, ...(report ? { report } : {}), ...(column ? { column } : {}) };
   await mkdir(dirname(OUT), { recursive: true });
   await writeFile(OUT, JSON.stringify(out));
   const u = resp.usageMetadata || {};
@@ -393,6 +486,7 @@ async function main() {
   console.log(`  반론: ${briefing.counterpoint}`);
   for (const c of CATS) if (sections[c]) console.log(`  [${c}] ${sections[c].headline} | ${sections[c].body}`);
   for (const [k, v] of Object.entries(indicators)) console.log(`  <${k}> ${v}`);
+  if (report) console.log(reportText(report, kst).split('\n').map(x => '  » ' + x).join('\n'));
   if (fixes.length) console.log(`  후처리 ${fixes.length}건: ${fixes.join(' / ')}`);
   console.log(warn.length ? `  길이·형식 경고: ${warn.join(', ')}` : '  길이·형식 점검: 모두 기준 이내');
 }
