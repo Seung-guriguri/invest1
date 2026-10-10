@@ -11,6 +11,7 @@ GitHub Actions가 하루 3번 FRED·Yahoo Finance·한국은행에서 데이터�
 ```
 index.html                      화면 + 스타일 + 앱 로직. 스크립트 상단 CONFIG / COMMENTS / CHECKLIST (임계값·해설·규칙)
 prompts/ai-system.md, ai-user.md  AI 인사이트 프롬프트 (역할·규칙 / 데이터 틀)
+prompts/ai-column.md            오늘의 칼럼 프롬프트 (브리핑을 종합한 스토리텔링 칼럼)
 scripts/ai-insight.mjs          AI 인사이트 생성 (Gemini, 하루 1회)
 notes.js                        지표별 인사이트 문구 (의미·함께 볼 지표·확인할 것)
 data.js                         데이터 모듈: 자동 데이터(data/latest.json) + 직접 입력(localStorage) 병합, 백업
@@ -123,6 +124,7 @@ Yahoo 시세는 수집 시점에 정규장이 열려 있으면 그날 봉(장중
   - ⚠ 주의: 22 이상이면서 5거래일 저점 대비 +30%, 또는 하루 +25%(18 이상일 때)
 - **휴대폰 알림 (선택, 텔레그램)** — 긴급 경고가 새로 생기면 보냅니다. 경고가 이어지는 동안은 다시 보내지 않고, 같은 경고는 72시간 안에 다시 보내지 않습니다. ⚠ 주의 단계는 앱 배너에만 표시합니다.
   - 텔레그램이 설정돼 있으면 **평일 아침 AI 브리핑**(제목·이야기·핵심 수치·한국 관점·확인할 것·분류별 한 줄)도 함께 보냅니다.
+  - 이어서 **📰 오늘의 칼럼**(브리핑을 종합한 1,200~1,600자 스토리텔링 칼럼, 소제목 2~3개)도 보냅니다. 앱에서는 AI 브리핑 카드의 '오늘의 칼럼'을 눌러 읽을 수 있습니다. 칼럼은 Gemini를 한 번 더 부르며(약 6~8천 토큰), 실패해도 브리핑은 그대로 보냅니다. 문체는 `prompts/ai-column.md` 에서 바꿉니다.
   1. 텔레그램에서 `@BotFather` → `/newbot` → 봇 토큰 받기
   2. 저장소 Settings → Secrets and variables → Actions 에 `TELEGRAM_BOT_TOKEN` 등록
   3. 텔레그램에서 만든 봇을 열고 **시작(/start)** 을 누름

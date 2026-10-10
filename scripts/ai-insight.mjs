@@ -11,7 +11,8 @@
  *   SITE_URL        — 텔레그램 메시지에 붙일 사이트 주소
  *   AI_RUN          — 'true' 일 때만 호출 (평일 07:23 예약 실행 또는 수동 실행). 그 외에는 이전 해설을 그대로 복사
  *
- * 프롬프트는 prompts/ai-system.md (역할·규칙), prompts/ai-user.md (데이터 틀) 에서 읽습니다.
+ * 프롬프트는 prompts/ai-system.md (역할·규칙), prompts/ai-user.md (데이터 틀),
+ * prompts/ai-column.md (오늘의 칼럼 — 브리핑을 종합한 스토리텔링 칼럼, 추가 호출 1회) 에서 읽습니다.
  * 실패해도 작업 전체를 실패시키지 않고 이전 해설을 유지합니다.
  * ===================================================================== */
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
@@ -175,6 +176,62 @@ async function sendBriefingTelegram(b, sections, kst) {
   } catch (e) { console.log(`  텔레그램 브리핑 전송 실패: ${e.message}`); }
 }
 
+/* ---------- 오늘의 칼럼: 브리핑을 종합한 스토리텔링 칼럼 (브리핑 성공 뒤 1회 추가 호출) ---------- */
+const COLUMN_SCHEMA = { type: 'OBJECT', properties: { title: { type: 'STRING' }, body: { type: 'STRING' } }, required: ['title', 'body'] };
+async function generateColumn(models, first, material) {
+  const system = await readFile(new URL('../prompts/ai-column.md', import.meta.url), 'utf8');
+  const user = `기준 시각: ${material.kst}\n\n[오늘의 브리핑]\n${JSON.stringify(material.briefing)}\n\n[분류별 요약]\n${JSON.stringify(material.sections)}\n\n[지표 해설]\n${JSON.stringify(material.indicators)}\n\n[주요 지표 숫자] (position 은 최근 기간 안의 위치 0~100)\n${material.rows.map(r => JSON.stringify(r)).join('\n')}\n\n위 재료로 오늘의 칼럼을 쓰세요.`;
+  const body = schema => ({
+    systemInstruction: { parts: [{ text: system }] },
+    contents: [{ role: 'user', parts: [{ text: user }] }],
+    generationConfig: { temperature: 0.6, maxOutputTokens: 8192, responseMimeType: 'application/json', ...(schema ? { responseSchema: COLUMN_SCHEMA } : {}) }
+  });
+  const order = [first, ...models.filter(m => m !== first)];
+  for (let round = 0; round < 2; round++) {
+    for (const m of order) {
+      for (const withSchema of [true, false]) {
+        try {
+          const resp = await post(m, body(withSchema));
+          const cand = resp.candidates && resp.candidates[0];
+          const text = cand && cand.content && (cand.content.parts || []).map(p => p.text || '').join('');
+          const j = JSON.parse(String(text).replace(/^```(?:json)?\s*|\s*```$/g, ''));
+          const title = clean(j.title, 60);
+          // 문단 단위로 다듬기 (금지 표현·필드명 문장 제거), 소제목 줄 유지
+          const paras = String(j.body || '').split(/\n\s*\n/).map(x => x.trim()).filter(Boolean)
+            .flatMap(x => {
+              if (!x.startsWith('■')) return [clean(x.replace(/\s*\n\s*/g, ' '), 900)];
+              const [head, ...rest] = x.split('\n');   // '■ 소제목' 다음 줄에 본문이 붙어 온 경우 분리
+              return ['■ ' + head.replace(/^■\s*/, '').slice(0, 40), rest.length ? clean(rest.join(' '), 900) : null];
+            }).filter(Boolean);
+          if (!title || paras.length < 3) throw new Error('칼럼 내용 부족');
+          const u = resp.usageMetadata || {};
+          console.log(`✓ 오늘의 칼럼 생성 (${m}) — 입력 ${u.promptTokenCount ?? '?'} · 출력 ${u.candidatesTokenCount ?? '?'} 토큰, ${paras.join('').length}자`);
+          return { title, body: paras.join('\n\n'), model: m };
+        } catch (e) {
+          console.log(`  칼럼 ${m}${withSchema ? '' : ' (형식 지정 없이)'} → ${e.message}`);
+          if (e.status === 429) return null;
+          if (e.status !== 400 && !/JSON|부족/.test(e.message)) break;   // 혼잡·없음 → 다음 모델
+        }
+      }
+    }
+    if (round === 0) await new Promise(r => setTimeout(r, 30000));
+  }
+  return null;
+}
+
+async function sendColumnTelegram(col) {
+  if (!TG_TOKEN || !TG_CHAT || !col) return;
+  let text = [`📰 오늘의 칼럼`, '', `《${col.title}》`, '', col.body, '', '※ AI가 브리핑을 바탕으로 쓴 일반적 해석이며 틀릴 수 있습니다. 투자 권유나 매매 판단이 아닙니다.'].join('\n');
+  if (text.length > 4000) text = text.slice(0, 3990) + '…';
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ chat_id: TG_CHAT, text, disable_web_page_preview: true }), signal: AbortSignal.timeout(20000)
+    });
+    console.log(res.ok ? '  텔레그램으로 칼럼 전송 완료' : `  텔레그램 칼럼 전송 실패: HTTP ${res.status}`);
+  } catch (e) { console.log(`  텔레그램 칼럼 전송 실패: ${e.message}`); }
+}
+
 const CATS = ['rates', 'inflation', 'growth', 'market', 'fx', 'energy', 'freight', 'stocks', 'metals', 'grains', 'etf'];
 
 const SCHEMA = {
@@ -305,10 +362,19 @@ async function main() {
 
   const ordered = {}; for (const id of targets) if (indicators[id]) ordered[id] = indicators[id];
   for (const [k, v] of Object.entries(indicators)) if (!ordered[k]) ordered[k] = v;
-  const out = { generatedAt: new Date().toISOString(), model: used, briefing, sections, indicators: ordered, targets };
+  // 브리핑을 먼저 보내고, 이어서 칼럼 생성 (칼럼이 실패해도 브리핑은 그대로)
+  await sendBriefingTelegram(briefing, sections, kst);
+  let column = null;
+  try {
+    column = await generateColumn(models, used, { kst, briefing, sections, indicators: ordered,
+      rows: rows.filter(r => targets.includes(r.id)).map(({ id, name, value, unit, date, chg_1m, chg_unit, position, season_dev }) => ({ id, name, value, unit, date, chg_1m, chg_unit, position, season_dev })) });
+  } catch (e) { console.log(`  칼럼 생성 오류: ${e.message}`); }
+  if (column) { await sendColumnTelegram(column); console.log(`  칼럼 제목: ${column.title}`); console.log(column.body.split('\n\n').map(x => '  | ' + x).join('\n')); }
+  else console.log('  오늘의 칼럼: 생성 실패 → 브리핑만 전송');
+
+  const out = { generatedAt: new Date().toISOString(), model: used, briefing, sections, indicators: ordered, targets, ...(column ? { column } : {}) };
   await mkdir(dirname(OUT), { recursive: true });
   await writeFile(OUT, JSON.stringify(out));
-  await sendBriefingTelegram(briefing, sections, kst);
   const u = resp.usageMetadata || {};
   console.log(`✓ AI 인사이트 생성 (${used}) — 입력 ${u.promptTokenCount ?? '?'} · 출력 ${u.candidatesTokenCount ?? '?'} · 합계 ${u.totalTokenCount ?? '?'} 토큰, 분류 브리핑 ${Object.keys(sections).length}개, 지표 해설 ${Object.keys(indicators).length}개`);
   // 검토용 로그 (Actions 로그에서 그대로 읽을 수 있게)
