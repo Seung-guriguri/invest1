@@ -37,7 +37,11 @@ const UA = 'Mozilla/5.0 (macro-dashboard data fetcher)';
  *   같은 날짜에 세 값이 모두 있는 날만 계산 */
 const COMPUTED = {
   crack321: { inputs: ['gasoline', 'diesel', 'wti'], label: 'Calc:2RB+HO−3CL',
-              calc: (rb, ho, cl) => (rb * 42 * 2 + ho * 42 - cl * 3) / 3 }
+              calc: (rb, ho, cl) => (rb * 42 * 2 + ho * 42 - cl * 3) / 3 },
+  // TTF − Henry Hub 가격차 ($/MMBtu): TTF(€/MWh) × 유로/달러 ÷ 3.412(1MWh = 3.412MMBtu) − 헨리허브
+  //   클수록 미국 LNG를 유럽에 팔 때 남는 몫이 커져 LNG 수출·LNG선 수요가 늘기 쉬움
+  lng_spread: { inputs: ['ttf', 'eurusd', 'natgas'], label: 'Calc:TTF−HH',
+                calc: (ttf, fx, hh) => ttf * fx / 3.412 - hh }
 };
 
 /* ---------- 유틸 ---------- */

@@ -600,6 +600,8 @@ const CONFIG = {
       level: { dir: 'up', warn: 95, danger: 105 }, change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
     { id: 'natgas', cat: 'energy', name: '천연가스', sub: '헨리허브', unit: '$/MMBtu', dp: 3, changeMode: 'pct', profile: 'gas',
       change: { dir: 'both', flat: 2, warn: 8, danger: 15 } },
+    { id: 'ttf', cat: 'energy', name: '유럽 천연가스 (TTF)', sub: '네덜란드 TTF 선물 — 유럽 가스 기준가격, LNG 수입 수요', unit: '€/MWh', dp: 2, changeMode: 'pct', profile: 'ttf',
+      level: { dir: 'up', warn: 50, danger: 70 }, change: { dir: 'both', flat: 1.5, warn: 7, danger: 14 } },
     { id: 'coal', cat: 'energy', name: '석탄', sub: '호주 뉴캐슬, 월간', unit: '$/t', dp: 1, changeMode: 'pct', staleDays: 140, profile: 'coal',
       change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
     { id: 'gasoline', cat: 'energy', name: '휘발유', sub: 'RBOB 선물 (RB=F)', unit: '$/gal', dp: 3, changeMode: 'pct', profile: 'gasoline',
@@ -616,6 +618,14 @@ const CONFIG = {
       change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
     { id: 'freight_ppi', cat: 'freight', name: '미국 원양 화물운송 PPI', sub: '전년비, 월간', unit: '%', dp: 1, changeMode: 'pp', profile: 'freightPpi',
       level: { dir: 'up', warn: 10, danger: 20 }, change: { flat: 1 } },
+    { id: 'tanker_fro', cat: 'freight', name: 'VLCC 원유선 (FRO)', sub: 'Frontline 주가 — 초대형 원유운반선 운임 대용 (운임 지수 아님)', unit: '$', dp: 2, changeMode: 'pct', profile: 'shipping',
+      change: { dir: 'both', flat: 0.4, warn: 3.5, danger: 7 }, comments: { rise: '원유선사 상승 → VLCC 운임 강세 또는 원유 물동량 증가 기대', fall: '원유선사 하락 → VLCC 운임 약세 또는 물동량 둔화 걱정' } },
+    { id: 'tanker_stng', cat: 'freight', name: '석유제품선 (STNG)', sub: 'Scorpio Tankers 주가 — 휘발유·디젤 운반선 운임 대용 (운임 지수 아님)', unit: '$', dp: 2, changeMode: 'pct', profile: 'shipping',
+      change: { dir: 'both', flat: 0.4, warn: 3.5, danger: 7 }, comments: { rise: '제품선사 상승 → 휘발유·디젤 해상 수송 수요↑, 정유 마진 강세와 함께 보기', fall: '제품선사 하락 → 석유제품 물동량·운임 약세' } },
+    { id: 'lng_flng', cat: 'freight', name: 'LNG선 (FLNG)', sub: 'Flex LNG 주가 — LNG 운반선 업황 대용 (운임 지수 아님)', unit: '$', dp: 2, changeMode: 'pct', profile: 'shipping',
+      change: { dir: 'both', flat: 0.4, warn: 3, danger: 6 }, comments: { rise: 'LNG선사 상승 → LNG 물동량·용선료 강세 기대', fall: 'LNG선사 하락 → LNG선 공급 과잉 또는 LNG 교역 둔화 걱정' } },
+    { id: 'lng_spread', cat: 'freight', name: 'LNG 수출 마진 (TTF−헨리허브)', sub: '유럽 가스값 − 미국 가스값, 자동 계산 — 클수록 LNG 수출·LNG선 수요↑', unit: '$/MMBtu', dp: 2, changeMode: 'abs', profile: 'lngSpread',
+      level: { dir: 'up', warn: 10, danger: 14 }, change: { dir: 'both', flat: 0.2, warn: 1, danger: 2 } },
 
     // ── 금속·광물 ──
     { id: 'copper', cat: 'metals', name: '구리', unit: '$/t', dp: 0, changeMode: 'pct', profile: 'copper',
@@ -698,7 +708,7 @@ const CONFIG = {
       change: { dir: 'both', flat: 0.3, warn: 2, danger: 4 }, comments: { rise: '원자재 종합 상승 → 물가 압력 확대 신호', fall: '원자재 종합 하락 → 수요 둔화 또는 물가 압력 완화' } },
     { id: 'etf_dba', cat: 'etf', name: 'DBA', sub: '농산물 종합 — 곡물·커피·설탕·가축', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
       change: { dir: 'both', flat: 0.3, warn: 2, danger: 4 }, comments: { rise: '농산물 상승 → 식품 물가 상승 압력', fall: '농산물 하락 → 식품 원가 부담 완화' } },
-    { id: 'etf_bwet', cat: 'etf', name: 'BWET', sub: '유조선 운임 선물 — 원유·석유제품 해상 운송비', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
+    { id: 'etf_bwet', cat: 'etf', name: 'BWET', sub: '유조선 운임 선물 (VLCC 중동→중국 TD3C·수에즈막스) — 원유 해상 운송비 대용', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
       change: { dir: 'both', flat: 0.5, warn: 5, danger: 10 }, comments: { rise: '유조선 운임 상승 → 원유 해상 수송 수요↑ 또는 항로 차질', fall: '유조선 운임 하락 → 원유 물동량 둔화' } },
     { id: 'etf_xli', cat: 'etf', name: 'XLI', sub: '미국 산업재 업종 — 제조업 경기', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
       change: { dir: 'both', flat: 0.3, warn: 2.5, danger: 5 }, comments: { rise: '산업재 상승 → 제조업·설비투자 경기 기대', fall: '산업재 하락 → 제조업 경기 둔화 걱정' } },
@@ -961,6 +971,25 @@ const COMMENTS = {
     fall: '정유 마진 축소 → 석유제품 수급 여유, 정유사 이익 감소',
     high: '정유 마진 최근 수년 중 높은 수준 → 정제 설비가 병목, 소비자 기름값 부담',
     flat: '정유 마진 보합 → 제품·원유 가격이 같이 움직이는 중'
+  },
+  ttf: {
+    surge: '유럽 가스 급등 → 난방·발전·화학 원가 급등, LNG 확보 경쟁으로 아시아 가스값도 자극',
+    rise: '유럽 가스 상승 → 유럽 에너지 원가↑, LNG 수입 수요↑',
+    plunge: '유럽 가스 급락 → 공급 걱정 완화 또는 수요 둔화',
+    fall: '유럽 가스 하락 → 유럽 에너지 원가 부담↓',
+    high: '유럽 가스 비싼 구간 → 유럽 제조업 원가 부담, LNG 수입 확대',
+    flat: '유럽 가스 보합 → 저장량·날씨 변화 대기'
+  },
+  lngSpread: {
+    surge: 'LNG 수출 마진 급등 → 미국 LNG를 유럽으로 보낼 유인 급증, LNG선 수요↑',
+    rise: 'LNG 수출 마진 확대 → 미국 LNG 수출·LNG선 수요에 우호적',
+    plunge: 'LNG 수출 마진 급락 → LNG 수출 유인 약화, LNG선 수요 둔화',
+    fall: 'LNG 수출 마진 축소 → 미국 LNG 수출 유인 감소',
+    high: 'LNG 수출 마진 큰 구간 → 미국 LNG가 계속 유럽으로 향하기 쉬움',
+    flat: 'LNG 수출 마진 보합 → LNG 교역 흐름 변화 작음'
+  },
+  shipping: {
+    flat: '{name} 보합 → 해운 업황 변화 작음'
   },
   bulkFreight: {
     surge: '벌크선 운임 급등 → 철광석·곡물 수입 운송비 급증',
