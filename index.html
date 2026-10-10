@@ -538,6 +538,12 @@ const CONFIG = {
       level: { dir: 'up', warn: 2.5, danger: 3.0 }, change: { dir: 'both', flat: 0.02, warn: 0.1, danger: 0.2 } },
     { id: 'mortgage', cat: 'rates', name: '미국 30년 모기지 금리', sub: '주간', unit: '%', dp: 2, changeMode: 'pp', profile: 'mortgage',
       level: { dir: 'up', warn: 6.5, danger: 7.5 }, change: { dir: 'both', flat: 0.05, warn: 0.2, danger: 0.4 } },
+    { id: 'kr_us_base', cat: 'rates', name: '한미 기준금리차', sub: '한국 − 미국, 자동 계산 · 마이너스 = 미국이 더 높음', unit: '%p', dp: 2, changeMode: 'pp', profile: 'krUsGap',
+      level: { fixed: true, dir: 'down', warn: -1.0, danger: -1.75 }, change: { dir: 'down', flat: 0.01, warn: 0.25, danger: 0.5 } },
+    { id: 'kr_us_10y', cat: 'rates', name: '한미 10년 금리차', sub: '한국 10년 − 미국 10년, 자동 계산', unit: '%p', dp: 2, changeMode: 'pp', profile: 'krUsGap',
+      level: { fixed: true, dir: 'down', warn: -1.0, danger: -1.5 }, change: { dir: 'down', flat: 0.03, warn: 0.15, danger: 0.3 } },
+    { id: 'us_real_policy', cat: 'rates', name: '미국 실질 정책금리', sub: '기준금리 − 근원 PCE, 자동 계산 · 긴축 강도', unit: '%', dp: 2, changeMode: 'pp', profile: 'realPolicy',
+      level: { fixed: true, dir: 'up', warn: 1.5, danger: 2.5 }, change: { dir: 'both', flat: 0.03, warn: 0.25, danger: 0.5 } },
 
     // ── 물가 ──
     { id: 'us_cpi', cat: 'inflation', name: '미국 CPI 상승률', sub: '전년 동월 대비', unit: '%', dp: 1, changeMode: 'pp', profile: 'inflation',
@@ -588,6 +594,8 @@ const CONFIG = {
       level: { dir: 'up', warn: 4.5, danger: 6.0 }, change: { dir: 'up', flat: 0.05, warn: 0.3, danger: 0.6 } },
     { id: 'ig_spread', cat: 'market', name: '투자등급 스프레드', sub: '미국 회사채', unit: '%p', dp: 2, changeMode: 'pp', profile: 'ig',
       level: { dir: 'up', warn: 1.5, danger: 2.0 }, change: { dir: 'up', flat: 0.02, warn: 0.1, danger: 0.2 } },
+    { id: 'hy_ig', cat: 'market', name: '저신용 추가 웃돈', sub: '하이일드 − 투자등급 스프레드, 자동 계산', unit: '%p', dp: 2, changeMode: 'pp', profile: 'hyIg',
+      level: { dir: 'up', warn: 3.0, danger: 4.0 }, change: { dir: 'up', flat: 0.03, warn: 0.25, danger: 0.5 } },
     { id: 'nfci', cat: 'market', name: '금융여건지수', sub: '시카고 연은 NFCI, 0 초과 = 긴축적', unit: '', dp: 2, changeMode: 'abs', profile: 'nfci',
       level: { fixed: true, dir: 'up', warn: 0, danger: 0.5 }, change: { dir: 'up', flat: 0.02, warn: 0.1, danger: 0.2 } },
     { id: 'stlfsi', cat: 'market', name: '금융스트레스지수', sub: '세인트루이스 연은, 0 = 평균', unit: '', dp: 2, changeMode: 'abs', profile: 'stress',
@@ -616,6 +624,10 @@ const CONFIG = {
       level: { dir: 'up', warn: 90, danger: 100 }, change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
     { id: 'brent', cat: 'energy', name: '브렌트유', unit: '$/bbl', dp: 2, changeMode: 'pct', profile: 'oil',
       level: { dir: 'up', warn: 95, danger: 105 }, change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
+    { id: 'brent_krw', cat: 'energy', name: '원화 환산 브렌트', sub: '브렌트 × 원/달러, 자동 계산 — 한국이 체감하는 유가', unit: '원/bbl', dp: 0, changeMode: 'pct', profile: 'oilKrw',
+      level: { dir: 'up', warn: 130000, danger: 150000 }, change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
+    { id: 'brent_wti', cat: 'energy', name: '브렌트−WTI 가격차', sub: '국제 유가 − 미국 유가, 자동 계산 · 평소 $3~5', unit: '$/bbl', dp: 2, changeMode: 'abs', profile: 'brentWti',
+      level: { fixed: true, dir: 'up', warn: 7, danger: 10 }, change: { dir: 'both', flat: 0.2, warn: 1.5, danger: 3 } },
     { id: 'natgas', cat: 'energy', name: '천연가스', sub: '헨리허브', unit: '$/MMBtu', dp: 3, changeMode: 'pct', profile: 'gas',
       change: { dir: 'both', flat: 2, warn: 8, danger: 15 } },
     { id: 'ttf', cat: 'energy', name: '유럽 천연가스 (TTF)', sub: '네덜란드 TTF 선물 — 유럽 가스 기준가격, LNG 수입 수요', unit: '€/MWh', dp: 2, changeMode: 'pct', profile: 'ttf',
@@ -652,6 +664,8 @@ const CONFIG = {
       change: { dir: 'both', flat: 0.5, warn: 3, danger: 6 } },
     { id: 'silver', cat: 'metals', name: '은', unit: '$/oz', dp: 2, changeMode: 'pct', profile: 'silver',
       change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
+    { id: 'gold_silver', cat: 'metals', name: '금/은 비율', sub: '금 1온스 = 은 몇 온스, 자동 계산 · 높을수록 경기 걱정', unit: '배', dp: 1, changeMode: 'pct', profile: 'goldSilver',
+      level: { dir: 'up', warn: 85, danger: 95 }, change: { dir: 'both', flat: 0.5, warn: 3, danger: 6 } },
     { id: 'aluminum', cat: 'metals', name: '알루미늄', unit: '$/t', dp: 0, changeMode: 'pct', profile: 'aluminum',
       change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
     { id: 'iron_ore', cat: 'metals', name: '철광석', unit: '$/t', dp: 1, changeMode: 'pct', profile: 'ironOre',
@@ -674,6 +688,8 @@ const CONFIG = {
       level: { dir: 'down', warn: 400, danger: 350 }, change: { dir: 'both', flat: 0.05, warn: 1, danger: 2 } },
     { id: 'us_crude', cat: 'stocks', name: '미국 상업 원유 재고', sub: 'SPR 제외, 주간 (EIA)', unit: '백만 bbl', dp: 1, changeMode: 'pct', profile: 'stocks',
       level: { seasonal: { warn: -5, danger: -10 }, dir: 'down', warn: 420, danger: 400 }, change: { dir: 'both', flat: 0.3, warn: 2, danger: 4 } },
+    { id: 'us_crude_total', cat: 'stocks', name: '미국 원유 총재고', sub: '상업 재고 + 전략비축유, 자동 계산', unit: '백만 bbl', dp: 1, changeMode: 'pct', profile: 'stocks',
+      level: { dir: 'down', warn: 720, danger: 680 }, change: { dir: 'both', flat: 0.2, warn: 1.5, danger: 3 } },
     { id: 'us_gasoline', cat: 'stocks', name: '미국 휘발유 재고', sub: '주간 (EIA)', unit: '백만 bbl', dp: 1, changeMode: 'pct', profile: 'stocks',
       level: { seasonal: { warn: -5, danger: -10 }, dir: 'down', warn: 220, danger: 210 }, change: { dir: 'both', flat: 0.3, warn: 2, danger: 4 } },
     { id: 'us_distill', cat: 'stocks', name: '미국 디젤·난방유 재고', sub: '중간유분, 주간 (EIA)', unit: '백만 bbl', dp: 1, changeMode: 'pct', profile: 'stocks',
@@ -995,6 +1011,50 @@ const COMMENTS = {
     fall: '디젤 하락 → 물류·산업 연료비 부담↓',
     high: '디젤 비싼 구간 → 물류비·생산원가 부담 지속',
     flat: '디젤 보합 → 물류비 압력 변화 작음'
+  },
+  krUsGap: {
+    high: '{name} 크게 벌어짐(미국이 더 높음) → 원화 약세·외국인 자금 유출 압력',
+    warn: '{name} 마이너스 폭 큼 → 원/달러 상승 압력 요인',
+    rise: '한국 쪽 금리가 상대적으로 오름 → 원화에 우호적',
+    fall: '미국 쪽 금리가 상대적으로 오름 → 원화 약세 압력',
+    flat: '{name} 유지 → 환율은 달러 흐름·무역 등 다른 요인 영향이 더 큼'
+  },
+  realPolicy: {
+    special(a) { return a.value < 0 ? '실질 정책금리 마이너스 → 물가가 금리보다 높아 돈이 풀린 상태와 비슷' : null; },
+    high: '실질 정책금리 2.5%↑ → 물가를 빼고도 돈값이 비쌈, 경기 압박 강함',
+    warn: '실질 정책금리 1.5%↑ → 긴축 효과가 뚜렷한 구간',
+    rise: '실질 정책금리 상승 → 긴축 강도 세지는 중(금리 인상 또는 물가 둔화)',
+    fall: '실질 정책금리 하락 → 긴축 강도 약해지는 중(금리 인하 또는 물가 상승)',
+    flat: '실질 정책금리 유지 → 긴축 강도 변화 작음'
+  },
+  oilKrw: {
+    surge: '원화 기준 유가 급등 → 국내 기름값·전기·가스요금 압력↑',
+    rise: '원화 기준 유가 상승 → 1~2개월 뒤 국내 기름값·수입물가에 반영',
+    plunge: '원화 기준 유가 급락 → 국내 기름값·수입물가 부담 크게 완화',
+    fall: '원화 기준 유가 하락 → 국내 기름값·수입물가 부담 완화',
+    high: '원화 기준 유가 최근 수년 중 높은 수준 → 무역수지·물가 부담',
+    flat: '원화 기준 유가 보합 → 국내 기름값 압력 변화 작음'
+  },
+  brentWti: {
+    high: '가격차 $10↑ → 미국 밖 원유 공급 불안 또는 미국 안에 원유가 남아돎',
+    warn: '가격차가 평소($3~5)보다 큼 → 해상 원유 수급이 빡빡',
+    rise: '가격차 확대 → 국제 원유가 미국 원유보다 귀해지는 중, 미국 원유 수출 유인↑',
+    fall: '가격차 축소 → 국제 원유 수급 긴장 완화 또는 미국 안 수급이 빡빡',
+    flat: '가격차 유지 → 지역 간 원유 수급 변화 작음'
+  },
+  goldSilver: {
+    surge: '금/은 비율 급등 → 경기 불안에 안전자산 금으로 쏠림',
+    rise: '금/은 비율 상승 → 산업용 은보다 금 선호, 경기 걱정 신호',
+    fall: '금/은 비율 하락 → 은(산업 수요) 강세, 경기 기대 개선',
+    high: '금/은 비율 높은 구간 → 안전자산 선호가 강한 상태',
+    flat: '금/은 비율 보합 → 경기 기대 변화 작음'
+  },
+  hyIg: {
+    surge: '저신용 웃돈 급등 → 약한 기업부터 자금줄이 조여지는 신용 불안 초기 신호',
+    rise: '저신용 웃돈 확대 → 우량·비우량 기업 간 차별 커지는 중',
+    fall: '저신용 웃돈 축소 → 신용시장 위험 선호 회복',
+    high: '저신용 웃돈 큰 구간 → 약한 기업의 부도 걱정이 가격에 반영',
+    flat: '저신용 웃돈 안정 → 신용시장 차별 변화 작음'
   },
   crack: {
     surge: '정유 마진 급등 → 휘발유·디젤이 원유보다 훨씬 비싸짐, 정유 설비 차질 확인',

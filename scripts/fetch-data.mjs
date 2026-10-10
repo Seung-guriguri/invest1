@@ -41,8 +41,27 @@ const COMPUTED = {
   // TTF − Henry Hub 가격차 ($/MMBtu): TTF(€/MWh) × 유로/달러 ÷ 3.412(1MWh = 3.412MMBtu) − 헨리허브
   //   클수록 미국 LNG를 유럽에 팔 때 남는 몫이 커져 LNG 수출·LNG선 수요가 늘기 쉬움
   lng_spread: { inputs: ['ttf', 'eurusd', 'natgas'], label: 'Calc:TTF−HH',
-                calc: (ttf, fx, hh) => ttf * fx / 3.412 - hh }
+                calc: (ttf, fx, hh) => ttf * fx / 3.412 - hh },
+  // asof: 첫 재료의 날짜마다 나머지 재료는 그날 이전 가장 최근 값 사용 (휴일·발표 주기가 달라도 계산)
+  kr_us_base:     { inputs: ['kr_base', 'us_ffr'], label: 'Calc:한국−미국 기준금리', asof: true, calc: (kr, us) => kr - us },
+  kr_us_10y:      { inputs: ['kr10y', 'us10y'], label: 'Calc:한국−미국 10년', asof: true, calc: (kr, us) => kr - us },
+  us_real_policy: { inputs: ['us_ffr', 'us_core_pce'], label: 'Calc:FFR−근원PCE', asof: true, calc: (ffr, pce) => ffr - pce },
+  brent_krw:      { inputs: ['brent', 'usdkrw'], label: 'Calc:브렌트×원/달러', asof: true, calc: (b, fx) => b * fx },
+  brent_wti:      { inputs: ['brent', 'wti'], label: 'Calc:브렌트−WTI', calc: (b, w) => b - w },
+  gold_silver:    { inputs: ['gold', 'silver'], label: 'Calc:금÷은', calc: (g, s) => g / s },
+  hy_ig:          { inputs: ['hy_spread', 'ig_spread'], label: 'Calc:HY−IG', calc: (hy, ig) => hy - ig },
+  us_crude_total: { inputs: ['us_crude', 'us_spr'], label: 'Calc:상업+SPR', calc: (c, spr) => c + spr }
 };
+
+/** 날짜 오름차순 obs 에서 date 이전(같은 날 포함) 가장 최근 값 */
+function valueAsOf(obs, date) {
+  let lo = 0, hi = obs.length - 1, found = null;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (obs[mid][0] <= date) { found = obs[mid][1]; lo = mid + 1; } else hi = mid - 1;
+  }
+  return found;
+}
 
 /* ---------- 유틸 ---------- */
 const iso = d => d.toISOString().slice(0, 10);
@@ -299,12 +318,20 @@ async function main() {
     try {
       const parts = def.inputs.map(k => series[k]);
       if (parts.some(x => !x)) throw new Error(`재료 지표 없음 (${def.inputs.filter(k => !series[k]).join(', ')})`);
-      const maps = parts.map(x => new Map(x.obs));
-      const obs = parts[0].obs.filter(([d]) => maps.every(m => m.has(d)))
-        .map(([d]) => [d, round(def.calc(...maps.map(m => m.get(d))))]).filter(o => Number.isFinite(o[1]));
+      let obs;
+      if (def.asof) {
+        obs = parts[0].obs.map(([d, v]) => {
+          const rest = parts.slice(1).map(x => valueAsOf(x.obs, d));
+          return rest.some(r => r == null) ? null : [d, round(def.calc(v, ...rest))];
+        }).filter(o => o && Number.isFinite(o[1]));
+      } else {
+        const maps = parts.map(x => new Map(x.obs));
+        obs = parts[0].obs.filter(([d]) => maps.every(m => m.has(d)))
+          .map(([d]) => [d, round(def.calc(...maps.map(m => m.get(d))))]).filter(o => Number.isFinite(o[1]));
+      }
       if (obs.length < 2) throw new Error('겹치는 날짜 부족');
       series[id] = { source: def.label, freq: parts[0].freq, fetchedAt: new Date().toISOString(), obs };
-      console.log(`✓ ${id.padEnd(12)} ${def.label.padEnd(26)} ${obs[obs.length - 1][0]}  ${obs[obs.length - 1][1]}`);
+      console.log(`✓ ${id.padEnd(14)} ${def.label.padEnd(26)} ${obs[obs.length - 1][0]}  ${obs[obs.length - 1][1]}`);
     } catch (e) {
       const prev = previous && previous.series && previous.series[id];
       if (prev) series[id] = prev;
