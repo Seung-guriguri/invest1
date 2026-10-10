@@ -153,6 +153,10 @@
   .ai-brief .row { font-size: 13.5px; margin: 8px 0 0; }
   .ai-brief .row b { font-size: 12px; color: var(--text-2); display: block; }
   .ai-secs { margin-top: 10px; border-top: 1px solid var(--border); }
+  .ai-brief details.ai-column { margin-top: 10px; border: 1px solid var(--border); border-radius: 12px; padding: 4px 12px; }
+  .ai-brief .ai-column summary { font-size: 14.5px; font-weight: 700; color: var(--text); padding: 8px 0; }
+  .ai-column h3 { font-size: 15px; margin: 14px 0 6px; }
+  .ai-column p { font-size: 14.5px; line-height: 1.75; margin: 0 0 10px; }
   .ai-brief details.ai-sec { margin: 0; border-bottom: 1px solid var(--border); }
   .ai-brief .ai-sec summary { list-style: none; display: flex; gap: 8px; align-items: baseline; padding: 9px 0; font-size: 14.5px; color: var(--text); font-weight: 600; }
   .ai-brief .ai-sec summary::-webkit-details-marker { display: none; }
@@ -1694,6 +1698,9 @@ function renderAIBrief() {
     ${b.headline ? `<h2>${esc(b.headline)}</h2>` : ''}
     ${b.story ? `<p class="story">${esc(b.story)}</p>` : ''}
     ${aiSectionsHTML(ai)}
+    ${ai.column && ai.column.title ? `<details class="ai-column"><summary>📰 오늘의 칼럼 — ${esc(ai.column.title)}</summary>
+      ${String(ai.column.body || '').split(/\n\n+/).map(x => x.startsWith('■') ? `<h3>${esc(x.replace(/^■\s*/, ''))}</h3>` : `<p>${esc(x)}</p>`).join('')}
+    </details>` : ''}
     <details><summary>핵심 수치 · 한국 관점 · 확인할 것</summary>
       ${list('핵심 수치', b.points)}${row('한국 투자자에게는', b.korea)}${list('확인할 것', b.watch)}${row('반대로 보면', b.counterpoint)}
     </details>
