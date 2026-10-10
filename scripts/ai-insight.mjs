@@ -227,14 +227,25 @@ async function main() {
     }
     return 'skip';
   };
+  // 품질 우선: Flash 계열이 모두 혼잡이면 40초 쉬고 첫 Flash를 한 번 더 → 그래도 안 되면 Flash-Lite
+  const main = models.filter(m => !/lite/.test(m)), lite = models.filter(m => /lite/.test(m));
   let anyBusy = false;
-  for (const m of models.slice(0, 4)) {
+  for (const m of main) {
     const r = await tryModel(m);
     if (r === 'ok') break;
     if (r === 'quota') return keepPrevious('무료 한도 초과 (429)');
     if (r === 'busy') anyBusy = true;
   }
-  if (!resp && anyBusy) { await new Promise(r => setTimeout(r, 30000)); await tryModel(models[0]); }
+  if (!resp && anyBusy && main.length) {
+    console.log('  Flash 혼잡 → 40초 뒤 다시 시도');
+    await new Promise(r => setTimeout(r, 40000));
+    if (await tryModel(main[0]) === 'quota') return keepPrevious('무료 한도 초과 (429)');
+  }
+  for (const m of lite) {
+    if (resp) break;
+    const r = await tryModel(m);
+    if (r === 'quota') return keepPrevious('무료 한도 초과 (429)');
+  }
   if (!resp) return keepPrevious(`호출 실패: ${lastErr && lastErr.message}`);
 
   const cand = resp.candidates && resp.candidates[0];
