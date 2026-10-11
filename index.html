@@ -14,6 +14,9 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<!-- [UI v2 패치] 새 디자인 (롤백: 이 표시가 붙은 4줄 삭제 · 또는 설정 → 화면 디자인 → 기존 디자인) -->
+<script>try { if (localStorage.getItem('macroDash.ui') !== 'v1') document.documentElement.setAttribute('data-ui', 'v2'); } catch (e) { document.documentElement.setAttribute('data-ui', 'v2'); }</script><!-- [UI v2 패치] -->
+<link rel="stylesheet" href="ui-v2.css?v=__BUILD__"><!-- [UI v2 패치] -->
 <style>
   :root {
     color-scheme: light;
@@ -2330,5 +2333,6 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
   });
 }
 </script>
+<script src="ui-v2.js?v=__BUILD__"></script><!-- [UI v2 패치] -->
 </body>
 </html>
