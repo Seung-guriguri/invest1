@@ -643,17 +643,17 @@ const CONFIG = {
 
     // ── 운임 ──
     { id: 'bdry', cat: 'freight', name: '벌크선 운임', sub: 'BDRY ETF — BDI 대용, 지수 아님', unit: '$', dp: 2, changeMode: 'pct', profile: 'bulkFreight',
-      change: { dir: 'both', flat: 1, warn: 7, danger: 15 } },
+      change: { dir: 'both', flat: 1, danger: 5, moveOnly: true } },
     { id: 'scfi', cat: 'freight', name: '컨테이너 운임 SCFI', sub: '상하이 컨테이너 운임지수, 직접 입력 (매주 금요일 발표)', unit: '', dp: 1, changeMode: 'pct', profile: 'containerFreight',
       change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
     { id: 'freight_ppi', cat: 'freight', name: '미국 원양 화물운송 PPI', sub: '전년비, 월간', unit: '%', dp: 1, changeMode: 'pp', profile: 'freightPpi',
       level: { dir: 'up', warn: 10, danger: 20 }, change: { flat: 1 } },
     { id: 'tanker_fro', cat: 'freight', name: 'VLCC 원유선 (FRO)', sub: 'Frontline 주가 — 초대형 원유운반선 운임 대용 (운임 지수 아님)', unit: '$', dp: 2, changeMode: 'pct', profile: 'shipping',
-      change: { dir: 'both', flat: 0.4, warn: 3.5, danger: 7 }, comments: { rise: '원유선사 상승 → VLCC 운임 강세 또는 원유 물동량 증가 기대', fall: '원유선사 하락 → VLCC 운임 약세 또는 물동량 둔화 걱정' } },
+      change: { dir: 'both', flat: 0.4, danger: 5, moveOnly: true }, comments: { rise: '원유선사 상승 → VLCC 운임 강세 또는 원유 물동량 증가 기대', fall: '원유선사 하락 → VLCC 운임 약세 또는 물동량 둔화 걱정' } },
     { id: 'tanker_stng', cat: 'freight', name: '석유제품선 (STNG)', sub: 'Scorpio Tankers 주가 — 휘발유·디젤 운반선 운임 대용 (운임 지수 아님)', unit: '$', dp: 2, changeMode: 'pct', profile: 'shipping',
-      change: { dir: 'both', flat: 0.4, warn: 3.5, danger: 7 }, comments: { rise: '제품선사 상승 → 휘발유·디젤 해상 수송 수요↑, 정유 마진 강세와 함께 보기', fall: '제품선사 하락 → 석유제품 물동량·운임 약세' } },
+      change: { dir: 'both', flat: 0.4, danger: 5, moveOnly: true }, comments: { rise: '제품선사 상승 → 휘발유·디젤 해상 수송 수요↑, 정유 마진 강세와 함께 보기', fall: '제품선사 하락 → 석유제품 물동량·운임 약세' } },
     { id: 'lng_flng', cat: 'freight', name: 'LNG선 (FLNG)', sub: 'Flex LNG 주가 — LNG 운반선 업황 대용 (운임 지수 아님)', unit: '$', dp: 2, changeMode: 'pct', profile: 'shipping',
-      change: { dir: 'both', flat: 0.4, warn: 3, danger: 6 }, comments: { rise: 'LNG선사 상승 → LNG 물동량·용선료 강세 기대', fall: 'LNG선사 하락 → LNG선 공급 과잉 또는 LNG 교역 둔화 걱정' } },
+      change: { dir: 'both', flat: 0.4, danger: 5, moveOnly: true }, comments: { rise: 'LNG선사 상승 → LNG 물동량·용선료 강세 기대', fall: 'LNG선사 하락 → LNG선 공급 과잉 또는 LNG 교역 둔화 걱정' } },
     { id: 'lng_spread', cat: 'freight', name: 'LNG 수출 마진 (TTF−헨리허브)', sub: '유럽 가스값 − 미국 가스값, 자동 계산 — 클수록 LNG 수출·LNG선 수요↑', unit: '$/MMBtu', dp: 2, changeMode: 'abs', profile: 'lngSpread',
       level: { dir: 'up', warn: 10, danger: 14 }, change: { dir: 'both', flat: 0.2, warn: 1, danger: 2 } },
 
@@ -713,47 +713,47 @@ const CONFIG = {
 
     // ── 매크로 ETF (섹터별 대표, Yahoo 일간 종가) ──
     { id: 'etf_tlt', cat: 'etf', name: 'TLT', sub: '미국 20년+ 국채 — 장기 금리 (금리↑ → 가격↓)', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
-      change: { dir: 'both', flat: 0.2, warn: 1.5, danger: 3 }, comments: { rise: '장기채 상승 → 장기금리 하락, 경기 둔화 걱정·안전자산 쏠림', fall: '장기채 하락 → 장기금리 상승, 채권 보유분 평가손' } },
+      change: { dir: 'both', flat: 0.2, danger: 5, moveOnly: true }, comments: { rise: '장기채 상승 → 장기금리 하락, 경기 둔화 걱정·안전자산 쏠림', fall: '장기채 하락 → 장기금리 상승, 채권 보유분 평가손' } },
     { id: 'etf_tip', cat: 'etf', name: 'TIP', sub: '미국 물가연동국채(TIPS) — 실질금리·인플레 기대', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
-      change: { dir: 'both', flat: 0.1, warn: 0.7, danger: 1.5 }, comments: { rise: '물가연동채 상승 → 실질금리 하락 또는 물가 걱정 확대', fall: '물가연동채 하락 → 실질금리 상승' } },
+      change: { dir: 'both', flat: 0.1, danger: 5, moveOnly: true }, comments: { rise: '물가연동채 상승 → 실질금리 하락 또는 물가 걱정 확대', fall: '물가연동채 하락 → 실질금리 상승' } },
     { id: 'etf_hyg', cat: 'etf', name: 'HYG', sub: '미국 하이일드 회사채 — 위험선호·신용 여건', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
-      change: { dir: 'both', flat: 0.1, warn: 0.7, danger: 1.5 }, comments: { rise: '하이일드채 상승 → 신용시장 안정, 투자 심리 개선', fall: '하이일드채 하락 → 신용시장 불안이 커지는지 확인' } },
+      change: { dir: 'both', flat: 0.1, danger: 5, moveOnly: true }, comments: { rise: '하이일드채 상승 → 신용시장 안정, 투자 심리 개선', fall: '하이일드채 하락 → 신용시장 불안이 커지는지 확인' } },
     { id: 'etf_uup', cat: 'etf', name: 'UUP', sub: '달러 강세 ETF — 달러인덱스 방향', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
-      change: { dir: 'both', flat: 0.1, warn: 0.7, danger: 1.5 }, comments: { rise: '달러 강세 → 원화·신흥국 통화와 원자재에 부담', fall: '달러 약세 → 원자재·신흥국 자산에 우호적' } },
+      change: { dir: 'both', flat: 0.1, danger: 5, moveOnly: true }, comments: { rise: '달러 강세 → 원화·신흥국 통화와 원자재에 부담', fall: '달러 약세 → 원자재·신흥국 자산에 우호적' } },
     { id: 'etf_xle', cat: 'etf', name: 'XLE', sub: '미국 에너지 업종 주식 — 유가·정유 기업', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
-      change: { dir: 'both', flat: 0.3, warn: 2.5, danger: 5 }, comments: { rise: '에너지주 상승 → 유가 강세·에너지 업황 기대', fall: '에너지주 하락 → 유가 약세·수요 둔화 걱정' } },
+      change: { dir: 'both', flat: 0.3, danger: 5, moveOnly: true }, comments: { rise: '에너지주 상승 → 유가 강세·에너지 업황 기대', fall: '에너지주 하락 → 유가 약세·수요 둔화 걱정' } },
     { id: 'etf_ung', cat: 'etf', name: 'UNG', sub: '미국 천연가스 선물 — 가스 가격 흐름 (장기 보유 시 가스값과 괴리)', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
-      change: { dir: 'both', flat: 0.8, warn: 5, danger: 10 }, comments: { rise: '천연가스 선물 상승 → 난방·발전 연료비 부담↑', fall: '천연가스 선물 하락 → 난방·발전 연료비 부담↓' } },
+      change: { dir: 'both', flat: 0.8, danger: 5, moveOnly: true }, comments: { rise: '천연가스 선물 상승 → 난방·발전 연료비 부담↑', fall: '천연가스 선물 하락 → 난방·발전 연료비 부담↓' } },
     { id: 'etf_coal', cat: 'etf', name: 'COAL', sub: '글로벌 석탄 생산 기업 — 석탄 가격·아시아 전력 수요', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
-      change: { dir: 'both', flat: 0.4, warn: 3, danger: 6 }, comments: { rise: '석탄 기업 상승 → 석탄값 강세·전력 수요 기대', fall: '석탄 기업 하락 → 석탄값 약세·발전 수요 둔화 걱정' } },
+      change: { dir: 'both', flat: 0.4, danger: 5, moveOnly: true }, comments: { rise: '석탄 기업 상승 → 석탄값 강세·전력 수요 기대', fall: '석탄 기업 하락 → 석탄값 약세·발전 수요 둔화 걱정' } },
     { id: 'etf_ura', cat: 'etf', name: 'URA', sub: '우라늄 채굴·원전 기업 — 원자력 발전 수요', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
-      change: { dir: 'both', flat: 0.5, warn: 3.5, danger: 7 }, comments: { rise: '우라늄·원전주 상승 → 원전 확대·전력 수요 기대', fall: '우라늄·원전주 하락 → 원전 기대 약화 또는 투자 심리 위축' } },
+      change: { dir: 'both', flat: 0.5, danger: 5, moveOnly: true }, comments: { rise: '우라늄·원전주 상승 → 원전 확대·전력 수요 기대', fall: '우라늄·원전주 하락 → 원전 기대 약화 또는 투자 심리 위축' } },
     { id: 'etf_gld', cat: 'etf', name: 'GLD', sub: '금 현물 — 안전자산·실질금리', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
-      change: { dir: 'both', flat: 0.3, warn: 2, danger: 4 }, comments: { rise: '금 ETF 상승 → 안전자산 선호 또는 달러·실질금리 하락', fall: '금 ETF 하락 → 투자 심리 회복 또는 실질금리 상승' } },
+      change: { dir: 'both', flat: 0.3, danger: 5, moveOnly: true }, comments: { rise: '금 ETF 상승 → 안전자산 선호 또는 달러·실질금리 하락', fall: '금 ETF 하락 → 투자 심리 회복 또는 실질금리 상승' } },
     { id: 'etf_lit', cat: 'etf', name: 'LIT', sub: '리튬·2차전지 업종 — 리튬 가격 흐름 참고', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
-      change: { dir: 'both', flat: 0.5, warn: 4, danger: 8 }, comments: { rise: '리튬·배터리주 상승 → 배터리 수요 기대, 원래 출렁임 큼', fall: '리튬·배터리주 하락 → 공급 과잉·전기차 수요 둔화 걱정' } },
+      change: { dir: 'both', flat: 0.5, danger: 5, moveOnly: true }, comments: { rise: '리튬·배터리주 상승 → 배터리 수요 기대, 원래 출렁임 큼', fall: '리튬·배터리주 하락 → 공급 과잉·전기차 수요 둔화 걱정' } },
     { id: 'etf_copx', cat: 'etf', name: 'COPX', sub: '구리 광산 기업 — 구리 가격·전력망·전기차 수요', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
-      change: { dir: 'both', flat: 0.4, warn: 3, danger: 6 }, comments: { rise: '구리 광산주 상승 → 구리값·경기 회복 기대', fall: '구리 광산주 하락 → 구리 수요 둔화 걱정' } },
+      change: { dir: 'both', flat: 0.4, danger: 5, moveOnly: true }, comments: { rise: '구리 광산주 상승 → 구리값·경기 회복 기대', fall: '구리 광산주 하락 → 구리 수요 둔화 걱정' } },
     { id: 'etf_pick', cat: 'etf', name: 'PICK', sub: '글로벌 금속·광산 기업 — 철광석·구리 등 산업금속 경기', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
-      change: { dir: 'both', flat: 0.3, warn: 2.5, danger: 5 }, comments: { rise: '광산 기업 상승 → 산업금속·중국 경기 기대', fall: '광산 기업 하락 → 산업금속 수요 둔화 걱정' } },
+      change: { dir: 'both', flat: 0.3, danger: 5, moveOnly: true }, comments: { rise: '광산 기업 상승 → 산업금속·중국 경기 기대', fall: '광산 기업 하락 → 산업금속 수요 둔화 걱정' } },
     { id: 'etf_remx', cat: 'etf', name: 'REMX', sub: '희토류·전략 금속 기업 — 공급망·중국 수출 통제에 민감', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
-      change: { dir: 'both', flat: 0.5, warn: 3.5, danger: 7 }, comments: { rise: '희토류·전략 금속주 상승 → 공급망 불안 또는 수요 기대', fall: '희토류·전략 금속주 하락 → 공급 과잉·수요 둔화 걱정' } },
+      change: { dir: 'both', flat: 0.5, danger: 5, moveOnly: true }, comments: { rise: '희토류·전략 금속주 상승 → 공급망 불안 또는 수요 기대', fall: '희토류·전략 금속주 하락 → 공급 과잉·수요 둔화 걱정' } },
     { id: 'etf_dbc', cat: 'etf', name: 'DBC', sub: '원자재 종합 (에너지 비중 큼) — 인플레 압력', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
-      change: { dir: 'both', flat: 0.3, warn: 2, danger: 4 }, comments: { rise: '원자재 종합 상승 → 물가 압력 확대 신호', fall: '원자재 종합 하락 → 수요 둔화 또는 물가 압력 완화' } },
+      change: { dir: 'both', flat: 0.3, danger: 5, moveOnly: true }, comments: { rise: '원자재 종합 상승 → 물가 압력 확대 신호', fall: '원자재 종합 하락 → 수요 둔화 또는 물가 압력 완화' } },
     { id: 'etf_dba', cat: 'etf', name: 'DBA', sub: '농산물 종합 — 곡물·커피·설탕·가축', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
-      change: { dir: 'both', flat: 0.3, warn: 2, danger: 4 }, comments: { rise: '농산물 상승 → 식품 물가 상승 압력', fall: '농산물 하락 → 식품 원가 부담 완화' } },
+      change: { dir: 'both', flat: 0.3, danger: 5, moveOnly: true }, comments: { rise: '농산물 상승 → 식품 물가 상승 압력', fall: '농산물 하락 → 식품 원가 부담 완화' } },
     { id: 'etf_bwet', cat: 'etf', name: 'BWET', sub: '유조선 운임 선물 (VLCC 중동→중국 TD3C·수에즈막스) — 원유 해상 운송비 대용', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
-      change: { dir: 'both', flat: 0.5, warn: 5, danger: 10 }, comments: { rise: '유조선 운임 상승 → 원유 해상 수송 수요↑ 또는 항로 차질', fall: '유조선 운임 하락 → 원유 물동량 둔화' } },
+      change: { dir: 'both', flat: 0.5, danger: 5, moveOnly: true }, comments: { rise: '유조선 운임 상승 → 원유 해상 수송 수요↑ 또는 항로 차질', fall: '유조선 운임 하락 → 원유 물동량 둔화' } },
     { id: 'etf_xli', cat: 'etf', name: 'XLI', sub: '미국 산업재 업종 — 제조업 경기', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
-      change: { dir: 'both', flat: 0.3, warn: 2.5, danger: 5 }, comments: { rise: '산업재 상승 → 제조업·설비투자 경기 기대', fall: '산업재 하락 → 제조업 경기 둔화 걱정' } },
+      change: { dir: 'both', flat: 0.3, danger: 5, moveOnly: true }, comments: { rise: '산업재 상승 → 제조업·설비투자 경기 기대', fall: '산업재 하락 → 제조업 경기 둔화 걱정' } },
     { id: 'etf_itb', cat: 'etf', name: 'ITB', sub: '미국 주택건설 업종 — 모기지 금리 민감', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
-      change: { dir: 'both', flat: 0.3, warn: 3, danger: 6 }, comments: { rise: '주택건설주 상승 → 금리 하락·주택 수요 회복 기대', fall: '주택건설주 하락 → 모기지 금리 부담·주택 경기 둔화' } },
+      change: { dir: 'both', flat: 0.3, danger: 5, moveOnly: true }, comments: { rise: '주택건설주 상승 → 금리 하락·주택 수요 회복 기대', fall: '주택건설주 하락 → 모기지 금리 부담·주택 경기 둔화' } },
     { id: 'etf_kre', cat: 'etf', name: 'KRE', sub: '미국 지역은행 — 금리차·신용 스트레스', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
-      change: { dir: 'both', flat: 0.3, warn: 3, danger: 6 }, comments: { rise: '지역은행 상승 → 은행권 불안 완화·대출 여건 개선 기대', fall: '지역은행 하락 → 은행권 대출 부실·예금 이탈 걱정 확인' } },
+      change: { dir: 'both', flat: 0.3, danger: 5, moveOnly: true }, comments: { rise: '지역은행 상승 → 은행권 불안 완화·대출 여건 개선 기대', fall: '지역은행 하락 → 은행권 대출 부실·예금 이탈 걱정 확인' } },
     { id: 'etf_ewy', cat: 'etf', name: 'EWY', sub: '한국 주식 (달러 기준) — 외국인 관점의 한국 시장', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
-      change: { dir: 'both', flat: 0.3, warn: 2.5, danger: 5 }, comments: { rise: '한국 ETF 상승 → 달러 기준 한국 증시 강세(주가·원화 동반)', fall: '한국 ETF 하락 → 한국 증시 약세 또는 원화 약세' } },
+      change: { dir: 'both', flat: 0.3, danger: 5, moveOnly: true }, comments: { rise: '한국 ETF 상승 → 달러 기준 한국 증시 강세(주가·원화 동반)', fall: '한국 ETF 하락 → 한국 증시 약세 또는 원화 약세' } },
     { id: 'etf_eem', cat: 'etf', name: 'EEM', sub: '신흥국 주식 — 신흥국 자금 흐름', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
-      change: { dir: 'both', flat: 0.3, warn: 2.5, danger: 5 }, comments: { rise: '신흥국 상승 → 달러 약세·투자 심리 개선', fall: '신흥국 하락 → 달러 강세·안전자산 쏠림' } }
+      change: { dir: 'both', flat: 0.3, danger: 5, moveOnly: true }, comments: { rise: '신흥국 상승 → 달러 약세·투자 심리 개선', fall: '신흥국 하락 → 달러 강세·안전자산 쏠림' } }
   ]
 };
 
@@ -1524,6 +1524,8 @@ function analyze(ind) {
   a.trend = dayShock ? a.dayTrend : (a.trend1m || a.dayTrend || null);
   a.trendSrc = dayShock || !a.trend1m ? 'day' : '1m';
   a.signal = Math.max(a.lvl, a.cs);
+  // moveOnly(ETF·해운주 등): 주의 단계 없이 하루 급등락만 표시 → 신호등 글자를 '급등'/'급락'으로
+  if (C.moveOnly && a.cs === 2 && a.signal === 2) a.moveLabel = a.diff > 0 ? '급등' : '급락';
 
   // ── 오래된 데이터 ──
   if (!a.isSample) {
@@ -1735,7 +1737,7 @@ function sparkSVG(a) {
 function cardHTML(a) {
   const ind = a.ind;
   const s = a.signal == null ? 'sn' : 's' + a.signal;
-  const lightLabel = a.signal == null ? '데이터 없음' : SIGNAL_LABEL[a.signal];
+  const lightLabel = a.signal == null ? '데이터 없음' : a.moveLabel || SIGNAL_LABEL[a.signal];
   const title = `${esc(ind.name)}${ind.sub ? `<small>${esc(ind.sub)}</small>` : ''}`;
   if (!a.cur) {
     return `<button class="card sn" data-edit="${ind.id}" type="button">
@@ -2071,7 +2073,7 @@ function openEdit(id) {
   const head = a.cur ? `
     <div class="detail-value">
       <span class="value num">${fmt(a.value, ind.dp)}<span class="unit">${esc(ind.unit)}</span></span>${changeHTML(a)}
-      <span class="light ${s}" style="margin-left:auto"><span class="dot ${s}"></span>${a.signal == null ? '데이터 없음' : SIGNAL_LABEL[a.signal]}</span>
+      <span class="light ${s}" style="margin-left:auto"><span class="dot ${s}"></span>${a.signal == null ? '데이터 없음' : a.moveLabel || SIGNAL_LABEL[a.signal]}</span>
     </div>
     <div class="meta" style="margin-top:4px">${a.isSample ? '<span class="badge sample">샘플</span>' : ''}${a.stale ? '<span class="badge stale">오래된 데이터</span>' : ''}
       <span>${a.isSample ? '기준일 샘플' : `기준일 ${esc(fmtObsDate(a.cur.date, a.freq))} · 업데이트 ${esc(toLocalISO(a.cur.updatedAt))} · ${esc(sourceName(a))}${a.cur.source === 'auto' && a.meta ? ` (${esc(a.meta.source.split(':')[1] || '')})` : ''}`}</span></div>
