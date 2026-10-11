@@ -127,14 +127,17 @@ async function fetchFred(src) {
 
 /* ---------- Yahoo Finance (비공식) ---------- */
 async function fetchYahoo(src) {
-  const path = `/v8/finance/chart/${encodeURIComponent(src.yahoo)}?range=2y&interval=1d&includePrePost=false`;
+  const path = `/v8/finance/chart/${encodeURIComponent(src.yahoo)}?range=2y&interval=1d&includePrePost=false&events=div%2Csplit`;
   let j;
   try { j = await getJSON('https://query1.finance.yahoo.com' + path); }
   catch (e) { j = await getJSON('https://query2.finance.yahoo.com' + path); }
   const r = j && j.chart && j.chart.result && j.chart.result[0];
   if (!r || !r.timestamp) throw new Error((j && j.chart && j.chart.error && j.chart.error.description) || '응답 없음');
   const offset = (r.meta && r.meta.gmtoffset) || 0;   // 거래소 현지 날짜 기준
-  const close = r.indicators.quote[0].close;
+  // adj: 배당·분할을 반영한 수정종가 (없으면 일반 종가)
+  const adj = src.adj && r.indicators.adjclose && r.indicators.adjclose[0] && r.indicators.adjclose[0].adjclose;
+  const close = adj && adj.length === r.timestamp.length ? adj : r.indicators.quote[0].close;
+  if (src.adj && close !== adj) console.log(`  · ${src.yahoo}: 수정종가 없음 → 일반 종가 사용`);
   let rows = r.timestamp.map((t, i) => [iso(new Date((t + offset) * 1000)), close[i] == null ? NaN : close[i]]);
   // 정규장이 진행 중이면 오늘 봉은 종가가 아닌 장중 가격 → 제외하고 직전 종가까지만 사용
   const reg = r.meta && r.meta.currentTradingPeriod && r.meta.currentTradingPeriod.regular;
