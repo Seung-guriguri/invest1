@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>매크로 대시보드 — 새 UI 시안</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+  /* ── 시안: 큰 숫자 · 흰 카드 · 회색 바탕 · 테두리/그림자 없음 · 넉넉한 여백 ── */
+  :root {
+    --bg: #f2f4f6;          /* 회색 바탕 */
+    --card: #ffffff;
+    --text: #191f28;        /* 진한 글자 */
+    --text-2: #4e5968;      /* 본문 보조 */
+    --text-3: #8b95a1;      /* 설명·날짜 */
+    --line: #f2f4f6;
+    --blue: #3182f6;        /* 강조·하락 */
+    --blue-bg: #e8f3ff;
+    --red: #f04452;         /* 상승·경고 */
+    --red-bg: #ffeeee;
+    --yellow: #ffb331;
+    --yellow-bg: #fff6e0;
+    --green: #03b26c;
+    --green-bg: #e5f8ef;
+    --chip: #e5e8eb;
+    --radius: 24px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #101013; --card: #1b1b1f; --text: #f9fafb; --text-2: #c3c7ce; --text-3: #8b95a1;
+      --line: #26262b; --blue-bg: #1b2a40; --red-bg: #3a1d21; --yellow-bg: #3a2f17; --green-bg: #12301f; --chip: #2c2c33;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: #dfe3e8; color: var(--text);
+    font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    -webkit-font-smoothing: antialiased; letter-spacing: -0.02em;
+  }
+  .num { font-variant-numeric: tabular-nums; }
+  .intro { max-width: 1240px; margin: 0 auto; padding: 28px 16px 8px; }
+  .intro h1 { margin: 0 0 6px; font-size: 22px; }
+  .intro p { margin: 0; color: #4e5968; font-size: 14px; line-height: 1.6; }
+  .screens { display: flex; gap: 28px; justify-content: center; flex-wrap: wrap; padding: 20px 16px 48px; }
+  .screen-wrap { display: grid; gap: 10px; justify-items: center; }
+  .screen-label { font-size: 13px; font-weight: 700; color: #4e5968; }
+  .phone {
+    width: 375px; max-width: 100%; height: 780px; overflow: hidden auto; position: relative;
+    background: var(--bg); border-radius: 36px; box-shadow: 0 20px 50px rgba(0, 27, 55, .15);
+    scrollbar-width: none;
+  }
+  .phone::-webkit-scrollbar { display: none; }
+  @media (max-width: 420px) {
+    body { background: var(--bg); }
+    .screens { padding: 0 0 40px; gap: 40px; }
+    .phone { width: 100%; height: auto; border-radius: 0; box-shadow: none; overflow: visible; }
+  }
+
+  /* 상단 */
+  .top { display: flex; align-items: center; gap: 8px; padding: 18px 20px 6px; position: sticky; top: 0; background: var(--bg); z-index: 2; }
+  .top .title { font-size: 20px; font-weight: 700; flex: 1; }
+  .ibtn { width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; color: var(--text-3); }
+  .ibtn svg { width: 22px; height: 22px; }
+  .stamp { padding: 0 20px 14px; font-size: 13px; color: var(--text-3); }
+
+  .card { background: var(--card); border-radius: var(--radius); margin: 0 12px 12px; padding: 22px 20px; }
+  .card h2 { margin: 0 0 14px; font-size: 19px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+  .card h2 .more { margin-left: auto; font-size: 14px; font-weight: 500; color: var(--text-3); }
+  .eyebrow { font-size: 13px; font-weight: 600; color: var(--blue); margin-bottom: 8px; }
+
+  /* AI 한 줄 */
+  .ai-head { font-size: 22px; font-weight: 700; line-height: 1.4; margin: 0 0 10px; }
+  .ai-story { font-size: 15px; line-height: 1.65; color: var(--text-2); margin: 0; }
+  .pill-btn { display: flex; justify-content: center; margin-top: 18px; padding: 13px; border-radius: 14px; background: var(--blue-bg); color: var(--blue); font-weight: 600; font-size: 15px; }
+
+  /* 경고 */
+  .alert { display: flex; gap: 12px; align-items: flex-start; background: var(--red-bg); }
+  .alert .ic { width: 36px; height: 36px; border-radius: 50%; background: var(--red); color: #fff; display: grid; place-items: center; font-weight: 800; flex: none; }
+  .alert b { display: block; font-size: 16px; margin-bottom: 3px; }
+  .alert span { font-size: 14px; color: var(--text-2); line-height: 1.5; }
+
+  /* 신호 요약 */
+  .sig-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .sig { border-radius: 16px; padding: 14px 12px; }
+  .sig .n { font-size: 26px; font-weight: 700; }
+  .sig .l { font-size: 13px; color: var(--text-2); margin-top: 2px; }
+  .sig.r { background: var(--red-bg); } .sig.r .n { color: var(--red); }
+  .sig.y { background: var(--yellow-bg); } .sig.y .n { color: #d68a00; }
+  .sig.g { background: var(--green-bg); } .sig.g .n { color: var(--green); }
+
+  /* 체크리스트 */
+  .todo { display: grid; gap: 4px; }
+  .todo-item { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; }
+  .todo-item .no { width: 26px; height: 26px; border-radius: 50%; background: var(--chip); color: var(--text-2); font-size: 13px; font-weight: 700; display: grid; place-items: center; flex: none; }
+  .todo-item.hot .no { background: var(--red); color: #fff; }
+  .todo-item b { display: block; font-size: 15.5px; font-weight: 600; line-height: 1.45; }
+  .todo-item small { font-size: 13px; color: var(--text-3); }
+
+  /* 카테고리 칩 */
+  .chips { display: flex; gap: 8px; overflow-x: auto; padding: 4px 12px 14px; scrollbar-width: none; }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip { flex: none; padding: 9px 15px; border-radius: 999px; background: var(--card); color: var(--text-2); font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 5px; }
+  .chip.on { background: var(--text); color: var(--card); }
+  .chip .dot { width: 6px; height: 6px; border-radius: 50%; }
+
+  /* 지표 목록 (주식 목록 스타일) */
+  .row { display: flex; align-items: center; gap: 12px; padding: 13px 0; }
+  .logo { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 700; flex: none; }
+  .row .mid { flex: 1; min-width: 0; }
+  .row .name { font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .desc { font-size: 13px; color: var(--text-3); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .right { text-align: right; flex: none; }
+  .row .val { font-size: 16px; font-weight: 600; }
+  .row .chg { font-size: 13.5px; font-weight: 600; margin-top: 2px; }
+  .up { color: var(--red); } .down { color: var(--blue); } .flat { color: var(--text-3); }
+  .tag { display: inline-block; font-size: 11.5px; font-weight: 700; padding: 2px 6px; border-radius: 6px; margin-left: 4px; vertical-align: 1px; }
+  .tag.r { background: var(--red-bg); color: var(--red); }
+  .tag.y { background: var(--yellow-bg); color: #d68a00; }
+  .spark { width: 48px; height: 26px; flex: none; }
+
+  .tab-ai { background: var(--blue-bg); border-radius: 18px; padding: 16px; margin-bottom: 8px; }
+  .tab-ai .t { font-size: 13px; font-weight: 700; color: var(--blue); }
+  .tab-ai b { display: block; font-size: 17px; margin: 6px 0 4px; }
+  .tab-ai p { margin: 0; font-size: 14.5px; line-height: 1.6; color: var(--text-2); }
+  .review { margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: var(--card); font-size: 13.5px; line-height: 1.5; color: var(--text-2); }
+  .review em { font-style: normal; font-weight: 700; color: var(--text); margin-right: 4px; }
+  .season { font-size: 13px; color: var(--text-3); margin: -4px 0 8px 52px; }
+
+  /* 하단 탭 */
+  .bottom { position: sticky; bottom: 0; display: grid; grid-template-columns: repeat(4, 1fr); background: var(--card); padding: 8px 0 14px; border-top: 1px solid var(--line); margin-top: 8px; }
+  .bottom a { display: grid; justify-items: center; gap: 3px; font-size: 11px; color: var(--text-3); text-decoration: none; }
+  .bottom a.on { color: var(--text); font-weight: 600; }
+  .bottom svg { width: 24px; height: 24px; }
+
+  /* 상세 화면 */
+  .back { padding: 16px 12px 4px; display: flex; align-items: center; gap: 4px; position: sticky; top: 0; background: var(--card); z-index: 2; }
+  .detail { background: var(--card); min-height: 100%; }
+  .d-head { padding: 8px 24px 0; }
+  .d-name { font-size: 15px; color: var(--text-2); font-weight: 500; }
+  .d-val { font-size: 34px; font-weight: 700; margin: 4px 0 2px; }
+  .d-chg { font-size: 15px; font-weight: 600; }
+  .d-chg span { color: var(--text-3); font-weight: 500; margin-left: 4px; }
+  .chart { padding: 18px 8px 4px; }
+  .chart svg { width: 100%; height: auto; display: block; }
+  .periods { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin: 6px 20px 18px; background: var(--bg); border-radius: 12px; padding: 4px; }
+  .periods span { text-align: center; padding: 8px 0; font-size: 14px; font-weight: 600; color: var(--text-3); border-radius: 9px; }
+  .periods span.on { background: var(--card); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .gap { height: 12px; background: var(--bg); }
+  .sec { padding: 22px 24px; }
+  .sec h3 { margin: 0 0 12px; font-size: 18px; }
+  .kv { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .kv div { background: var(--bg); border-radius: 14px; padding: 12px 14px; }
+  .kv small { display: block; font-size: 12.5px; color: var(--text-3); }
+  .kv b { font-size: 16px; }
+  .bar { height: 8px; border-radius: 999px; background: var(--chip); position: relative; margin: 14px 0 6px; }
+  .bar i { position: absolute; top: -4px; width: 16px; height: 16px; border-radius: 50%; background: var(--red); border: 3px solid var(--card); transform: translateX(-50%); }
+  .bar-l { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--text-3); }
+  .p { font-size: 15px; line-height: 1.7; color: var(--text-2); margin: 0; }
+  .with .row { padding: 10px 0; }
+  .note { font-size: 12px; color: var(--text-3); text-align: center; padding: 18px 20px 26px; }
+</style>
+</head>
+<body>
+
+<div class="intro">
+  <h1>새 UI 시안 — 큰 숫자 · 흰 카드 · 목록형</h1>
+  <p>숫자는 10월 11일 수집값을 예시로 넣었습니다. 상승은 빨강, 하락은 파랑(국내 증권 앱 관례), 강조색은 파랑 하나만 씁니다. 화면을 직접 스크롤해 볼 수 있습니다.</p>
+</div>
+
+<div class="screens">
+
+  <!-- ① 홈 -->
+  <div class="screen-wrap">
+    <div class="screen-label">① 홈</div>
+    <div class="phone">
+      <div class="top">
+        <div class="title">매크로</div>
+        <div class="ibtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg></div>
+        <div class="ibtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg></div>
+      </div>
+      <div class="stamp">10월 11일 (일) 12:48 업데이트</div>
+
+      <div class="card">
+        <div class="eyebrow">오늘의 AI 브리핑</div>
+        <p class="ai-head">미국 10년 금리 5.2%와<br>원유 비축 바닥의 긴축 압력</p>
+        <p class="ai-story">실질금리가 2.87%로 뛰고, 브렌트유는 104달러대예요. 전략비축유는 평년보다 34.7% 적어 작은 차질에도 가격이 튀기 쉬운 상태예요.</p>
+        <div class="pill-btn">브리핑 전체 보기</div>
+      </div>
+
+      <div class="card alert" style="display:none">
+        <div class="ic">!</div>
+        <div><b>정제 가동률 급락</b><span>한 주 새 −3.2%p — 휘발유·디젤 공급 차질 가능성</span></div>
+      </div>
+
+      <div class="card">
+        <h2>지금 신호</h2>
+        <div class="sig-row">
+          <div class="sig r"><div class="n num">7</div><div class="l">경고</div></div>
+          <div class="sig y"><div class="n num">12</div><div class="l">주의</div></div>
+          <div class="sig g"><div class="n num">88</div><div class="l">양호</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>오늘 확인할 것 <span class="more">전체 ›</span></h2>
+        <div class="todo">
+          <div class="todo-item hot"><div class="no">1</div><div><b>실질금리 2.87% — 최근 2년 최고권</b><small>대출·주가 수준에 부담</small></div></div>
+          <div class="todo-item"><div class="no">2</div><div><b>전략비축유 평년 대비 −34.7%</b><small>공급 충격 때 쓸 완충이 적음</small></div></div>
+          <div class="todo-item"><div class="no">3</div><div><b>브렌트−WTI 가격차 $12.87</b><small>평소 $3~5 — 해상 원유 수급 빡빡</small></div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>많이 움직인 지표 <span class="more">1개월</span></h2>
+        <div class="row"><div class="logo" style="background:#fff0e5;color:#f06c00">유조</div><div class="mid"><div class="name">BWET</div><div class="desc">유조선 운임 선물</div></div><div class="right"><div class="val num">998.30</div><div class="chg up num">+71.1%</div></div></div>
+        <div class="row"><div class="logo" style="background:#e8f3ff;color:#3182f6">VL</div><div class="mid"><div class="name">VLCC 원유선 (FRO)</div><div class="desc">운임 대용</div></div><div class="right"><div class="val num">56.10</div><div class="chg up num">+26.8%</div></div></div>
+        <div class="row"><div class="logo" style="background:#f2f4f6;color:#4e5968">철</div><div class="mid"><div class="name">철광석</div><div class="desc">$/t</div></div><div class="right"><div class="val num">90.68</div><div class="chg down num">−8.75%</div></div></div>
+      </div>
+
+      <div class="chips">
+        <div class="chip on">전체</div><div class="chip">금리<span class="dot" style="background:var(--red)"></span></div><div class="chip">물가</div><div class="chip">경기</div><div class="chip">에너지<span class="dot" style="background:var(--red)"></span></div><div class="chip">운임</div>
+      </div>
+
+      <div class="note">정보 정리용이며 투자 권유나 매매 판단이 아닙니다.</div>
+
+      <nav class="bottom">
+        <a class="on"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3 3 10v10a1 1 0 0 0 1 1h5v-6h6v6h5a1 1 0 0 0 1-1V10Z"/></svg>홈</a>
+        <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>지표</a>
+        <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l2.4 5.6L20 11l-5.6 2.4L12 19l-2.4-5.6L4 11l5.6-2.4Z"/></svg>AI</a>
+        <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>전체</a>
+      </nav>
+    </div>
+  </div>
+
+  <!-- ② 지표 목록 -->
+  <div class="screen-wrap">
+    <div class="screen-label">② 지표 탭 (에너지)</div>
+    <div class="phone">
+      <div class="top"><div class="title">지표</div></div>
+      <div class="chips">
+        <div class="chip">금리<span class="dot" style="background:var(--red)"></span></div><div class="chip">물가</div><div class="chip on">에너지<span class="dot" style="background:var(--red)"></span></div><div class="chip">운임</div><div class="chip">재고</div><div class="chip">금속</div>
+      </div>
+
+      <div class="card">
+        <div class="tab-ai">
+          <div class="t">AI 브리핑 · 에너지</div>
+          <b>에너지 공급 불안 지속</b>
+          <p>브렌트유 104.7달러, 유럽 가스 81.4유로로 최근 2년 최고권이에요. 정유 마진도 66.75달러로 높아요.</p>
+          <div class="review"><em>↩ 지난 브리핑 점검</em>판단 보류 — 지난 브리핑 이후 이 분류에 새로 나온 데이터가 없음</div>
+        </div>
+
+        <div class="row">
+          <div class="logo" style="background:#191f28;color:#fff">BZ</div>
+          <div class="mid"><div class="name">브렌트유 <span class="tag r">경고</span></div><div class="desc">$/bbl · 10.9 기준</div></div>
+          <svg class="spark" viewBox="0 0 56 26"><polyline fill="none" stroke="#f04452" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" points="0,20 8,18 16,19 24,14 32,15 40,9 48,7 56,4"/></svg>
+          <div class="right"><div class="val num">104.72</div><div class="chg up num">+6.2%</div></div>
+        </div>
+        <div class="row">
+          <div class="logo" style="background:#e5e8eb;color:#4e5968">WTI</div>
+          <div class="mid"><div class="name">WTI 원유 <span class="tag y">주의</span></div><div class="desc">$/bbl</div></div>
+          <svg class="spark" viewBox="0 0 56 26"><polyline fill="none" stroke="#f04452" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" points="0,18 8,19 16,17 24,15 32,16 40,12 48,11 56,9"/></svg>
+          <div class="right"><div class="val num">91.85</div><div class="chg up num">+3.1%</div></div>
+        </div>
+        <div class="row">
+          <div class="logo" style="background:#e8f3ff;color:#3182f6">원</div>
+          <div class="mid"><div class="name">원화 환산 브렌트</div><div class="desc">한국이 체감하는 유가</div></div>
+          <svg class="spark" viewBox="0 0 56 26"><polyline fill="none" stroke="#f04452" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" points="0,21 8,19 16,20 24,15 32,14 40,10 48,8 56,6"/></svg>
+          <div class="right"><div class="val num">140,638원</div><div class="chg up num">+5.8%</div></div>
+        </div>
+        <div class="row">
+          <div class="logo" style="background:#fff0e5;color:#f06c00">NG</div>
+          <div class="mid"><div class="name">천연가스</div><div class="desc">헨리허브 $/MMBtu</div></div>
+          <svg class="spark" viewBox="0 0 56 26"><polyline fill="none" stroke="#3182f6" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" points="0,8 8,10 16,9 24,13 32,12 40,16 48,17 56,19"/></svg>
+          <div class="right"><div class="val num">3.22</div><div class="chg down num">−4.4%</div></div>
+        </div>
+        <div class="season">🗓 지금은 봄·가을 비수기 — 수요가 약해 가격이 처지기 쉬운 시기</div>
+        <div class="row">
+          <div class="logo" style="background:#f2f4f6;color:#4e5968">정유</div>
+          <div class="mid"><div class="name">3-2-1 크랙 스프레드 <span class="tag r">경고</span></div><div class="desc">정유 마진 $/bbl</div></div>
+          <svg class="spark" viewBox="0 0 56 26"><polyline fill="none" stroke="#f04452" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" points="0,19 8,17 16,18 24,13 32,11 40,12 48,8 56,6"/></svg>
+          <div class="right"><div class="val num">66.75</div><div class="chg up num">+4.10</div></div>
+        </div>
+        <div class="row">
+          <div class="logo" style="background:#e5f8ef;color:#03b26c">BW</div>
+          <div class="mid"><div class="name">브렌트−WTI 가격차 <span class="tag r">경고</span></div><div class="desc">평소 $3~5</div></div>
+          <svg class="spark" viewBox="0 0 56 26"><polyline fill="none" stroke="#f04452" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" points="0,22 8,21 16,19 24,18 32,14 40,11 48,8 56,4"/></svg>
+          <div class="right"><div class="val num">12.87</div><div class="chg up num">+3.12</div></div>
+        </div>
+      </div>
+
+      <nav class="bottom">
+        <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3 3 10v10a1 1 0 0 0 1 1h5v-6h6v6h5a1 1 0 0 0 1-1V10Z"/></svg>홈</a>
+        <a class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>지표</a>
+        <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l2.4 5.6L20 11l-5.6 2.4L12 19l-2.4-5.6L4 11l5.6-2.4Z"/></svg>AI</a>
+        <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>전체</a>
+      </nav>
+    </div>
+  </div>
+
+  <!-- ③ 상세 -->
+  <div class="screen-wrap">
+    <div class="screen-label">③ 지표 상세</div>
+    <div class="phone detail">
+      <div class="back">
+        <div class="ibtn" style="color:var(--text)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+      </div>
+      <div class="d-head">
+        <div class="d-name">미국 10년 실질금리 · TIPS</div>
+        <div class="d-val num">2.87%</div>
+        <div class="d-chg up num">+0.44%p<span>1개월</span></div>
+      </div>
+      <div class="chart">
+        <svg viewBox="0 0 360 190">
+          <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f04452" stop-opacity=".18"/><stop offset="1" stop-color="#f04452" stop-opacity="0"/></linearGradient></defs>
+          <line x1="0" x2="360" y1="52" y2="52" stroke="#f04452" stroke-dasharray="4 4" stroke-width="1" opacity=".5"/>
+          <text x="6" y="44" font-size="11" fill="#8b95a1">경고선 2.5%</text>
+          <path d="M0,150 L30,142 L60,146 L90,130 L120,134 L150,118 L180,122 L210,104 L240,96 L270,84 L300,70 L325,48 L350,36 L350,190 L0,190 Z" fill="url(#g)"/>
+          <polyline fill="none" stroke="#f04452" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" points="0,150 30,142 60,146 90,130 120,134 150,118 180,122 210,104 240,96 270,84 300,70 325,48 350,36"/>
+          <circle cx="350" cy="36" r="5" fill="#f04452" stroke="#fff" stroke-width="2"/>
+        </svg>
+      </div>
+      <div class="periods"><span>1주</span><span class="on">1개월</span><span>3개월</span><span>1년</span><span>2년</span></div>
+
+      <div class="gap"></div>
+      <div class="sec">
+        <h3>지금 위치</h3>
+        <div class="bar"><i style="left:98%"></i></div>
+        <div class="bar-l"><span>2년 최저 1.71%</span><span>최고 2.89%</span></div>
+        <p class="p" style="margin-top:12px">최근 2년 중 <b class="up">상위 2%</b>예요. 평소 한 달 움직임의 2.6배로 올랐어요.</p>
+      </div>
+
+      <div class="gap"></div>
+      <div class="sec">
+        <h3>무슨 뜻이에요?</h3>
+        <p class="p">물가를 빼고 남는 진짜 이자예요. 오르면 대출 이자 부담이 커지고, 높은 주가 수준에도 부담이 돼요.</p>
+        <div class="kv" style="margin-top:14px">
+          <div><small>1주</small><b class="up num">+0.12%p</b></div>
+          <div><small>1년</small><b class="up num">+0.71%p</b></div>
+        </div>
+      </div>
+
+      <div class="gap"></div>
+      <div class="sec with">
+        <h3>함께 보면</h3>
+        <div class="row"><div class="logo" style="background:#e8f3ff;color:#3182f6">TIP</div><div class="mid"><div class="name">물가채 ETF</div><div class="desc">실질금리 오르면 하락</div></div><div class="right"><div class="val num">104.42</div><div class="chg down num">−2.2%</div></div></div>
+        <div class="row"><div class="logo" style="background:#fff0e5;color:#f06c00">주택</div><div class="mid"><div class="name">30년 모기지 금리</div><div class="desc">주간</div></div><div class="right"><div class="val num">7.40%</div><div class="chg up num">+0.69%p</div></div></div>
+        <div class="row"><div class="logo" style="background:#191f28;color:#fff">금</div><div class="mid"><div class="name">금</div><div class="desc">실질금리와 반대로 움직이기 쉬움</div></div><div class="right"><div class="val num">4,216</div><div class="chg up num">+1.3%</div></div></div>
+      </div>
+
+      <div class="gap"></div>
+      <div class="sec">
+        <h3>확인할 것</h3>
+        <p class="p">다음 CPI 발표 · 10년물 국채 입찰 결과</p>
+      </div>
+      <div class="note">FRED · 10월 8일 기준 · 10월 11일 12:48 업데이트</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
