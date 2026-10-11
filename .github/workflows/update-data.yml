@@ -1,4 +1,4 @@
-# 지표 자동 수집 + GitHub Pages 배포
+#   지표 자동 수집 + GitHub Pages 배포
 #  - 정해진 시간마다 FRED·Yahoo Finance·한국은행에서 데이터를 받아 data/latest.json 을 만들고
 #    사이트 파일과 함께 GitHub Pages 에 배포합니다. (데이터는 저장소에 커밋하지 않음)
 #  - 저장소 Settings → Pages → Source 를 "GitHub Actions" 로 설정해야 합니다.
