@@ -170,6 +170,8 @@
   .ai-brief .ai-sec[open] summary::after { content: '▴'; }
   .ai-cat { flex: none; font-size: 11.5px; font-weight: 700; color: var(--accent); min-width: 40px; }
   .ai-sec p { margin: 0 0 10px; font-size: 14px; line-height: 1.6; }
+  .ai-review { margin: 6px 0 10px; padding: 6px 9px; font-size: 13px; line-height: 1.55; color: var(--text-2); background: var(--grey-bg); border-radius: 8px; }
+  .ai-review b { color: var(--text); font-weight: 600; }
   .tab-ai { font-size: 14px; line-height: 1.6; background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; }
   .tab-ai b { display: block; font-size: 15px; margin: 2px 0 4px; }
   .tab-ai .ai-label { font-size: 12px; font-weight: 700; color: var(--accent); }
@@ -1896,7 +1898,7 @@ function aiSectionsHTML(ai) {
   const secs = ai.sections || {};
   const items = CONFIG.categories.filter(c => secs[c.id]).map(c => {
     const x = secs[c.id];
-    return `<details class="ai-sec"><summary><span class="ai-cat">${esc(c.label)}</span><span>${esc(x.headline || '')}</span></summary>${x.body ? `<p>${esc(x.body)}</p>` : ''}</details>`;
+    return `<details class="ai-sec"><summary><span class="ai-cat">${esc(c.label)}</span><span>${esc(x.headline || '')}</span></summary>${x.body ? `<p>${esc(x.body)}</p>` : ''}${reviewHTML(x)}</details>`;
   });
   return items.length ? `<div class="ai-secs">${items.join('')}</div>` : '';
 }
@@ -1904,7 +1906,11 @@ function aiSectionsHTML(ai) {
 function tabAIHTML(cat) {
   const ai = DataStore.getAI(); const x = ai && ai.sections && ai.sections[cat];
   if (!x) return '';
-  return `<div class="tab-ai"><span class="ai-label">AI 브리핑</span>${x.headline ? `<b>${esc(x.headline)}</b>` : ''}${x.body ? esc(x.body) : ''}<div class="ai-meta">${esc(aiMetaText(ai))}</div></div>`;
+  return `<div class="tab-ai"><span class="ai-label">AI 브리핑</span>${x.headline ? `<b>${esc(x.headline)}</b>` : ''}${x.body ? esc(x.body) : ''}${reviewHTML(x)}<div class="ai-meta">${esc(aiMetaText(ai))}</div></div>`;
+}
+/** 분류별 '지난 브리핑 점검' 한 줄 */
+function reviewHTML(x) {
+  return x && x.review ? `<div class="ai-review"><b>↩ 지난 브리핑 점검</b> ${esc(x.review)}</div>` : '';
 }
 
 /** 탭 요약: 1개월(또는 직전 발표) 기준 상승·하락 개수, 신호, 가장 크게 움직인 지표 */
