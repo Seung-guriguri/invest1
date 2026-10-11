@@ -92,6 +92,8 @@ jobs:
 
   deploy:
     needs: build
+    # main 에서만 배포 (다른 브랜치 시험 실행은 수집·빌드까지만 확인 → 실패 메일 없음)
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
