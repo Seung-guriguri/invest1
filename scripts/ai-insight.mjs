@@ -108,20 +108,21 @@ function stats(id, s, m, prevAt = null) {
     chg_prev: round(change(m.mode, prev[1], last[1]), 2), chg_1m: round(chg1m, 2), chg_3m: round(chg3m, 2), chg_1y: round(chg1y, 2),
     chg_unit: m.mode === 'pct' ? '%' : m.mode === 'pp' ? '%p' : m.unit,
     z_1m: round(z, 1), position: round(position, 0), season_dev: round(season, 1),
-    ...(prevAt ? { chg_since_brief: sinceBrief(obs, m.mode, prevAt) } : {})
+    ...(prevAt ? { chg_since_brief: sinceBrief(obs, m.mode, prevAt.asOf && prevAt.asOf[id] ? prevAt.asOf[id] : prevAt.at.slice(0, 10)) } : {})
   };
 }
 
 /** 지난 브리핑 시점 이후 변화 (그 뒤 새 관측치가 없으면 null) */
-function sinceBrief(obs, mode, prevAt) {
-  const d = prevAt.slice(0, 10), last = obs[obs.length - 1];
+/** d: 지난 브리핑 때 그 지표의 마지막 기준일 (없으면 작성일) */
+function sinceBrief(obs, mode, d) {
+  const last = obs[obs.length - 1];
   if (last[0] <= d) return null;
   let base = null; for (const o of obs) { if (o[0] <= d) base = o[1]; else break; }
   return base == null ? null : round(change(mode, base, last[1]), 2);
 }
 
 /** 지난 브리핑 요약 (프롬프트용). 없으면 null */
-function previousBlock(prev) {
+function previousBlock(prev, rows = []) {
   if (!prev || !prev.generatedAt || !prev.briefing) return null;
   const at = new Date(Date.parse(prev.generatedAt) + 9 * 3600000).toISOString().slice(0, 16).replace('T', ' ');
   const b = prev.briefing, lines = [`작성 시각: ${at} (한국시간)`];
@@ -130,6 +131,8 @@ function previousBlock(prev) {
   if (b.counterpoint) lines.push(`반대 근거: ${b.counterpoint}`);
   if (prev.report && prev.report.regime && prev.report.regime.current) lines.push(`국면 판단: ${prev.report.regime.current}`);
   for (const c of CATS) { const x = prev.sections && prev.sections[c]; if (x) lines.push(`- ${c}: ${x.headline || ''} | ${x.body || ''}`); }
+  const fresh = CATS.map(c => `${c} ${rows.filter(r => r.cat === c && r.chg_since_brief != null).length}개`);
+  lines.push(`분류별 지난 브리핑 이후 새 데이터(chg_since_brief 가 null 이 아닌 지표 수): ${fresh.join(', ')}`);
   return lines.join('\n');
 }
 
@@ -383,6 +386,14 @@ const SCHEMA = {
   required: ['briefing', 'sections', 'indicators', 'report']
 };
 
+/** 지난 브리핑 점검: 그 분류에 새 데이터가 없으면 '판단 보류'로 고정 (값이 그대로인 걸 '적중'으로 부풀리지 않게) */
+const NO_NEW = '판단 보류 — 지난 브리핑 이후 이 분류에 새로 나온 데이터가 없음';
+function checkReview(cat, review, rows) {
+  const fresh = rows.filter(r => r.cat === cat && r.chg_since_brief != null).length;
+  if (!fresh) { if (review && !review.startsWith('판단 보류')) fixes.push(`점검 보정(${cat}): 새 데이터 없음 → 판단 보류`); return NO_NEW; }
+  return review;
+}
+
 /* ---------- 응답 검사: 투자 권유·매매 지시 표현 거르기 ---------- */
 const BANNED = /(매수|매도)\s*(하세요|하라|할\s*때|타이밍|기회|추천|권)|사세요|파세요|사야\s*(한다|합니다|할|함|해|됨)|사\s*둬|매수\s*(각|타이밍)|줍줍|팔아야|담아|목표\s*가|추천\s*(종목|ETF)|수익\s*(보장|확정)|(저평가|고평가)[^.!?\n]{0,20}(기회|매수|매도|매력적|담|사\s|살\s|줍줍)|비중\s*(확대|축소)\s*(하|를|추천)/;
 /** 금지 표현이 들어간 문장만 빼고 나머지는 살림 */
@@ -405,9 +416,9 @@ async function main() {
   // 지난 브리핑 (분류별 '지난 브리핑 점검'용)
   let prevAI = null;
   if (PREV) { try { prevAI = JSON.parse(await readFile(PREV, 'utf8')); } catch { prevAI = null; } }
-  const prevBlock = previousBlock(prevAI);
-  const prevAt = prevBlock ? prevAI.generatedAt : null;
+  const prevAt = prevAI && prevAI.generatedAt && prevAI.briefing ? { at: prevAI.generatedAt, asOf: prevAI.asOf || null } : null;
   const rows = Object.entries(latest.series).filter(([id]) => meta[id]).map(([id, s]) => stats(id, s, meta[id], prevAt)).filter(Boolean);
+  const prevBlock = prevAt ? previousBlock(prevAI, rows) : null;
   const targets = pickTargets(rows);
   const kstDate = new Date(Date.now() + 9 * 3600000);
   const kst = `${kstDate.toISOString().slice(0, 16).replace('T', ' ')} (${'일월화수목금토'[kstDate.getUTCDay()]})`;
@@ -480,7 +491,7 @@ async function main() {
   const sections = {};
   for (const it of parsed.sections || []) {
     if (!it || !CATS.includes(it.cat) || sections[it.cat]) continue;
-    const headline = clean(it.headline, 40), body = clean(it.body, 260), review = prevBlock ? clean(it.review, 160) : null;
+    const headline = clean(it.headline, 40), body = clean(it.body, 260), review = prevBlock ? checkReview(it.cat, clean(it.review, 160), rows) : null;
     if (headline || body) sections[it.cat] = { headline, body, ...(review ? { review } : {}) };
   }
   const indicators = {};
@@ -505,7 +516,9 @@ async function main() {
   if (column) { await sendColumnTelegram(column); console.log(`  칼럼 제목: ${column.title}`); console.log(column.body.split('\n\n').map(x => '  | ' + x).join('\n')); }
   else console.log('  오늘의 칼럼: 생성 실패 → 브리핑만 전송');
 
-  const out = { generatedAt: new Date().toISOString(), model: used, briefing, sections, indicators: ordered, targets, ...(report ? { report } : {}), ...(column ? { column } : {}) };
+  // asOf: 이번 브리핑이 본 지표별 마지막 기준일 → 다음 브리핑의 '지난 브리핑 이후 새 데이터' 판단에 사용
+  const asOf = Object.fromEntries(rows.map(r => [r.id, r.date]));
+  const out = { generatedAt: new Date().toISOString(), model: used, briefing, sections, indicators: ordered, targets, ...(report ? { report } : {}), ...(column ? { column } : {}), asOf };
   await mkdir(dirname(OUT), { recursive: true });
   await writeFile(OUT, JSON.stringify(out));
   const u = resp.usageMetadata || {};
