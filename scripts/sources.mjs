@@ -6,6 +6,7 @@
  *
  *   { fred:  'DGS10', units: 'pc1'(선택: 전년비 %), scale: 1(선택: 곱할 값) }
  *   { yahoo: 'CL=F',  scale: 1 }                         — 비공식 Yahoo Finance 차트 API
+ *   { yahoo: 'FRO', adj: true }                         — 배당·분할 반영 수정종가 사용 (주식·ETF, 배당락일 가짜 급락 방지)
  *   { ecos:  '722Y001', item: '0101000', cycle: 'D'|'M', transform: 'yoy'(선택) } — 한국은행 ECOS
  *
  * 화면 표시 단위는 index.html CONFIG 의 unit 이고, 여기 scale 로 그 단위에 맞춰 환산합니다.
@@ -84,11 +85,11 @@ export const SOURCES = {
   diesel:   [{ yahoo: 'HO=F' }, { fred: 'DDFUELNYH' }],     // 초저유황 디젤(ULSD) 선물 (실패 시 뉴욕항 현물)
 
   // ── 운임 ──
-  bdry:        [{ yahoo: 'BDRY' }],                          // 벌크선 운임 선물 ETF (BDI 대용)
+  bdry:        [{ yahoo: 'BDRY', adj: true }],                          // 벌크선 운임 선물 ETF (BDI 대용)
   freight_ppi: [{ fred: 'PCU483111483111', units: 'pc1' }],  // 미국 PPI 원양 화물운송, 전년비
-  tanker_fro:  [{ yahoo: 'FRO' }],                           // Frontline — VLCC 원유선사 (VLCC 운임 대용)
-  tanker_stng: [{ yahoo: 'STNG' }],                          // Scorpio Tankers — 석유제품선사
-  lng_flng:    [{ yahoo: 'FLNG' }],                          // Flex LNG — LNG 운반선사 (LNG선 운임 대용)
+  tanker_fro:  [{ yahoo: 'FRO', adj: true }],                           // Frontline — VLCC 원유선사 (VLCC 운임 대용)
+  tanker_stng: [{ yahoo: 'STNG', adj: true }],                          // Scorpio Tankers — 석유제품선사
+  lng_flng:    [{ yahoo: 'FLNG', adj: true }],                          // Flex LNG — LNG 운반선사 (LNG선 운임 대용)
   // scfi: 상하이 컨테이너 운임지수 — 무료 API 없음 → 직접 입력
 
   // ── 비축·재고 (EIA 주간, 천 배럴 → 백만 배럴) ──
@@ -109,27 +110,27 @@ export const SOURCES = {
   eu_oil_stock: [{ eurostat: 'nrg_stk_oem', filters: { geo: 'DE' }, prefer: { stk_flow: /^STK_EUE_DIR$/, unit: /^NR$/ } }],
 
   // ── 매크로 ETF (Yahoo) ──
-  etf_tlt: [{ yahoo: 'TLT' }],
-  etf_tip: [{ yahoo: 'TIP' }],
-  etf_hyg: [{ yahoo: 'HYG' }],
-  etf_uup: [{ yahoo: 'UUP' }],
-  etf_xle: [{ yahoo: 'XLE' }],
-  etf_gld: [{ yahoo: 'GLD' }],
-  etf_lit: [{ yahoo: 'LIT' }],
-  etf_dbc: [{ yahoo: 'DBC' }],
-  etf_dba: [{ yahoo: 'DBA' }],
-  etf_bwet: [{ yahoo: 'BWET' }],
-  etf_xli: [{ yahoo: 'XLI' }],
-  etf_itb: [{ yahoo: 'ITB' }],
-  etf_kre: [{ yahoo: 'KRE' }],
-  etf_ewy: [{ yahoo: 'EWY' }],
-  etf_eem: [{ yahoo: 'EEM' }],
-  etf_ung: [{ yahoo: 'UNG' }],
-  etf_coal: [{ yahoo: 'COAL' }],
-  etf_ura: [{ yahoo: 'URA' }],
-  etf_copx: [{ yahoo: 'COPX' }],
-  etf_pick: [{ yahoo: 'PICK' }],
-  etf_remx: [{ yahoo: 'REMX' }],
+  etf_tlt: [{ yahoo: 'TLT', adj: true }],
+  etf_tip: [{ yahoo: 'TIP', adj: true }],
+  etf_hyg: [{ yahoo: 'HYG', adj: true }],
+  etf_uup: [{ yahoo: 'UUP', adj: true }],
+  etf_xle: [{ yahoo: 'XLE', adj: true }],
+  etf_gld: [{ yahoo: 'GLD', adj: true }],
+  etf_lit: [{ yahoo: 'LIT', adj: true }],
+  etf_dbc: [{ yahoo: 'DBC', adj: true }],
+  etf_dba: [{ yahoo: 'DBA', adj: true }],
+  etf_bwet: [{ yahoo: 'BWET', adj: true }],
+  etf_xli: [{ yahoo: 'XLI', adj: true }],
+  etf_itb: [{ yahoo: 'ITB', adj: true }],
+  etf_kre: [{ yahoo: 'KRE', adj: true }],
+  etf_ewy: [{ yahoo: 'EWY', adj: true }],
+  etf_eem: [{ yahoo: 'EEM', adj: true }],
+  etf_ung: [{ yahoo: 'UNG', adj: true }],
+  etf_coal: [{ yahoo: 'COAL', adj: true }],
+  etf_ura: [{ yahoo: 'URA', adj: true }],
+  etf_copx: [{ yahoo: 'COPX', adj: true }],
+  etf_pick: [{ yahoo: 'PICK', adj: true }],
+  etf_remx: [{ yahoo: 'REMX', adj: true }],
 
   // ── 금속·광물 ──
   copper:   [{ yahoo: 'HG=F', scale: LB_PER_T }, { fred: 'PCOPPUSDM' }],
