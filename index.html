@@ -234,6 +234,7 @@
   .badge.stale { color: var(--red); background: var(--red-bg); }
   .badge.auto { color: var(--text-2); background: var(--surface-2); }
   .comment { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); font-size: 13.5px; }
+  .season-note { margin-top: 4px; font-size: 12.5px; color: var(--text-2); }
   .empty { color: var(--text-2); font-size: 14px; }
 
   /* 하단 고정 문구 */
@@ -448,6 +449,7 @@
 
 <script src="data.js?v=__BUILD__"></script>
 <script src="notes.js?v=__BUILD__"></script>
+<script src="season.js?v=__BUILD__"></script>
 <script>
 'use strict';
 
@@ -699,13 +701,13 @@ const CONFIG = {
     { id: 'cushing', cat: 'stocks', name: '쿠싱 원유 재고', sub: 'WTI 인도 지점, 주간 (EIA)', unit: '백만 bbl', dp: 1, changeMode: 'pct', profile: 'cushing',
       level: { fixed: true, dir: 'down', warn: 25, danger: 22 }, change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
     { id: 'refinery_util', cat: 'stocks', name: '미국 정제 가동률', sub: '주간 (EIA)', unit: '%', dp: 1, changeMode: 'pp', profile: 'refinery',
-      level: { fixed: true, dir: 'down', warn: 85, danger: 80 }, change: { dir: 'down', flat: 0.5, warn: 2, danger: 3 } },   // 주간 하락 2%p 주의, 3%p 경고 (급락은 긴급 경고 배너도)
+      level: { seasonal: { warn: -4, danger: -7 }, fixed: true, dir: 'down', warn: 85, danger: 80 }, change: { dir: 'down', flat: 0.5, warn: 2, danger: 3 } },   // 주간 하락 2%p 주의, 3%p 경고 (급락은 긴급 경고 배너도)
     { id: 'us_crude_prod', cat: 'stocks', name: '미국 원유 생산', sub: '주간 (EIA)', unit: '백만 b/d', dp: 2, changeMode: 'pct', profile: 'crudeProd',
       change: { dir: 'both', flat: 0.3, warn: 1.5, danger: 3 } },
     { id: 'gasoline_demand', cat: 'stocks', name: '미국 휘발유 수요', sub: '제품 공급량 4주 평균 (EIA)', unit: '백만 b/d', dp: 2, changeMode: 'pct', profile: 'gasolineDemand',
-      change: { dir: 'both', flat: 0.5, warn: 3, danger: 6 } },
+      level: { seasonal: { warn: -4, danger: -8 }, dir: 'down', warn: 8.3, danger: 8.0 }, change: { dir: 'both', flat: 0.5, warn: 3, danger: 6 } },
     { id: 'distill_demand', cat: 'stocks', name: '미국 디젤·난방유 수요', sub: '제품 공급량 4주 평균 (EIA)', unit: '백만 b/d', dp: 2, changeMode: 'pct', profile: 'distillDemand',
-      change: { dir: 'both', flat: 0.5, warn: 3, danger: 6 } },
+      level: { seasonal: { warn: -5, danger: -10 }, dir: 'down', warn: 3.6, danger: 3.3 }, change: { dir: 'both', flat: 0.5, warn: 3, danger: 6 } },
     { id: 'crude_net_imports', cat: 'stocks', name: '미국 원유 순수입', sub: '주간 (EIA)', unit: '백만 b/d', dp: 2, changeMode: 'abs', profile: 'netImports',
       change: { dir: 'both', flat: 0.1, warn: 0.6, danger: 1.2 } },
     { id: 'eu_oil_stock', cat: 'stocks', name: '독일 비상 석유 비축', sub: '순수입 대비 일수, 월간·수개월 지연 (Eurostat)', unit: '일', dp: 1, changeMode: 'pct', profile: 'stocks',
@@ -1171,8 +1173,8 @@ const COMMENTS = {
   },
   refinery: {
     plunge: '정제 가동률 급락 → 정유 설비 차질 신호, 휘발유·디젤 공급 부족·가격 급등 위험',
-    high: '정제 가동률 크게 낮음 → 설비 사고·정비 확인, 휘발유·디젤 공급 부족 위험',
-    warn: '정제 가동률 낮은 편 → 정비 시즌인지와 제품 재고 확인',
+    high: '정제 가동률 같은 시기 평년보다 크게 낮음 → 정비만으로 설명 어려움, 설비 차질·공급 부족 위험',
+    warn: '정제 가동률 같은 시기 평년보다 낮음 → 제품 재고와 함께 확인',
     rise: '정제 가동률 상승 → 휘발유·디젤 공급 여력↑',
     fall: '정제 가동률 하락 → 휘발유·디젤 가격 상승 압력',
     flat: '정제 가동률 안정'
@@ -1183,11 +1185,15 @@ const COMMENTS = {
     flat: '미국 원유 생산 안정'
   },
   gasolineDemand: {
-    rise: '휘발유 수요 증가 → 이동·소비 탄탄 (여름 성수기 여부 확인)',
-    fall: '휘발유 수요 감소 → 소비 둔화 또는 계절 요인',
+    high: '휘발유 수요 같은 시기 평년보다 크게 적음 → 소비 둔화 신호',
+    warn: '휘발유 수요 같은 시기 평년보다 적은 편 → 소비 둔화 여부 확인',
+    rise: '휘발유 수요 증가 → 이동·소비 탄탄 (계절 요인은 평년 대비로 확인)',
+    fall: '휘발유 수요 감소 → 소비 둔화 또는 계절 요인 (평년 대비로 확인)',
     flat: '휘발유 수요 안정'
   },
   distillDemand: {
+    high: '디젤 수요 같은 시기 평년보다 크게 적음 → 화물·산업 활동 위축 신호',
+    warn: '디젤 수요 같은 시기 평년보다 적은 편 → 화물·산업 활동 둔화 여부 확인',
     rise: '디젤 수요 증가 → 화물·산업 활동 살아나는 신호',
     fall: '디젤 수요 감소 → 화물·산업 활동 둔화 신호',
     flat: '디젤 수요 안정'
@@ -1758,7 +1764,14 @@ function cardHTML(a) {
     <div class="meta">${badges}<span>${dateTxt}</span></div>
     ${!a.isSample && (a.m1 || a.pctl || a.season) ? `<div class="meta" style="margin-top:2px">${[m1Text(a), a.season ? seasonText(a) : positionText(a)].filter(Boolean).map(t => `<span>${esc(t)}</span>`).join('<span aria-hidden="true">·</span>')}</div>` : ''}
     <div class="comment">${esc(a.comment || '')}</div>
+    ${seasonNoteHTML(ind.id)}
   </button>`;
+}
+
+/** 계절 메모 한 줄 (season.js) — 해당 지표·이번 달에 메모가 있을 때만 */
+function seasonNoteHTML(id) {
+  const t = window.SEASON && window.SEASON.note(id);
+  return t ? `<div class="season-note">🗓 지금은 ${esc(t)}</div>` : '';
 }
 
 /* ---------- AI 브리핑 (data/ai.json, 하루 1회 생성) ---------- */
@@ -2078,7 +2091,8 @@ function openEdit(id) {
     <div class="meta" style="margin-top:4px">${a.isSample ? '<span class="badge sample">샘플</span>' : ''}${a.stale ? '<span class="badge stale">오래된 데이터</span>' : ''}
       <span>${a.isSample ? '기준일 샘플' : `기준일 ${esc(fmtObsDate(a.cur.date, a.freq))} · 업데이트 ${esc(toLocalISO(a.cur.updatedAt))} · ${esc(sourceName(a))}${a.cur.source === 'auto' && a.meta ? ` (${esc(a.meta.source.split(':')[1] || '')})` : ''}`}</span></div>
     ${periods ? `<div class="periods">${periods}</div>` : ''}
-    <div class="comment" style="margin-top:8px">${esc(a.comment)}</div>` : '<p class="hint">아직 값이 없습니다. 아래에서 직접 입력하세요.</p>';
+    <div class="comment" style="margin-top:8px">${esc(a.comment)}</div>
+    ${seasonNoteHTML(id)}` : '<p class="hint">아직 값이 없습니다. 아래에서 직접 입력하세요.</p>';
 
   // 차트 기간 버튼: 데이터 길이에 맞는 것만
   let rangeHTML = '';

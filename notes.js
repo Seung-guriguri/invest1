@@ -26,8 +26,7 @@
     { when: S => S.up('dxy'), text: '달러 강세 → 미국산 곡물 수출 경쟁력 약화, 국제 곡물값엔 하락 압력' },
     { when: S => S.up('usdkrw'), text: '원화 약세까지 겹침 → 원화로 사는 수입 곡물값은 더 오름' },
     { when: S => S.up('natgas'), text: '천연가스 상승 → 질소비료값이 올라 다음 시즌 재배 비용 부담' },
-    { when: S => S.up('bdry'), text: '벌크선 운임도 상승 → 수입 곡물 운송비 추가 부담' },
-    { when: () => [6, 7, 8].includes(month()), text: '북반구 작물 생육기(6~8월) → 날씨 뉴스에 가격이 크게 흔들리는 시기' }
+    { when: S => S.up('bdry'), text: '벌크선 운임도 상승 → 수입 곡물 운송비 추가 부담' }
   ];
 
   global.NOTES = {
