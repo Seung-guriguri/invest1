@@ -17,6 +17,7 @@
  * ===================================================================== */
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
+import '../season.js';   // globalThis.SEASON 등록
 
 const args = process.argv.slice(2);
 const arg = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
@@ -43,6 +44,11 @@ async function keepPrevious(reason) {
     await writeFile(OUT, prev);
     console.log('  이전 ai.json 복사 완료');
   } catch (e) { console.log('  이전 ai.json 없음'); }
+}
+
+/* ---------- 이번 달 계절 요인 (season.js, 브라우저와 같은 문구) ---------- */
+function seasonNotes() {
+  try { return globalThis.SEASON ? globalThis.SEASON.monthNotes() : []; } catch { return []; }
 }
 
 /* ---------- 지표 정보: index.html CONFIG 에서 이름·단위·변화 방식 읽기 ---------- */
@@ -378,6 +384,7 @@ async function main() {
   const user = (await readFile(new URL('../prompts/ai-user.md', import.meta.url), 'utf8'))
     .replace('{{generatedAt}}', kst)
     .replace('{{targets}}', targets.map(id => targetLine(rows.find(r => r.id === id))).join('\n') || '없음')
+    .replace('{{season}}', seasonNotes().join('\n') || '없음')
     .replace('{{data}}', rows.map(r => JSON.stringify(r)).join('\n'));
   console.log(`AI 인사이트: 지표 ${rows.length}개, 해설 대상 ${targets.length}개, 프롬프트 약 ${Math.round((system.length + user.length) / 1000)}천 자`);
 

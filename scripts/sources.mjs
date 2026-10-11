@@ -52,7 +52,7 @@ export const SOURCES = {
   gdp:      [{ fred: 'A191RL1Q225SBEA' }],
   // 제조업 체감지수 (ISM PMI는 유료 → 연준 무료 지역 제조업 지수·전미활동지수로 대용)
   pmi_philly: [{ fred: 'GACDFSA066MSFRBPHI' }],    // 필라델피아 연준 제조업 현재 활동 (확산지수, 0 기준)
-  pmi_empire: [{ fred: 'GACDINA066MNFRBNY' }],     // 뉴욕 연준 Empire State 제조업 (확산지수, 0 기준)
+  pmi_empire: [{ fred: 'GACDISA066MSFRBNY' }, { fred: 'GACDINA066MNFRBNY' }],  // 뉴욕 연준 Empire State 제조업 (계절조정, 실패 시 원계열)
   pmi_dallas: [{ fred: 'BACTSAMFRBDAL' }],         // 댈러스 연준 텍사스 제조업 (확산지수, 0 기준)
   cfnai:      [{ fred: 'CFNAIMA3' }],              // 시카고 연준 전미활동지수 3개월 평균 (0 = 추세 성장)
 
