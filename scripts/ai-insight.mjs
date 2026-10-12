@@ -10,6 +10,8 @@
  *   TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID — 있으면 새로 만든 브리핑을 텔레그램으로도 보냄
  *   SITE_URL        — 텔레그램 메시지에 붙일 사이트 주소
  *   AI_RUN          — 'true' 일 때만 호출 (평일 07:23 예약 실행 또는 수동 실행). 그 외에는 이전 해설을 그대로 복사
+ *   AI_SCHEDULED    — 'true'(예약 실행)이면, 오늘(한국시간) 이미 만든 브리핑이 있을 때 다시 만들지 않음
+ *                     (GitHub 예약 실행이 몇 시간 늦게 도는 경우 중복 발송 방지. 수동 실행은 항상 새로 생성)
  *
  * 프롬프트는 prompts/ai-system.md (역할·규칙), prompts/ai-user.md (데이터 틀),
  * prompts/ai-column.md (오늘의 칼럼 — 브리핑을 종합한 스토리텔링 칼럼, 추가 호출 1회) 에서 읽습니다.
@@ -27,6 +29,7 @@ const PREV = arg('--previous', null);
 const KEY = (process.env.GEMINI_API_KEY || '').trim();
 const MODEL = (process.env.GEMINI_MODEL || '').trim();
 const RUN = String(process.env.AI_RUN || '').toLowerCase() === 'true';
+const SCHEDULED = String(process.env.AI_SCHEDULED || '').toLowerCase() === 'true';
 const TG_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
 const TG_CHAT = (process.env.TELEGRAM_CHAT_ID || '').trim();
 const SITE_URL = (process.env.SITE_URL || '').trim();
@@ -409,6 +412,16 @@ function clean(s, max) {
 
 async function main() {
   if (!RUN) return keepPrevious('오늘 실행 대상 아님 (평일 07:23 예약 또는 수동 실행에서만 생성)');
+  if (SCHEDULED && PREV) {
+    // 예약 실행이 늦게 돌았는데 오늘(한국시간) 이미 브리핑이 있으면 건너뜀 (수동 실행 등으로 먼저 만든 경우)
+    try {
+      const prev = JSON.parse(await readFile(PREV, 'utf8'));
+      const kstDay = t => new Date(Date.parse(t) + 9 * 3600000).toISOString().slice(0, 10);
+      if (prev.generatedAt && kstDay(prev.generatedAt) === kstDay(new Date().toISOString())) {
+        return keepPrevious(`오늘(${kstDay(prev.generatedAt)}) 이미 생성된 브리핑 있음 — 예약 실행 중복 방지`);
+      }
+    } catch { /* 이전 해설 없음 → 그대로 생성 */ }
+  }
   if (!KEY) return keepPrevious('GEMINI_API_KEY 없음');
 
   const latest = JSON.parse(await readFile(DATA, 'utf8'));
