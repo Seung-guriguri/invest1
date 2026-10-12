@@ -468,6 +468,7 @@
 <script src="notes.js?v=__BUILD__"></script>
 <script src="season.js?v=__BUILD__"></script>
 <script src="tankers.js?v=__BUILD__"></script>
+<script src="guides.js?v=__BUILD__"></script>
 <script>
 'use strict';
 
@@ -1719,7 +1720,8 @@ function render() {
 
   const tabList = all.filter(a => a.ind.cat === activeTab);
   $('#cards').innerHTML = tabAIHTML(activeTab) + tabSummaryHTML(tabList) + tabList.map(cardHTML).join('')
-    + (activeTab === 'freight' && typeof tankerGuideHTML === 'function' ? tankerGuideHTML() : '');   // 🛢 유조선 가이드 (tankers.js)
+    + (activeTab === 'freight' && typeof tankerGuideHTML === 'function' ? tankerGuideHTML() : '')   // 🛢 유조선 가이드 (tankers.js)
+    + (typeof guideHTML === 'function' ? guideHTML(activeTab) : '');   // 🚢 벌크선 · 🛢 석유 밸류체인 (guides.js)
 }
 
 function changeHTML(a) {

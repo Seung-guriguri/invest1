@@ -13,6 +13,7 @@ index.html                      화면 + 스타일 + 앱 로직. 스크립트 �
 prompts/ai-system.md, ai-user.md  AI 인사이트 프롬프트 (역할·규칙 / 데이터 틀)
 prompts/ai-column.md            오늘의 칼럼 프롬프트 (섹션별 헤드라인 + 3~5줄의 짧은 칼럼)
 tankers.js                      🛢 유조선 가이드 (운임 탭 하단: 배 크기 사다리 · 관련주 9개 미니 시세 · 운임 동인)
+guides.js                       🚢 벌크선 가이드(운임 탭) · 🛢 석유 밸류체인(에너지 탭) — 단계·선형별 관련주 미니 시세 (tankers.js 스타일 공용)
 scripts/ai-insight.mjs          AI 인사이트 생성 (Gemini, 하루 1회)
 notes.js                        지표별 인사이트 문구 (의미·함께 볼 지표·확인할 것)
 season.js                       계절 요인 메모 (카드의 "🗓 지금은 ○○ 시기", AI 브리핑 프롬프트에도 사용)

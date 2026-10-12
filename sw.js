@@ -6,7 +6,7 @@
 const BUILD = '__BUILD__';
 const CACHE = 'macro-dash-' + BUILD;
 const ASSETS = [
-  './', './index.html', './data.js', './notes.js', './season.js', './tankers.js', './ui-v2.css', './ui-v2.js', './manifest.json',
+  './', './index.html', './data.js', './notes.js', './season.js', './tankers.js', './guides.js', './ui-v2.css', './ui-v2.js', './manifest.json',
   './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png',
   './icons/maskable-512.png', './icons/apple-touch-icon.png'
 ];
