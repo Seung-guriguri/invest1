@@ -28,6 +28,10 @@ on:
         description: '텔레그램 연결 테스트 메시지 보내기 (개인 채팅 + 공유 채널, AI 호출 없음)'
         type: boolean
         default: false
+      scheduled:
+        description: '예약 실행처럼 동작 (외부 예약 서비스용: 오늘 브리핑이 이미 있으면 AI 건너뜀)'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -88,7 +92,7 @@ jobs:
           TELEGRAM_SHARE_CHAT_ID: ${{ secrets.TELEGRAM_SHARE_CHAT_ID }}
           SITE_URL: ${{ steps.pages.outputs.base_url }}
           AI_RUN: ${{ (github.event_name == 'schedule' && (github.event.schedule == '23 22 * * 0-4' || github.event.schedule == '23 0 * * 1-5')) || (github.event_name == 'workflow_dispatch' && inputs.ai) }}
-          AI_SCHEDULED: ${{ github.event_name == 'schedule' }}
+          AI_SCHEDULED: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.scheduled) }}
           WATCH_DIR: private
         run: node scripts/ai-insight.mjs --data _site/data/latest.json --out _site/data/ai.json --previous ai-previous.json
 
