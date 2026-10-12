@@ -15,6 +15,7 @@
  * ===================================================================== */
 import { readFile, writeFile, mkdir, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
+import { closes, retAfter } from './watch-perf.mjs';
 
 const args = process.argv.slice(2);
 const arg = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
@@ -22,28 +23,8 @@ const DIR = arg('--dir', 'private');
 const TG_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
 const TG_CHAT = (process.env.TELEGRAM_CHAT_ID || '').trim();
 const FORCE = String(process.env.SCORE_FORCE || '').toLowerCase() === 'true';
-const UA = 'Mozilla/5.0 (macro-dashboard)';
 const kstNow = () => new Date(Date.now() + 9 * 3600000);
 const readJSON = async (f, d) => { try { return JSON.parse(await readFile(f, 'utf8')); } catch { return d; } };
-
-/** Yahoo 수정종가 [날짜, 값] (오름차순) */
-async function closes(ticker) {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?range=6mo&interval=1d&events=div%2Csplit`;
-  const res = await fetch(url, { headers: { 'user-agent': UA }, signal: AbortSignal.timeout(20000) });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const r = (await res.json()).chart.result[0];
-  const off = (r.meta && r.meta.gmtoffset) || 0;
-  const adj = r.indicators.adjclose && r.indicators.adjclose[0] && r.indicators.adjclose[0].adjclose;
-  const c = adj || r.indicators.quote[0].close;
-  return r.timestamp.map((t, i) => [new Date((t + off) * 1000).toISOString().slice(0, 10), c[i]]).filter(x => x[1] != null);
-}
-
-/** 고른 날(한국 날짜) 직전 미국 종가 위치, 그로부터 n 거래일 뒤 수익률(%) */
-function retAfter(series, kstDate, n) {
-  const i0 = series.findLastIndex(x => x[0] < kstDate);
-  if (i0 < 0 || i0 + n >= series.length) return null;
-  return (series[i0 + n][1] / series[i0][1] - 1) * 100;
-}
 
 async function sendTelegram(text) {
   const res = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
