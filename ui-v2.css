@@ -121,6 +121,7 @@
 [data-ui="v2"] .ai-sec p { font-size: 14.5px; color: var(--text-2); }
 [data-ui="v2"] .ai-review { background: var(--surface-2); border-radius: 12px; padding: 10px 12px; }
 [data-ui="v2"] .ai-brief details.ai-column { border: 0; background: var(--surface-2); border-radius: 18px; padding: 6px 16px; margin-top: 12px; }
+[data-ui="v2"] .ai-column .col-oneline { background: var(--surface); }
 [data-ui="v2"] .ai-brief > details:not(.ai-column) > summary { color: var(--accent); font-weight: 600; font-size: 14.5px; padding: 6px 0; }
 [data-ui="v2"] .ai-meta { color: var(--text-3); }
 
