@@ -14,12 +14,14 @@
  *                     (GitHub 예약 실행이 몇 시간 늦게 도는 경우 중복 발송 방지. 수동 실행은 항상 새로 생성)
  *
  * 프롬프트는 prompts/ai-system.md (역할·규칙), prompts/ai-user.md (데이터 틀),
- * prompts/ai-column.md (오늘의 칼럼 — 브리핑을 종합한 스토리텔링 칼럼, 추가 호출 1회) 에서 읽습니다.
+ * prompts/ai-column.md (오늘의 칼럼 — 브리핑을 종합한 스토리텔링 칼럼, 추가 호출 1회),
+ * prompts/ai-watchlist.md (관심 종목·ETF — 텔레그램 전용, 앱·ai.json 에는 저장하지 않음, 추가 호출 1회) 에서 읽습니다.
  * 실패해도 작업 전체를 실패시키지 않고 이전 해설을 유지합니다.
  * ===================================================================== */
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import '../season.js';   // globalThis.SEASON 등록
+import { SOURCES } from './sources.mjs';
 
 const args = process.argv.slice(2);
 const arg = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
@@ -269,6 +271,100 @@ async function sendColumnTelegram(col) {
     });
     console.log(res.ok ? '  텔레그램으로 칼럼 전송 완료' : `  텔레그램 칼럼 전송 실패: HTTP ${res.status}`);
   } catch (e) { console.log(`  텔레그램 칼럼 전송 실패: ${e.message}`); }
+}
+
+/* ---------- 관심 종목·ETF: 텔레그램 전용 (앱·ai.json·로그에 내용을 남기지 않음) ---------- */
+// 후보는 이 목록 안에서만 고르게 함 (없는 티커를 지어내지 않도록). 앱이 추적 중인 ETF·해운주는 자동 포함.
+const WATCH_EXTRA = {
+  SPY: 'S&P 500', QQQ: '나스닥 100', IWM: '미국 소형주(러셀 2000)', XLF: '미국 금융주', XLK: '미국 기술주', XLU: '미국 유틸리티',
+  XLV: '미국 헬스케어', XLP: '미국 필수소비재', XLY: '미국 경기소비재', XLB: '미국 소재', VNQ: '미국 리츠(부동산)', SMH: '반도체',
+  IEF: '미국 국채 7~10년', SHY: '미국 국채 1~3년', BIL: '미국 초단기 국채', LQD: '미국 투자등급 회사채', EMB: '신흥국 달러채',
+  SLV: '은', GDX: '금광주', SIL: '은광주', USO: 'WTI 원유 선물', XOP: '원유·가스 생산기업', OIH: '유전 서비스', CPER: '구리 선물',
+  EWJ: '일본', FXI: '중국 대형주', INDA: '인도', EWT: '대만',
+  XOM: '엑슨모빌(통합 석유)', CVX: '셰브론(통합 석유)', VLO: '발레로(정유)', MPC: '마라톤 페트롤리엄(정유)', LNG: '셰니어 에너지(LNG 수출)',
+  FCX: '프리포트-맥모란(구리)', NEM: '뉴몬트(금광)', CCJ: '카메코(우라늄)', NTR: '뉴트리엔(비료)', ADM: 'ADM(곡물 유통)', DE: '디어(농기계)', CAT: '캐터필러(건설·광산 장비)'
+};
+function watchUniverse(meta, rows) {
+  const list = new Map();
+  for (const [id, srcs] of Object.entries(SOURCES)) {
+    const y = srcs && srcs[0] && srcs[0].yahoo;
+    if (!y || !srcs[0].adj || !meta[id]) continue;     // 수정종가로 받는 ETF·주식만
+    const r = rows.find(x => x.id === id);
+    const desc = (meta[id].sub || meta[id].name).split(' — ')[0];
+    const move = r ? `추적 중: 1개월 ${r.chg_1m > 0 ? '+' : ''}${r.chg_1m}%${r.position != null ? `, 2년 중 위치 ${r.position}` : ''}` : '추적 중';
+    list.set(y, `${y} · ${desc} (${move})`);
+  }
+  for (const [t, n] of Object.entries(WATCH_EXTRA)) if (!list.has(t)) list.set(t, `${t} · ${n}`);
+  return list;
+}
+const watchSchema = () => obj({
+  headline: { type: 'STRING' }, theme: { type: 'STRING' }, note: { type: 'STRING' },
+  ideas: { type: 'ARRAY', items: obj({ ticker: { type: 'STRING' }, stance: { type: 'STRING' }, reason: { type: 'STRING' }, risk: { type: 'STRING' }, check: { type: 'STRING' } }) }
+});
+const WATCH_BANNED = /목표\s*(가|주가)|수익\s*(보장|확정)|무조건|확실히\s*(오|상승)|반드시\s*(오|상승|사)|손절|몰빵|레버리지\s*(추천|활용)/;
+function cleanWatch(x, max) {
+  if (typeof x !== 'string' || !x.trim()) return null;
+  const kept = x.trim().split(/(?<=[.!?。])\s+/).filter(t => !WATCH_BANNED.test(t) && !FIELD_LEAK.test(t)).join(' ').trim();
+  return kept ? kept.slice(0, max) : null;
+}
+async function generateWatchlist(models, first, material, universe) {
+  const system = await readFile(new URL('../prompts/ai-watchlist.md', import.meta.url), 'utf8');
+  const user = `기준 시각: ${material.kst}\n\n[오늘의 브리핑]\n${JSON.stringify(material.briefing)}\n\n[분류별 요약]\n${JSON.stringify(material.sections)}` +
+    `${material.report ? `\n\n[리서치 리포트]\n${JSON.stringify({ regime: material.report.regime, insights: material.report.insights, scenarios: material.report.scenarios })}` : ''}` +
+    `${material.column ? `\n\n[칼럼 제목] ${material.column.title}` : ''}` +
+    `\n\n[주요 지표 숫자]\n${material.rows.map(r => JSON.stringify(r)).join('\n')}` +
+    `\n\n[후보 목록 — 이 안의 티커만 사용]\n${[...universe.values()].map(x => '- ' + x).join('\n')}\n\n위 재료로 관심 종목·ETF 를 작성하세요.`;
+  const body = schema => ({
+    systemInstruction: { parts: [{ text: system }] },
+    contents: [{ role: 'user', parts: [{ text: user }] }],
+    generationConfig: { temperature: 0.5, maxOutputTokens: 4096, responseMimeType: 'application/json', ...(schema ? { responseSchema: watchSchema() } : {}) }
+  });
+  for (const m of [first, ...models.filter(x => x !== first)]) {
+    for (const withSchema of [true, false]) {
+      try {
+        const resp = await post(m, body(withSchema));
+        const cand = resp.candidates && resp.candidates[0];
+        const text = cand && cand.content && (cand.content.parts || []).map(p => p.text || '').join('');
+        const j = JSON.parse(String(text).replace(/^```(?:json)?\s*|\s*```$/g, ''));
+        const ideas = (j.ideas || []).map(i => ({
+          ticker: String(i.ticker || '').trim().toUpperCase(), stance: i.stance === '경계' ? '경계' : '관심',
+          reason: cleanWatch(i.reason, 220), risk: cleanWatch(i.risk, 160), check: cleanWatch(i.check, 140)
+        })).filter(i => universe.has(i.ticker) && i.reason).slice(0, 5);
+        const dropped = (j.ideas || []).length - ideas.length;
+        if (ideas.length < 2) throw new Error('관심 종목 내용 부족');
+        console.log(`✓ 관심 종목·ETF 생성 (${m}) — ${ideas.length}개${dropped > 0 ? ` (목록 밖·빈 항목 ${dropped}개 제외)` : ''} · 내용은 텔레그램 전용이라 로그에 남기지 않음`);
+        return { headline: cleanWatch(j.headline, 60), theme: cleanWatch(j.theme, 400), note: cleanWatch(j.note, 160), ideas };
+      } catch (e) {
+        console.log(`  관심 종목 ${m}${withSchema ? '' : ' (형식 지정 없이)'} → ${e.message}`);
+        if (e.status === 429) return null;
+        if (e.status !== 400 && !/JSON|부족/.test(e.message)) break;
+      }
+    }
+  }
+  return null;
+}
+async function sendWatchlistTelegram(w, universe, kst) {
+  if (!TG_TOKEN || !TG_CHAT || !w) return;
+  const num = ['①', '②', '③', '④', '⑤'];
+  const lines = [`🎯 관심 종목·ETF · ${kst}`, '(텔레그램 전용 — 앱에는 표시되지 않음)', ''];
+  if (w.headline) lines.push(`📌 ${w.headline}`);
+  if (w.theme) lines.push(w.theme);
+  w.ideas.forEach((i, k) => {
+    const name = universe.get(i.ticker).split(' · ')[1].replace(/\s*\(.*\)$/, '');
+    lines.push('', `${num[k]} ${i.stance === '경계' ? '🔴 경계' : '🟢 관심'}  ${i.ticker} — ${name}`, `  왜: ${i.reason}`);
+    if (i.risk) lines.push(`  리스크: ${i.risk}`);
+    if (i.check) lines.push(`  확인: ${i.check}`);
+  });
+  if (w.note) lines.push('', `📝 ${w.note}`);
+  lines.push('', '※ AI가 오늘의 매크로 데이터로 고른 조사 후보입니다. 매수·매도 권유가 아니며 틀릴 수 있어요. 가격·실적·뉴스를 직접 확인하고 판단하세요.');
+  let text = lines.join('\n'); if (text.length > 4000) text = text.slice(0, 3990) + '…';
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ chat_id: TG_CHAT, text, disable_web_page_preview: true }), signal: AbortSignal.timeout(20000)
+    });
+    console.log(res.ok ? '  텔레그램으로 관심 종목·ETF 전송 완료' : `  텔레그램 관심 종목 전송 실패: HTTP ${res.status}`);
+  } catch (e) { console.log(`  텔레그램 관심 종목 전송 실패: ${e.message}`); }
 }
 
 const CATS = ['rates', 'inflation', 'growth', 'market', 'fx', 'energy', 'freight', 'stocks', 'metals', 'grains', 'etf'];
@@ -527,6 +623,16 @@ async function main() {
       rows: rows.filter(r => targets.includes(r.id)).map(({ id, name, value, unit, date, chg_1m, chg_unit, position, season_dev }) => ({ id, name, value, unit, date, chg_1m, chg_unit, position, season_dev })) });
   } catch (e) { console.log(`  칼럼 생성 오류: ${e.message}`); }
   if (column) { await sendColumnTelegram(column); console.log(`  칼럼 제목: ${column.title}`); console.log(column.body.split('\n\n').map(x => '  | ' + x).join('\n')); }
+  // 관심 종목·ETF — 텔레그램 전용 (텔레그램 미설정이면 호출하지 않음, ai.json 에 저장하지 않음)
+  if (TG_TOKEN && TG_CHAT) {
+    try {
+      const universe = watchUniverse(meta, rows);
+      const watch = await generateWatchlist(models, used, { kst, briefing, sections, report, column,
+        rows: rows.filter(r => targets.includes(r.id)).map(({ id, name, value, unit, chg_1m, chg_unit, position }) => ({ id, name, value, unit, chg_1m, chg_unit, position })) }, universe);
+      if (watch) await sendWatchlistTelegram(watch, universe, kst);
+      else console.log('  관심 종목·ETF: 생성 실패 → 건너뜀');
+    } catch (e) { console.log(`  관심 종목·ETF 오류: ${e.message}`); }
+  }
   else console.log('  오늘의 칼럼: 생성 실패 → 브리핑만 전송');
 
   // asOf: 이번 브리핑이 본 지표별 마지막 기준일 → 다음 브리핑의 '지난 브리핑 이후 새 데이터' 판단에 사용
