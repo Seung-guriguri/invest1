@@ -110,6 +110,9 @@
 [data-ui="v2"] .ai-brief { border-left: 0; }
 [data-ui="v2"] .ai-brief .ai-label { font-size: 13px; font-weight: 600; color: var(--accent); letter-spacing: 0; }
 [data-ui="v2"] .ai-brief h2 { font-size: 22px; line-height: 1.4; margin: 8px 0 10px; display: block; }
+[data-ui="v2"] .ai-top3 { background: var(--accent-bg); border-radius: 16px; padding: 14px 16px; margin: 4px 0 14px; }
+[data-ui="v2"] .ai-top3 b { color: var(--accent); font-size: 13.5px; }
+[data-ui="v2"] .ai-top3 ol { font-size: 15px; font-weight: 600; color: var(--text); padding-left: 20px; }
 [data-ui="v2"] .ai-brief .story { font-size: 15px; line-height: 1.7; color: var(--text-2); }
 [data-ui="v2"] .ai-secs { margin-top: 16px; border-top: 0; }
 [data-ui="v2"] .ai-brief details.ai-sec { border-bottom: 0; }
