@@ -174,6 +174,8 @@ function targetLine(r) {
 }
 
 /* ---------- Gemini 호출 ---------- */
+// 이번 실행에서 무료 한도(429)를 다 쓴 모델 — 칼럼·관심 종목 호출에서 건너뜀
+const quotaDead = new Set();
 async function post(model, body) {
   const res = await fetch(`${API}/models/${encodeURIComponent(model)}:generateContent`, {
     method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': KEY }, body: JSON.stringify(body),
@@ -268,6 +270,7 @@ async function generateColumn(models, first, material) {
   const order = [first, ...models.filter(m => m !== first)];
   for (let round = 0; round < 2; round++) {
     for (const m of order) {
+      if (quotaDead.has(m)) continue;   // 오늘 한도를 다 쓴 모델은 건너뜀
       for (const withSchema of [true, false]) {
         try {
           const resp = await post(m, body(withSchema));
@@ -292,12 +295,13 @@ async function generateColumn(models, first, material) {
           console.log(`✓ 오늘의 칼럼 생성 (${m}) — 입력 ${u.promptTokenCount ?? '?'} · 출력 ${u.candidatesTokenCount ?? '?'} 토큰, 섹션 ${sections.length}개 · ${sections.reduce((n, x) => n + x.lines.join('').length, 0)}자 · 참고 자료 ${refs.length}개`);
           return { title, summary: oneline, oneline, basis, sections, refs, body: bodyText, model: m };
         } catch (e) {
-          console.log(`  칼럼 ${m}${withSchema ? '' : ' (형식 지정 없이)'} → ${e.message}`);
-          if (e.status === 429) return null;
+          console.log(`  칼럼 ${m}${withSchema ? '' : ' (형식 지정 없이)'} → ${e.message.split('\n')[0].slice(0, 160)}`);
+          if (e.status === 429) { quotaDead.add(m); break; }   // 한도 초과 → 다음 모델
           if (e.status !== 400 && !/JSON|부족/.test(e.message)) break;   // 혼잡·없음 → 다음 모델
         }
       }
     }
+    if (order.every(m => quotaDead.has(m))) break;
     if (round === 0) await new Promise(r => setTimeout(r, 30000));
   }
   return null;
@@ -364,6 +368,7 @@ async function generateWatchlist(models, first, material, universe) {
     generationConfig: { temperature: 0.5, maxOutputTokens: 4096, responseMimeType: 'application/json', ...(schema ? { responseSchema: watchSchema() } : {}) }
   });
   for (const m of [first, ...models.filter(x => x !== first)]) {
+    if (quotaDead.has(m)) continue;
     for (const withSchema of [true, false]) {
       try {
         const resp = await post(m, body(withSchema));
@@ -379,8 +384,8 @@ async function generateWatchlist(models, first, material, universe) {
         console.log(`✓ 관심 종목·ETF 생성 (${m}) — ${ideas.length}개${dropped > 0 ? ` (목록 밖·빈 항목 ${dropped}개 제외)` : ''} · 내용은 텔레그램 전용이라 로그에 남기지 않음`);
         return { headline: cleanWatch(j.headline, 60), theme: cleanWatch(j.theme, 160), ideas };
       } catch (e) {
-        console.log(`  관심 종목 ${m}${withSchema ? '' : ' (형식 지정 없이)'} → ${e.message}`);
-        if (e.status === 429) return null;
+        console.log(`  관심 종목 ${m}${withSchema ? '' : ' (형식 지정 없이)'} → ${e.message.split('\n')[0].slice(0, 160)}`);
+        if (e.status === 429) { quotaDead.add(m); break; }
         if (e.status !== 400 && !/JSON|부족/.test(e.message)) break;
       }
     }
@@ -620,24 +625,26 @@ async function main() {
   };
   // 품질 우선: Flash 계열이 모두 혼잡이면 40초 쉬고 첫 Flash를 한 번 더 → 그래도 안 되면 Flash-Lite
   const main = models.filter(m => !/lite/.test(m)), lite = models.filter(m => /lite/.test(m));
-  let anyBusy = false;
+  // 한도 초과(429)는 모델마다 따로 계산 → 그 모델만 건너뛰고 다음 모델(Flash-Lite 등)로
+  let anyBusy = false, quotaHit = 0;
   for (const m of main) {
     const r = await tryModel(m);
     if (r === 'ok') break;
-    if (r === 'quota') return keepPrevious('무료 한도 초과 (429)', { fail: true });
+    if (r === 'quota') { quotaDead.add(m); quotaHit++; }
     if (r === 'busy') anyBusy = true;
   }
-  if (!resp && anyBusy && main.length) {
+  if (!resp && anyBusy && main.length && !quotaDead.has(main[0])) {
     console.log('  Flash 혼잡 → 40초 뒤 다시 시도');
     await new Promise(r => setTimeout(r, 40000));
-    if (await tryModel(main[0]) === 'quota') return keepPrevious('무료 한도 초과 (429)', { fail: true });
+    if (await tryModel(main[0]) === 'quota') { quotaDead.add(main[0]); quotaHit++; }
   }
   for (const m of lite) {
     if (resp) break;
     const r = await tryModel(m);
-    if (r === 'quota') return keepPrevious('무료 한도 초과 (429)', { fail: true });
+    if (r === 'quota') { quotaDead.add(m); quotaHit++; }
   }
-  if (!resp) return keepPrevious(`호출 실패: ${lastErr && lastErr.message}`, { fail: true });
+  if (!resp) return keepPrevious(quotaHit && quotaHit === models.length ? '모든 모델 무료 한도 초과 (429)' : `호출 실패: ${lastErr && lastErr.message}`, { fail: true });
+  if (quotaHit) console.log(`  한도 초과 모델 ${quotaHit}개 건너뛰고 ${used} 사용`);
 
   const cand = resp.candidates && resp.candidates[0];
   const text = cand && cand.content && (cand.content.parts || []).map(p => p.text || '').join('');
@@ -686,6 +693,9 @@ async function main() {
     await sendColumnTelegram(column); console.log(`  칼럼 제목: ${column.title}`);
     for (const x of column.sections) { console.log(`  ■ ${x.head}`); x.lines.forEach(l => console.log(`  | ${l}`)); }
     console.log(`  한 줄 정리: ${column.oneline}`); console.log(`  ${column.basis} · 참고: ${column.refs.map(r => r.id).join(', ')}`);
+  } else if (prevAI && prevAI.column && prevAI.generatedAt && kstDay0(prevAI.generatedAt) === kstToday) {
+    column = prevAI.column;
+    console.log(`  오늘의 칼럼: 생성 실패 → 오늘 앞서 만든 칼럼 유지 (${column.title})`);
   } else console.log('  오늘의 칼럼: 생성 실패 → 브리핑만 전송');
   // 관심 종목·ETF — 텔레그램 전용 (텔레그램 미설정이면 호출하지 않음, ai.json 에 저장하지 않음)
   if (TG_TOKEN && TG_CHAT) {
