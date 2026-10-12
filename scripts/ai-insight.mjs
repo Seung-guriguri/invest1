@@ -14,7 +14,7 @@
  *                     (GitHub 예약 실행이 몇 시간 늦게 도는 경우 중복 발송 방지. 수동 실행은 항상 새로 생성)
  *
  * 프롬프트는 prompts/ai-system.md (역할·규칙), prompts/ai-user.md (데이터 틀),
- * prompts/ai-column.md (오늘의 칼럼 — 브리핑을 종합한 스토리텔링 칼럼, 추가 호출 1회),
+ * prompts/ai-column.md (오늘의 칼럼 — 섹션별 헤드라인 + 3~5줄의 짧은 칼럼, 추가 호출 1회),
  * prompts/ai-watchlist.md (관심 종목·ETF — 텔레그램 전용, 앱·ai.json 에는 저장하지 않음, 추가 호출 1회) 에서 읽습니다.
  * 실패해도 작업 전체를 실패시키지 않고 이전 해설을 유지합니다.
  * ===================================================================== */
@@ -232,16 +232,39 @@ async function sendBriefingTelegram(b, sections, kst) {
   } catch (e) { console.log(`  텔레그램 브리핑 전송 실패: ${e.message}`); }
 }
 
-/* ---------- 오늘의 칼럼: 브리핑을 종합한 스토리텔링 칼럼 (브리핑 성공 뒤 1회 추가 호출) ---------- */
-const COLUMN_SCHEMA = { type: 'OBJECT', properties: { title: { type: 'STRING' }, summary: { type: 'STRING' }, body: { type: 'STRING' } }, required: ['title', 'summary', 'body'] };
+/* ---------- 오늘의 칼럼: 섹션형 짧은 칼럼 (브리핑 성공 뒤 1회 추가 호출) ----------
+ * AI 는 제목·한 줄 정리·섹션(헤드라인 + 3~5줄)·근거 지표 ID 만 씀.
+ * 기준일과 참고 자료(출처·기준일·링크)는 지표 ID 로 이 코드가 붙임 → 출처·링크를 AI 가 지어낼 수 없음. */
+const COLUMN_SCHEMA = { type: 'OBJECT', properties: {
+  title: { type: 'STRING' }, oneline: { type: 'STRING' },
+  sections: { type: 'ARRAY', items: { type: 'OBJECT', properties: { head: { type: 'STRING' }, lines: { type: 'ARRAY', items: { type: 'STRING' } } }, required: ['head', 'lines'] } },
+  refs: { type: 'ARRAY', items: { type: 'STRING' } }
+}, required: ['title', 'oneline', 'sections', 'refs'] };
+
+/** 지표 ID → 참고 자료 한 줄 (출처명 | 자료 | 기준일 | URL) */
+function sourceRef(id, row, meta) {
+  const s = (SOURCES[id] || [])[0];
+  const name = (meta[id] && meta[id].name) || id;
+  let src = null, url = null;
+  if (s && s.fred) { src = 'FRED(세인트루이스 연준)'; url = `https://fred.stlouisfed.org/series/${s.fred}`; }
+  else if (s && s.ecos) { src = '한국은행 경제통계시스템(ECOS)'; url = 'https://ecos.bok.or.kr/'; }
+  else if (s && s.eia) { src = '미국 에너지정보청(EIA)'; url = s.eia.startsWith('NG.') ? 'https://ir.eia.gov/ngs/ngs.html' : 'https://www.eia.gov/petroleum/supply/weekly/'; }
+  else if (s && s.eurostat) { src = 'Eurostat'; url = 'https://ec.europa.eu/eurostat/databrowser/'; }
+  else if (s && s.yahoo) { src = 'Yahoo Finance'; url = `https://finance.yahoo.com/quote/${encodeURIComponent(s.yahoo)}`; }
+  else src = '이 앱 계산값(여러 지표 조합)';
+  return { id, src, name, date: row.date, url };
+}
+
 async function generateColumn(models, first, material) {
   const system = await readFile(new URL('../prompts/ai-column.md', import.meta.url), 'utf8');
-  const user = `기준 시각: ${material.kst}\n\n[오늘의 브리핑]\n${JSON.stringify(material.briefing)}\n\n[분류별 요약]\n${JSON.stringify(material.sections)}\n\n[지표 해설]\n${JSON.stringify(material.indicators)}${material.report ? `\n\n[리서치 리포트 — 국면·인사이트·상충 신호·시나리오]\n${JSON.stringify({ regime: material.report.regime, insights: material.report.insights, conflicts: material.report.conflicts, scenarios: material.report.scenarios })}` : ''}\n\n[주요 지표 숫자] (position 은 최근 기간 안의 위치 0~100)\n${material.rows.map(r => JSON.stringify(r)).join('\n')}\n\n위 재료로 오늘의 칼럼을 쓰세요.`;
+  const recent = (material.recentTitles || []).length ? material.recentTitles.map(x => `- ${x.date} ${x.title}`).join('\n') : '(없음)';
+  const user = `기준 시각: ${material.kst}\n\n[최근 칼럼 제목] (같은 주제·각도 반복 피하기)\n${recent}\n\n[오늘의 브리핑]\n${JSON.stringify(material.briefing)}\n\n[분류별 요약]\n${JSON.stringify(material.sections)}\n\n[지표 해설]\n${JSON.stringify(material.indicators)}${material.report ? `\n\n[리서치 리포트 — 국면·인사이트·상충 신호·시나리오]\n${JSON.stringify({ regime: material.report.regime, insights: material.report.insights, conflicts: material.report.conflicts, scenarios: material.report.scenarios })}` : ''}\n\n[주요 지표 숫자] (id 는 refs 에 쓰는 지표 ID, date 는 그 값의 기준일, position 은 최근 기간 안의 위치 0~100)\n${material.rows.map(r => JSON.stringify(r)).join('\n')}\n\n위 재료로 오늘의 칼럼을 쓰세요.`;
   const body = schema => ({
     systemInstruction: { parts: [{ text: system }] },
     contents: [{ role: 'user', parts: [{ text: user }] }],
-    generationConfig: { temperature: 0.75, maxOutputTokens: 8192, responseMimeType: 'application/json', ...(schema ? { responseSchema: COLUMN_SCHEMA } : {}) }
+    generationConfig: { temperature: 0.6, maxOutputTokens: 8192, responseMimeType: 'application/json', ...(schema ? { responseSchema: COLUMN_SCHEMA } : {}) }
   });
+  const byId = new Map((material.allRows || material.rows).map(r => [r.id, r]));   // 근거 지표: 해설 대상 밖 지표도 허용
   const order = [first, ...models.filter(m => m !== first)];
   for (let round = 0; round < 2; round++) {
     for (const m of order) {
@@ -252,19 +275,22 @@ async function generateColumn(models, first, material) {
           const text = cand && cand.content && (cand.content.parts || []).map(p => p.text || '').join('');
           const j = JSON.parse(String(text).replace(/^```(?:json)?\s*|\s*```$/g, ''));
           const title = clean(j.title, 60);
-          // 문단 단위로 다듬기 (금지 표현·필드명 문장 제거), 소제목 줄 유지
-          const paras = String(j.body || '').split(/\n\s*\n/).map(x => x.trim()).filter(Boolean)
-            .flatMap(x => {
-              if (!x.startsWith('■')) return [clean(x.replace(/\s*\n\s*/g, ' '), 900)];
-              const [head, ...rest] = x.split('\n');   // '■ 소제목' 다음 줄에 본문이 붙어 온 경우 분리
-              return ['■ ' + head.replace(/^■\s*/, '').slice(0, 40), rest.length ? clean(rest.join(' '), 900) : null];
-            }).filter(Boolean);
-          if (!title || paras.length < 3) throw new Error('칼럼 내용 부족');
+          // 섹션 다듬기: 헤드라인 + 본문 최대 5줄 (금지 표현·필드명 문장 제거), 최대 6섹션
+          const sections = (Array.isArray(j.sections) ? j.sections : []).map(x => ({
+            head: clean(String((x && x.head) || '').replace(/^■\s*/, '').replace(/^섹션\s*\d+\s*[.:]?\s*/, ''), 50),
+            lines: (Array.isArray(x && x.lines) ? x.lines : []).map(l => clean(String(l).replace(/^[-•·]\s*/, ''), 160)).filter(Boolean).slice(0, 5)
+          })).filter(x => x.head && x.lines.length).slice(0, 6);
+          if (!title || sections.length < 3) throw new Error('칼럼 내용 부족');
+          const oneline = clean(j.oneline, 160) || sections[0].lines[0];
+          const refs = [...new Set((Array.isArray(j.refs) ? j.refs : []).map(String))].filter(id => byId.has(id)).slice(0, 8)
+            .map(id => sourceRef(id, byId.get(id), material.meta));
+          const dates = refs.map(r => r.date).filter(Boolean).sort();
+          const basis = `작성 ${material.kst} · 데이터 기준 ${dates.length ? (dates[0] === dates.at(-1) ? dates[0] : `${dates[0]} ~ ${dates.at(-1)}`) : '지표별 최신값'}`;
+          // 예전 앱 화면(본문 문자열)과도 호환되도록 body 도 함께 저장
+          const bodyText = sections.flatMap(x => ['■ ' + x.head, x.lines.join(' ')]).concat(['오늘의 한 줄 정리: ' + oneline]).join('\n\n');
           const u = resp.usageMetadata || {};
-          console.log(`✓ 오늘의 칼럼 생성 (${m}) — 입력 ${u.promptTokenCount ?? '?'} · 출력 ${u.candidatesTokenCount ?? '?'} 토큰, ${paras.join('').length}자`);
-          // 텔레그램용 핵심 1~2문장 (없으면 첫 문단 앞 두 문장)
-          const summary = clean(j.summary, 160) || clean(paras.find(x => !x.startsWith('■')).split(/(?<=[.!?。])\s+/).slice(0, 2).join(' '), 160);
-          return { title, summary, body: paras.join('\n\n'), model: m };
+          console.log(`✓ 오늘의 칼럼 생성 (${m}) — 입력 ${u.promptTokenCount ?? '?'} · 출력 ${u.candidatesTokenCount ?? '?'} 토큰, 섹션 ${sections.length}개 · ${sections.reduce((n, x) => n + x.lines.join('').length, 0)}자 · 참고 자료 ${refs.length}개`);
+          return { title, summary: oneline, oneline, basis, sections, refs, body: bodyText, model: m };
         } catch (e) {
           console.log(`  칼럼 ${m}${withSchema ? '' : ' (형식 지정 없이)'} → ${e.message}`);
           if (e.status === 429) return null;
@@ -279,8 +305,8 @@ async function generateColumn(models, first, material) {
 
 async function sendColumnTelegram(col) {
   if (!TG_TOKEN || !TG_CHAT || !col) return;
-  // 텔레그램에는 제목 + 핵심 1~2줄만 (전문은 앱의 'AI 브리핑 → 오늘의 칼럼')
-  let text = [`📰 오늘의 칼럼 《${col.title}》`, '', col.summary || '', '', SITE_URL ? `전문 보기: ${SITE_URL}` : '전문은 앱의 AI 브리핑에서 볼 수 있어요.'].join('\n');
+  // 텔레그램에는 제목 + 오늘의 한 줄 정리만 (전문은 앱의 'AI 브리핑 → 오늘의 칼럼')
+  let text = [`📰 오늘의 칼럼 《${col.title}》`, '', col.oneline || col.summary || '', '', SITE_URL ? `전문 보기: ${SITE_URL}` : '전문은 앱의 AI 브리핑에서 볼 수 있어요.'].join('\n');
   if (text.length > 4000) text = text.slice(0, 3990) + '…';
   try {
     const res = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
@@ -533,6 +559,8 @@ function clean(s, max) {
   return kept ? kept.slice(0, max) : null;
 }
 
+const kstDay0 = t => new Date(Date.parse(t) + 9 * 3600000).toISOString().slice(0, 10);
+
 async function main() {
   if (!RUN) return keepPrevious('오늘 실행 대상 아님 (평일 07:23 예약 또는 수동 실행에서만 생성)');
   if (SCHEDULED && PREV) {
@@ -646,11 +674,19 @@ async function main() {
   await sendBriefingTelegram(briefing, sections, kst);
   if (report) await sendTelegramLong(reportShortText(report), '리서치 리포트 요약');
   let column = null;
+  // 최근 칼럼 제목 (최대 7개) — 같은 주제 반복을 피하도록 칼럼 재료로 넘기고 ai.json 에 이어서 보관
+  const kstToday = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
+  const columnHistory = ((prevAI && prevAI.columnHistory) || (prevAI && prevAI.column && prevAI.column.title ? [{ date: kstDay0(prevAI.generatedAt), title: prevAI.column.title }] : []))
+    .filter(x => x && x.title && x.date !== kstToday).slice(-7);
   try {
-    column = await generateColumn(models, used, { kst, briefing, sections, indicators: ordered, report,
+    column = await generateColumn(models, used, { kst, briefing, sections, indicators: ordered, report, meta, recentTitles: columnHistory, allRows: rows,
       rows: rows.filter(r => targets.includes(r.id)).map(({ id, name, value, unit, date, chg_1m, chg_unit, position, season_dev }) => ({ id, name, value, unit, date, chg_1m, chg_unit, position, season_dev })) });
   } catch (e) { console.log(`  칼럼 생성 오류: ${e.message}`); }
-  if (column) { await sendColumnTelegram(column); console.log(`  칼럼 제목: ${column.title}`); console.log(column.body.split('\n\n').map(x => '  | ' + x).join('\n')); }
+  if (column) {
+    await sendColumnTelegram(column); console.log(`  칼럼 제목: ${column.title}`);
+    for (const x of column.sections) { console.log(`  ■ ${x.head}`); x.lines.forEach(l => console.log(`  | ${l}`)); }
+    console.log(`  한 줄 정리: ${column.oneline}`); console.log(`  ${column.basis} · 참고: ${column.refs.map(r => r.id).join(', ')}`);
+  } else console.log('  오늘의 칼럼: 생성 실패 → 브리핑만 전송');
   // 관심 종목·ETF — 텔레그램 전용 (텔레그램 미설정이면 호출하지 않음, ai.json 에 저장하지 않음)
   if (TG_TOKEN && TG_CHAT) {
     try {
@@ -673,11 +709,10 @@ async function main() {
       }
     } catch (e) { console.log(`  관심 종목·ETF 오류: ${e.message}`); }
   }
-  else console.log('  오늘의 칼럼: 생성 실패 → 브리핑만 전송');
 
   // asOf: 이번 브리핑이 본 지표별 마지막 기준일 → 다음 브리핑의 '지난 브리핑 이후 새 데이터' 판단에 사용
   const asOf = Object.fromEntries(rows.map(r => [r.id, r.date]));
-  const out = { generatedAt: new Date().toISOString(), model: used, briefing, sections, indicators: ordered, targets, ...(report ? { report } : {}), ...(column ? { column } : {}), asOf };
+  const out = { generatedAt: new Date().toISOString(), model: used, briefing, sections, indicators: ordered, targets, ...(report ? { report } : {}), ...(column ? { column } : {}), columnHistory: column ? [...columnHistory, { date: kstToday, title: column.title }].slice(-7) : columnHistory, asOf };
   await mkdir(dirname(OUT), { recursive: true });
   await writeFile(OUT, JSON.stringify(out));
   const u = resp.usageMetadata || {};

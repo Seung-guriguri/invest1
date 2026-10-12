@@ -164,6 +164,14 @@
   .ai-brief .ai-column summary { font-size: 14.5px; font-weight: 700; color: var(--text); padding: 8px 0; }
   .ai-column h3 { font-size: 15px; margin: 14px 0 6px; }
   .ai-column p { font-size: 14.5px; line-height: 1.75; margin: 0 0 10px; }
+  .ai-column .col-basis { font-size: 12.5px; color: var(--text-2); margin: 2px 0 4px; }
+  .ai-column .col-lines { margin: 0 0 6px; padding-left: 18px; }
+  .ai-column .col-lines li { font-size: 14.5px; line-height: 1.7; margin: 0 0 3px; }
+  .ai-column .col-oneline { margin: 14px 0 10px; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); font-size: 14.5px; line-height: 1.6; }
+  .ai-column .col-oneline b { display: block; font-size: 12.5px; margin-bottom: 2px; }
+  .ai-column .col-refs { font-size: 12px; color: var(--text-2); line-height: 1.6; margin: 6px 0 10px; word-break: break-all; }
+  .ai-column .col-refs ul { margin: 2px 0 0; padding-left: 16px; }
+  .ai-column .col-refs a { color: inherit; }
   .ai-report p, .ai-report li { font-size: 14px; line-height: 1.65; }
   .ai-report p { margin: 0 0 6px; }
   .ai-report ul, .ai-report ol { margin: 0 0 8px; padding-left: 18px; }
@@ -1802,6 +1810,18 @@ function renderAlerts() {
   </div>`).join('');
   el.hidden = false;
 }
+/** 오늘의 칼럼 본문: 섹션형(헤드라인 + 줄) · 예전 문단형(body) 모두 표시 */
+function columnHTML(c) {
+  if (!Array.isArray(c.sections) || !c.sections.length) {
+    return String(c.body || '').split(/\n\n+/).map(x => x.startsWith('■') ? `<h3>${esc(x.replace(/^■\s*/, ''))}</h3>` : `<p>${esc(x)}</p>`).join('');
+  }
+  const safeUrl = u => /^https:\/\//.test(u || '') ? u : null;
+  return (c.basis ? `<p class="col-basis">기준일: ${esc(c.basis)}</p>` : '') +
+    c.sections.map(x => `<h3>${esc(x.head)}</h3><ul class="col-lines">${(x.lines || []).map(l => `<li>${esc(l)}</li>`).join('')}</ul>`).join('') +
+    (c.oneline ? `<div class="col-oneline"><b>오늘의 한 줄 정리</b>${esc(c.oneline)}</div>` : '') +
+    (c.refs && c.refs.length ? `<div class="col-refs"><b>참고 자료</b><ul>${c.refs.map(r => `<li>${esc(r.src)} | ${esc(r.name)} | ${esc(r.date || '')}${safeUrl(r.url) ? ` | <a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(decodeURIComponent(r.url).replace(/^https:\/\//, ''))}</a>` : ''}</li>`).join('')}</ul></div>` : '');
+}
+
 function renderAIBrief() {
   const el = $('#aiBrief'); const ai = DataStore.getAI();
   if (!ai) { el.hidden = true; return; }
@@ -1815,7 +1835,7 @@ function renderAIBrief() {
     ${aiSectionsHTML(ai)}
     ${aiReportHTML(ai.report)}
     ${ai.column && ai.column.title ? `<details class="ai-column"><summary>📰 오늘의 칼럼 — ${esc(ai.column.title)}</summary>
-      ${String(ai.column.body || '').split(/\n\n+/).map(x => x.startsWith('■') ? `<h3>${esc(x.replace(/^■\s*/, ''))}</h3>` : `<p>${esc(x)}</p>`).join('')}
+      ${columnHTML(ai.column)}
     </details>` : ''}
     <details><summary>핵심 수치 · 한국 관점 · 확인할 것</summary>
       ${list('핵심 수치', b.points)}${row('한국 투자자에게는', b.korea)}${list('확인할 것', b.watch)}${row('반대로 보면', b.counterpoint)}
