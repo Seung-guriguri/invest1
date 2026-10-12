@@ -22,6 +22,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import '../season.js';   // globalThis.SEASON 등록
 import { SOURCES } from './sources.mjs';
+import { closes, retAfter, retSoFar } from './watch-perf.mjs';
 
 const args = process.argv.slice(2);
 const arg = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
@@ -361,14 +362,39 @@ function watchUniverse(meta, rows) {
   for (const [t, n] of Object.entries(WATCH_EXTRA)) if (!list.has(t)) list.set(t, `${t} · ${n}`);
   return list;
 }
+/** 최근 2주 관심 종목과 SPY 대비 성과 (private/watch-log.json — 공개 로그에는 개수만 남김) */
+async function pastIdeasBlock() {
+  if (!WATCH_DIR) return null;
+  let log; try { log = JSON.parse(await readFile(`${WATCH_DIR}/watch-log.json`, 'utf8')); } catch { return null; }
+  const today = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
+  const from = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10);
+  const ideas = (log.ideas || []).filter(x => x.date >= from && x.date < today);
+  if (!ideas.length) return null;
+  const px = {};
+  for (const t of new Set(['SPY', ...ideas.map(x => x.ticker)])) { try { px[t] = await closes(t); } catch { px[t] = null; } }
+  const pp = v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1) + '%p';
+  const lines = ideas.map(x => {
+    const head = `- ${x.date.slice(5)} ${x.stance} ${x.ticker}`;
+    if (!px[x.ticker] || !px.SPY) return `${head} → 가격 확인 불가`;
+    const r5 = retAfter(px[x.ticker], x.date, 5), b5 = retAfter(px.SPY, x.date, 5);
+    if (r5 != null && b5 != null) {
+      const ex = r5 - b5, hit = x.stance === '경계' ? ex < 0 : ex > 0;
+      return `${head} → 1주(5거래일) SPY 대비 ${pp(ex)} (${hit ? '적중' : '빗나감'})`;
+    }
+    const a = retSoFar(px[x.ticker], x.date), b = retSoFar(px.SPY, x.date);
+    return a && b ? `${head} → 고른 뒤 ${a.days}거래일 SPY 대비 ${pp(a.r - b.r)} (평가 진행 중)` : `${head} → 아직 거래일 없음`;
+  });
+  console.log(`  관심 종목 지난 기록: ${ideas.length}건 (최근 2주, 내용은 로그에 남기지 않음)`);
+  return lines.join('\n');
+}
 const watchSchema = () => obj({
   headline: { type: 'STRING' }, theme: { type: 'STRING' },
-  ideas: { type: 'ARRAY', items: obj({ ticker: { type: 'STRING' }, stance: { type: 'STRING' }, point: { type: 'STRING' } }) }
+  ideas: { type: 'ARRAY', items: obj({ ticker: { type: 'STRING' }, stance: { type: 'STRING' }, point: { type: 'STRING' }, invalidation: { type: 'STRING' } }) }
 });
 const WATCH_BANNED = /목표\s*(가|주가)|수익\s*(보장|확정)|무조건|확실히\s*(오|상승)|반드시\s*(오|상승|사)|손절|몰빵|레버리지\s*(추천|활용)/;
 function cleanWatch(x, max) {
   if (typeof x !== 'string' || !x.trim()) return null;
-  const kept = x.trim().split(/(?<=[.!?。])\s+/).filter(t => !WATCH_BANNED.test(t) && !FIELD_LEAK.test(t)).join(' ').trim();
+  const kept = soften(x.trim()).split(/(?<=[.!?。])\s+/).filter(t => !WATCH_BANNED.test(t) && !FIELD_LEAK.test(t)).join(' ').trim();
   return kept ? kept.slice(0, max) : null;
 }
 async function generateWatchlist(models, first, material, universe) {
@@ -377,6 +403,7 @@ async function generateWatchlist(models, first, material, universe) {
     `${material.report ? `\n\n[리서치 리포트]\n${JSON.stringify({ regime: material.report.regime, insights: material.report.insights, scenarios: material.report.scenarios })}` : ''}` +
     `${material.column ? `\n\n[칼럼 제목] ${material.column.title}` : ''}` +
     `\n\n[주요 지표 숫자]\n${material.rows.map(r => JSON.stringify(r)).join('\n')}` +
+    `\n\n[지난 2주 관심 종목과 성과 — 같은 종목 반복·성과 참고용]\n${material.past || '(기록 없음)'}` +
     `\n\n[후보 목록 — 이 안의 티커만 사용]\n${[...universe.values()].map(x => '- ' + x).join('\n')}\n\n위 재료로 관심 종목·ETF 를 작성하세요.`;
   const body = schema => ({
     systemInstruction: { parts: [{ text: system }] },
@@ -393,7 +420,8 @@ async function generateWatchlist(models, first, material, universe) {
         const j = JSON.parse(String(text).replace(/^```(?:json)?\s*|\s*```$/g, ''));
         const ideas = (j.ideas || []).map(i => ({
           ticker: String(i.ticker || '').trim().toUpperCase(), stance: i.stance === '경계' ? '경계' : '관심',
-          point: cleanWatch(i.point || [i.reason, i.risk].filter(Boolean).join(' '), 160)
+          point: cleanWatch(i.point || [i.reason, i.risk].filter(Boolean).join(' '), 160),
+          invalidation: cleanWatch(i.invalidation, 90)
         })).filter(i => universe.has(i.ticker) && i.point).slice(0, 5);
         const dropped = (j.ideas || []).length - ideas.length;
         if (ideas.length < 2) throw new Error('관심 종목 내용 부족');
@@ -416,6 +444,7 @@ async function sendWatchlistTelegram(w, universe, kst) {
   w.ideas.forEach(i => {
     const name = universe.get(i.ticker).split(' · ')[1].replace(/\s*\(.*\)$/, '');
     lines.push('', `${i.stance === '경계' ? '🔴' : '🟢'} ${i.ticker} · ${name}`, i.point);
+    if (i.invalidation) lines.push(`↳ 철회 조건: ${i.invalidation}`);
   });
   lines.push('', '※ 텔레그램 전용 · AI가 고른 조사 후보이며 매수·매도 권유가 아닙니다.');
   let text = lines.join('\n'); if (text.length > 4000) text = text.slice(0, 3990) + '…';
@@ -572,10 +601,27 @@ const BANNED = /(매수|매도)\s*(하세요|하라|할\s*때|타이밍|기회|�
 /** 금지 표현이 들어간 문장만 빼고 나머지는 살림 */
 const FIELD_LEAK = /\b(z_1m|chg_(prev|1m|3m|1y|unit|since_brief)|season_dev|position)\b/i;
 const fixes = [];
+// 과장·확률 부풀림 표현 교정 (프롬프트로 금지해도 가끔 새어 나옴 → 코드로 한 번 더)
+const SOFTEN = [
+  [/(전례|유례)\s*(가\s*)?없는\s*/g, '이례적인 '],
+  [/(전례|유례)\s*(가\s*)?없이\s*/g, '이례적으로 '],
+  [/역사적(?:인|으로)?\s+(?!(최고|최저|최다|최대|최소|고점|저점|상위|하위|수준))/g, '최근 수년 중 '],
+  [/극도로\s*/g, '매우 '],
+  [/가능성이\s*(?:더\s*)?(?:우세합니다|큽니다|높습니다)/g, '가능성이 있습니다'],
+  [/가능성이\s*(?:더\s*)?(?:우세하다|크다|높다)/g, '가능성이 있다'],
+  [/가능성이\s*(?:더\s*)?(?:우세함|큼|높음)/g, '가능성이 있음'],
+  [/가능성이\s*(?:더\s*)?(?:우세한|큰|높은)/g, '가능성이 있는'],
+  [/가능성이\s*(?:더\s*)?(?:우세해|커|높아)/g, '가능성이 있어']
+];
+function soften(t) {
+  for (const [re, to] of SOFTEN) t = t.replace(re, m0 => { fixes.push(m0.trim() + '→' + to.trim()); return to; });
+  return t;
+}
 function clean(s, max) {
   if (typeof s !== 'string' || !s.trim()) return null;
   // position 은 최근 2~10년 안의 위치일 뿐 → '사상·역대 최고/최저'는 '최근 수년 중 최고/최저'로
   let t = s.trim().replace(/(사상|역대|역사적(?:인)?)\s*(?=(최고|최저|최다|최대|최소|고점|저점|상위|하위|수준))/g, m0 => { fixes.push(m0 + '→최근 수년 중'); return '최근 수년 중 '; });
+  t = soften(t);
   const kept = t.split(/(?<=[.!?。])\s+/).filter(x => { const bad = BANNED.test(x) || FIELD_LEAK.test(x); if (bad) fixes.push('문장 제거: ' + x.slice(0, 40)); return !bad; }).join(' ').trim();
   return kept ? kept.slice(0, max) : null;
 }
@@ -720,7 +766,8 @@ async function main() {
   if (TG_TOKEN && TG_CHAT) {
     try {
       const universe = watchUniverse(meta, rows);
-      const watch = await generateWatchlist(models, used, { kst, briefing, sections, report, column,
+      const past = await pastIdeasBlock().catch(() => null);
+      const watch = await generateWatchlist(models, used, { kst, briefing, sections, report, column, past,
         rows: rows.filter(r => targets.includes(r.id)).map(({ id, name, value, unit, chg_1m, chg_unit, position }) => ({ id, name, value, unit, chg_1m, chg_unit, position })) }, universe);
       if (watch) await sendWatchlistTelegram(watch, universe, kst);
       else console.log('  관심 종목·ETF: 생성 실패 → 건너뜀');
