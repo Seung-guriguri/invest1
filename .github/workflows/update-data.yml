@@ -4,6 +4,7 @@
 #  - 저장소 Settings → Pages → Source 를 "GitHub Actions" 로 설정해야 합니다.
 #  - API 키: Settings → Secrets and variables → Actions → FRED_API_KEY, ECOS_API_KEY, EIA_API_KEY, GEMINI_API_KEY
 #    (선택) TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID — 긴급 경고를 텔레그램으로 받기
+#    (선택) TELEGRAM_SHARE_CHAT_ID — 공유 채널·그룹 (브리핑·리포트 요약·칼럼만 함께 전송)
 #  - AI 인사이트(Gemini)는 평일 아침 07:23 실행에서만 하루 1회 생성, 나머지 실행은 아침 해설을 그대로 유지
 name: 데이터 수집 및 배포
 
@@ -83,6 +84,7 @@ jobs:
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_SHARE_CHAT_ID: ${{ secrets.TELEGRAM_SHARE_CHAT_ID }}
           SITE_URL: ${{ steps.pages.outputs.base_url }}
           AI_RUN: ${{ (github.event_name == 'schedule' && (github.event.schedule == '23 22 * * 0-4' || github.event.schedule == '23 0 * * 1-5')) || (github.event_name == 'workflow_dispatch' && inputs.ai) }}
           AI_SCHEDULED: ${{ github.event_name == 'schedule' }}
