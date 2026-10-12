@@ -77,6 +77,7 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           SITE_URL: ${{ steps.pages.outputs.base_url }}
           AI_RUN: ${{ (github.event_name == 'schedule' && github.event.schedule == '23 22 * * 0-4') || (github.event_name == 'workflow_dispatch' && inputs.ai) }}
+          AI_SCHEDULED: ${{ github.event_name == 'schedule' }}
         run: node scripts/ai-insight.mjs --data _site/data/latest.json --out _site/data/ai.json --previous ai-previous.json
 
       - name: "사이트 파일 구성 (배포 버전 = 커밋 번호 + 시각)"
