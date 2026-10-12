@@ -205,7 +205,9 @@ const CAT_LABEL = { rates: '금리', inflation: '물가', growth: '경기', mark
 /** 새 브리핑을 텔레그램으로 (4096자 제한 안에서) */
 async function sendBriefingTelegram(b, sections, kst) {
   if (!TG_TOKEN || !TG_CHAT) { console.log('  (텔레그램 미설정 — 브리핑 전송 건너뜀)'); return; }
-  const lines = [`🌅 오늘의 AI 브리핑 · ${kst}`, '', `📌 ${b.headline || ''}`, '', b.story || ''];
+  const lines = [`🌅 오늘의 AI 브리핑 · ${kst}`, '', `📌 ${b.headline || ''}`];
+  if (b.top3 && b.top3.length) lines.push('', '✅ 오늘 꼭 볼 3가지', ...b.top3.map((x, i) => `${i + 1}. ${x}`));
+  lines.push('', b.story || '');
   if (b.points && b.points.length) lines.push('', '핵심 수치', ...b.points.map(x => `• ${x}`));
   if (b.korea) lines.push('', `🇰🇷 ${b.korea}`);
   if (b.watch && b.watch.length) lines.push('', `👀 확인할 것: ${b.watch.join(' · ')}`);
@@ -448,6 +450,18 @@ function reportText(r, kst) {
   return L.join('\n');
 }
 
+/** 텔레그램용 리서치 리포트 요약: 국면 + 핵심 결론 3개 + 시나리오 한 줄씩 + 전문 링크 (전문은 앱) */
+function reportShortText(r) {
+  const L = ['📊 리서치 리포트 요약'];
+  if (r.regime && r.regime.label) L.push(`국면: ${r.regime.label}`);
+  if (r.summary.length) L.push('', ...r.summary.slice(0, 3).map(x => `• ${x}`));
+  if (r.scenarios.length) L.push('', '1~3개월 시나리오', ...r.scenarios.map(x => `▸ ${x.name}: ${x.outlook}`));
+  const f = r.final || {};
+  if (f.change_trigger) L.push('', `⚙ 판단을 바꿀 데이터: ${f.change_trigger}`);
+  L.push('', SITE_URL ? `전문(인사이트·상충 신호·모니터링): ${SITE_URL}` : '전문은 앱의 📊 리서치 리포트에서 볼 수 있어요.');
+  return L.join('\n');
+}
+
 /** 긴 글은 빈 줄 기준으로 나눠 여러 메시지로 (텔레그램 4096자 제한) */
 async function sendTelegramLong(text, label) {
   if (!TG_TOKEN || !TG_CHAT) return;
@@ -476,12 +490,13 @@ const SCHEMA = {
       type: 'OBJECT',
       properties: {
         headline: { type: 'STRING' }, story: { type: 'STRING' },
+        top3: { type: 'ARRAY', items: { type: 'STRING' } },
         points: { type: 'ARRAY', items: { type: 'STRING' } },
         korea: { type: 'STRING' },
         watch: { type: 'ARRAY', items: { type: 'STRING' } },
         counterpoint: { type: 'STRING' }
       },
-      required: ['headline', 'story', 'points', 'korea', 'watch', 'counterpoint']
+      required: ['headline', 'story', 'top3', 'points', 'korea', 'watch', 'counterpoint']
     },
     sections: {
       type: 'ARRAY',
@@ -604,6 +619,7 @@ async function main() {
   const b = parsed.briefing || {};
   const briefing = {
     headline: clean(b.headline, 80), story: clean(b.story, 700),
+    top3: (b.top3 || []).map(p => clean(p, 70)).filter(Boolean).slice(0, 3),
     points: (b.points || []).map(p => clean(p, 140)).filter(Boolean).slice(0, 5),
     korea: clean(b.korea, 240), watch: (b.watch || []).map(p => clean(p, 100)).filter(Boolean).slice(0, 4),
     counterpoint: clean(b.counterpoint, 200)
@@ -627,7 +643,7 @@ async function main() {
   const report = cleanReport(parsed.report);
   console.log(report ? `  리서치 리포트: 핵심 결론 ${report.summary.length} · 인사이트 ${report.insights.length} · 상충 ${report.conflicts.length} · 시나리오 ${report.scenarios.length}` : '  리서치 리포트: 없음');
   await sendBriefingTelegram(briefing, sections, kst);
-  if (report) await sendTelegramLong(reportText(report, kst), '리서치 리포트');
+  if (report) await sendTelegramLong(reportShortText(report), '리서치 리포트 요약');
   let column = null;
   try {
     column = await generateColumn(models, used, { kst, briefing, sections, indicators: ordered, report,
