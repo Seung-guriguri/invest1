@@ -218,7 +218,7 @@ async function sendBriefingTelegram(b, sections, kst) {
 }
 
 /* ---------- 오늘의 칼럼: 브리핑을 종합한 스토리텔링 칼럼 (브리핑 성공 뒤 1회 추가 호출) ---------- */
-const COLUMN_SCHEMA = { type: 'OBJECT', properties: { title: { type: 'STRING' }, body: { type: 'STRING' } }, required: ['title', 'body'] };
+const COLUMN_SCHEMA = { type: 'OBJECT', properties: { title: { type: 'STRING' }, summary: { type: 'STRING' }, body: { type: 'STRING' } }, required: ['title', 'summary', 'body'] };
 async function generateColumn(models, first, material) {
   const system = await readFile(new URL('../prompts/ai-column.md', import.meta.url), 'utf8');
   const user = `기준 시각: ${material.kst}\n\n[오늘의 브리핑]\n${JSON.stringify(material.briefing)}\n\n[분류별 요약]\n${JSON.stringify(material.sections)}\n\n[지표 해설]\n${JSON.stringify(material.indicators)}${material.report ? `\n\n[리서치 리포트 — 국면·인사이트·상충 신호·시나리오]\n${JSON.stringify({ regime: material.report.regime, insights: material.report.insights, conflicts: material.report.conflicts, scenarios: material.report.scenarios })}` : ''}\n\n[주요 지표 숫자] (position 은 최근 기간 안의 위치 0~100)\n${material.rows.map(r => JSON.stringify(r)).join('\n')}\n\n위 재료로 오늘의 칼럼을 쓰세요.`;
@@ -247,7 +247,9 @@ async function generateColumn(models, first, material) {
           if (!title || paras.length < 3) throw new Error('칼럼 내용 부족');
           const u = resp.usageMetadata || {};
           console.log(`✓ 오늘의 칼럼 생성 (${m}) — 입력 ${u.promptTokenCount ?? '?'} · 출력 ${u.candidatesTokenCount ?? '?'} 토큰, ${paras.join('').length}자`);
-          return { title, body: paras.join('\n\n'), model: m };
+          // 텔레그램용 핵심 1~2문장 (없으면 첫 문단 앞 두 문장)
+          const summary = clean(j.summary, 160) || clean(paras.find(x => !x.startsWith('■')).split(/(?<=[.!?。])\s+/).slice(0, 2).join(' '), 160);
+          return { title, summary, body: paras.join('\n\n'), model: m };
         } catch (e) {
           console.log(`  칼럼 ${m}${withSchema ? '' : ' (형식 지정 없이)'} → ${e.message}`);
           if (e.status === 429) return null;
@@ -262,7 +264,8 @@ async function generateColumn(models, first, material) {
 
 async function sendColumnTelegram(col) {
   if (!TG_TOKEN || !TG_CHAT || !col) return;
-  let text = [`📰 오늘의 칼럼`, '', `《${col.title}》`, '', col.body, '', '※ AI가 브리핑을 바탕으로 쓴 일반적 해석이며 틀릴 수 있습니다. 투자 권유나 매매 판단이 아닙니다.'].join('\n');
+  // 텔레그램에는 제목 + 핵심 1~2줄만 (전문은 앱의 'AI 브리핑 → 오늘의 칼럼')
+  let text = [`📰 오늘의 칼럼 《${col.title}》`, '', col.summary || '', '', SITE_URL ? `전문 보기: ${SITE_URL}` : '전문은 앱의 AI 브리핑에서 볼 수 있어요.'].join('\n');
   if (text.length > 4000) text = text.slice(0, 3990) + '…';
   try {
     const res = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
@@ -298,8 +301,8 @@ function watchUniverse(meta, rows) {
   return list;
 }
 const watchSchema = () => obj({
-  headline: { type: 'STRING' }, theme: { type: 'STRING' }, note: { type: 'STRING' },
-  ideas: { type: 'ARRAY', items: obj({ ticker: { type: 'STRING' }, stance: { type: 'STRING' }, reason: { type: 'STRING' }, risk: { type: 'STRING' }, check: { type: 'STRING' } }) }
+  headline: { type: 'STRING' }, theme: { type: 'STRING' },
+  ideas: { type: 'ARRAY', items: obj({ ticker: { type: 'STRING' }, stance: { type: 'STRING' }, point: { type: 'STRING' } }) }
 });
 const WATCH_BANNED = /목표\s*(가|주가)|수익\s*(보장|확정)|무조건|확실히\s*(오|상승)|반드시\s*(오|상승|사)|손절|몰빵|레버리지\s*(추천|활용)/;
 function cleanWatch(x, max) {
@@ -328,12 +331,12 @@ async function generateWatchlist(models, first, material, universe) {
         const j = JSON.parse(String(text).replace(/^```(?:json)?\s*|\s*```$/g, ''));
         const ideas = (j.ideas || []).map(i => ({
           ticker: String(i.ticker || '').trim().toUpperCase(), stance: i.stance === '경계' ? '경계' : '관심',
-          reason: cleanWatch(i.reason, 220), risk: cleanWatch(i.risk, 160), check: cleanWatch(i.check, 140)
-        })).filter(i => universe.has(i.ticker) && i.reason).slice(0, 5);
+          point: cleanWatch(i.point || [i.reason, i.risk].filter(Boolean).join(' '), 160)
+        })).filter(i => universe.has(i.ticker) && i.point).slice(0, 5);
         const dropped = (j.ideas || []).length - ideas.length;
         if (ideas.length < 2) throw new Error('관심 종목 내용 부족');
         console.log(`✓ 관심 종목·ETF 생성 (${m}) — ${ideas.length}개${dropped > 0 ? ` (목록 밖·빈 항목 ${dropped}개 제외)` : ''} · 내용은 텔레그램 전용이라 로그에 남기지 않음`);
-        return { headline: cleanWatch(j.headline, 60), theme: cleanWatch(j.theme, 400), note: cleanWatch(j.note, 160), ideas };
+        return { headline: cleanWatch(j.headline, 60), theme: cleanWatch(j.theme, 160), ideas };
       } catch (e) {
         console.log(`  관심 종목 ${m}${withSchema ? '' : ' (형식 지정 없이)'} → ${e.message}`);
         if (e.status === 429) return null;
@@ -345,18 +348,14 @@ async function generateWatchlist(models, first, material, universe) {
 }
 async function sendWatchlistTelegram(w, universe, kst) {
   if (!TG_TOKEN || !TG_CHAT || !w) return;
-  const num = ['①', '②', '③', '④', '⑤'];
-  const lines = [`🎯 관심 종목·ETF · ${kst}`, '(텔레그램 전용 — 앱에는 표시되지 않음)', ''];
-  if (w.headline) lines.push(`📌 ${w.headline}`);
+  // 헤드라인 + 핵심 한 줄, 종목마다 '티커 — 이름' 한 줄 + 핵심 1~2줄
+  const lines = [`🎯 관심 종목·ETF${w.headline ? ` — ${w.headline}` : ''}`];
   if (w.theme) lines.push(w.theme);
-  w.ideas.forEach((i, k) => {
+  w.ideas.forEach(i => {
     const name = universe.get(i.ticker).split(' · ')[1].replace(/\s*\(.*\)$/, '');
-    lines.push('', `${num[k]} ${i.stance === '경계' ? '🔴 경계' : '🟢 관심'}  ${i.ticker} — ${name}`, `  왜: ${i.reason}`);
-    if (i.risk) lines.push(`  리스크: ${i.risk}`);
-    if (i.check) lines.push(`  확인: ${i.check}`);
+    lines.push('', `${i.stance === '경계' ? '🔴' : '🟢'} ${i.ticker} · ${name}`, i.point);
   });
-  if (w.note) lines.push('', `📝 ${w.note}`);
-  lines.push('', '※ AI가 오늘의 매크로 데이터로 고른 조사 후보입니다. 매수·매도 권유가 아니며 틀릴 수 있어요. 가격·실적·뉴스를 직접 확인하고 판단하세요.');
+  lines.push('', '※ 텔레그램 전용 · AI가 고른 조사 후보이며 매수·매도 권유가 아닙니다.');
   let text = lines.join('\n'); if (text.length > 4000) text = text.slice(0, 3990) + '…';
   try {
     const res = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
