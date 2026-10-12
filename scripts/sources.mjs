@@ -97,6 +97,16 @@ export const SOURCES = {
   tk_hafn: [{ yahoo: 'HAFN', adj: true }],   // Hafnia — 제품선 전 선형
   tk_trmd: [{ yahoo: 'TRMD', adj: true }],   // Torm — 제품선
   tk_insw: [{ yahoo: 'INSW', adj: true }],   // International Seaways — 원유선·제품선
+  // 탑다운 가이드(guides.js) 미니 시세용 — 지표 카드·AI 재료·알림에는 쓰지 않음
+  // 벌크선
+  gd_sblk: [{ yahoo: 'SBLK', adj: true }], gd_gnk: [{ yahoo: 'GNK', adj: true }], gd_sb: [{ yahoo: 'SB', adj: true }],
+  gd_ship: [{ yahoo: 'SHIP', adj: true }], gd_dsx: [{ yahoo: 'DSX', adj: true }], gd_panl: [{ yahoo: 'PANL', adj: true }],
+  // 석유 밸류체인: 업스트림 · 유전 서비스 · 미드스트림 · 정유 · 통합 메이저
+  gd_xop: [{ yahoo: 'XOP', adj: true }], gd_cop: [{ yahoo: 'COP', adj: true }], gd_eog: [{ yahoo: 'EOG', adj: true }], gd_oxy: [{ yahoo: 'OXY', adj: true }],
+  gd_oih: [{ yahoo: 'OIH', adj: true }], gd_slb: [{ yahoo: 'SLB', adj: true }], gd_hal: [{ yahoo: 'HAL', adj: true }], gd_bkr: [{ yahoo: 'BKR', adj: true }],
+  gd_amlp: [{ yahoo: 'AMLP', adj: true }], gd_epd: [{ yahoo: 'EPD', adj: true }], gd_et: [{ yahoo: 'ET', adj: true }], gd_kmi: [{ yahoo: 'KMI', adj: true }], gd_wmb: [{ yahoo: 'WMB', adj: true }],
+  gd_crak: [{ yahoo: 'CRAK', adj: true }], gd_vlo: [{ yahoo: 'VLO', adj: true }], gd_mpc: [{ yahoo: 'MPC', adj: true }], gd_psx: [{ yahoo: 'PSX', adj: true }],
+  gd_xom: [{ yahoo: 'XOM', adj: true }], gd_cvx: [{ yahoo: 'CVX', adj: true }],
   lng_flng:    [{ yahoo: 'FLNG', adj: true }],                          // Flex LNG — LNG 운반선사 (LNG선 운임 대용)
   // scfi: 상하이 컨테이너 운임지수 — 무료 API 없음 → 직접 입력
 

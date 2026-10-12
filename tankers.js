@@ -183,6 +183,9 @@
       <span class="q"><b>$${q.value.toFixed(2)}</b><span class="${dir}">1개월 ${chg}</span></span>`;
   }
 
+  // guides.js(벌크선·석유 밸류체인 가이드)도 같은 미니 시세를 씀
+  window.tkQuoteHTML = quoteHTML;
+
   /* ---------- 화면 ---------- */
   function vcHTML(v) {
     if (!v) return '<div class="vc empty"></div>';
