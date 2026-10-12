@@ -27,6 +27,7 @@ const AI_PREV = arg('--ai', null);   // 직전 배포의 ai.json (오늘 아침 
 const TG_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
 let TG_CHAT = (process.env.TELEGRAM_CHAT_ID || '').trim();
 const TG_TEST = String(process.env.TELEGRAM_TEST || '').toLowerCase() === 'true';
+const TG_SHARE = (process.env.TELEGRAM_SHARE_CHAT_ID || '').trim();   // 공유 채널 (테스트 메시지만 여기서 보냄)
 const DAY = 86400000;
 
 const r1 = v => Math.round(v * 10) / 10;
@@ -153,10 +154,10 @@ async function findChatId() {
   return last && last.chat ? String(last.chat.id) : '';
 }
 
-async function sendTelegram(text) {
+async function sendTelegram(text, chat = TG_CHAT) {
   const res = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ chat_id: TG_CHAT, text, disable_web_page_preview: true }),
+    body: JSON.stringify({ chat_id: chat, text, disable_web_page_preview: true }),
     signal: AbortSignal.timeout(20000)
   });
   if (!res.ok) throw new Error(`HTTP ${res.status} ${(await res.text()).slice(0, 200)}`);
@@ -207,6 +208,11 @@ async function main() {
       try { await sendTelegram(msg); console.log('  텔레그램 테스트 메시지 전송 완료'); }
       catch (e) { console.log(`  텔레그램 테스트 전송 실패: ${e.message}`); }
     }
+    if (TG_TOKEN && TG_SHARE && TG_SHARE !== TG_CHAT) {
+      const msg = ['✅ 공유 채널 연결 성공', '평일 아침 AI 브리핑 · 리서치 리포트 요약 · 오늘의 칼럼을 이 채널로 함께 보냅니다.', '', '※ AI가 작성한 참고용 분석이며 투자 권유가 아닙니다.'].join('\n');
+      try { await sendTelegram(msg, TG_SHARE); console.log('  공유 채널 테스트 메시지 전송 완료'); }
+      catch (e) { console.log(`  공유 채널 테스트 전송 실패: ${e.message} — 채널 ID(-100…)와 봇의 '메시지 게시' 관리자 권한을 확인하세요`); }
+    } else if (!TG_SHARE) console.log('  공유 채널: TELEGRAM_SHARE_CHAT_ID 미등록 — 건너뜀');
   }
 
   const active = [];
