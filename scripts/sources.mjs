@@ -89,6 +89,14 @@ export const SOURCES = {
   freight_ppi: [{ fred: 'PCU483111483111', units: 'pc1' }],  // 미국 PPI 원양 화물운송, 전년비
   tanker_fro:  [{ yahoo: 'FRO', adj: true }],                           // Frontline — VLCC 원유선사 (VLCC 운임 대용)
   tanker_stng: [{ yahoo: 'STNG', adj: true }],                          // Scorpio Tankers — 석유제품선사
+  // 유조선 가이드(tankers.js) 미니 시세용 — 지표 카드·AI 재료·알림에는 쓰지 않음 (index.html CONFIG 에 없음)
+  tk_dht:  [{ yahoo: 'DHT', adj: true }],    // DHT Holdings — VLCC
+  tk_tnk:  [{ yahoo: 'TNK', adj: true }],    // Teekay Tankers — 수에즈막스·아프라막스
+  tk_nat:  [{ yahoo: 'NAT', adj: true }],    // Nordic American Tankers — 수에즈막스
+  tk_eco:  [{ yahoo: 'ECO', adj: true }],    // Okeanis Eco Tankers — VLCC·수에즈막스
+  tk_hafn: [{ yahoo: 'HAFN', adj: true }],   // Hafnia — 제품선 전 선형
+  tk_trmd: [{ yahoo: 'TRMD', adj: true }],   // Torm — 제품선
+  tk_insw: [{ yahoo: 'INSW', adj: true }],   // International Seaways — 원유선·제품선
   lng_flng:    [{ yahoo: 'FLNG', adj: true }],                          // Flex LNG — LNG 운반선사 (LNG선 운임 대용)
   // scfi: 상하이 컨테이너 운임지수 — 무료 API 없음 → 직접 입력
 
