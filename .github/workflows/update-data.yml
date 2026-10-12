@@ -16,6 +16,7 @@ on:
     - cron: '43 7 * * 1-5'    # 한국 16:43 (월~금) — 한국 장 마감 후
     - cron: '13 13 * * 1-5'   # 한국 22:13 (월~금) — 미국 지표 발표(대개 21:30~23:00) 이후
     - cron: '23 22 * * 5'     # 한국 07:23 (토) — 금요일 미국 장 마감 반영 (데이터만, AI 없음)
+    - cron: '23 0 * * 1-5'    # 한국 09:23 (월~금) — 아침 브리핑 백업: 07:23 실행이 밀리거나 빠졌을 때만 AI 생성 (이미 있으면 건너뜀)
   workflow_dispatch:          # Actions 탭에서 수동 실행
     inputs:
       ai:
@@ -67,7 +68,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TELEGRAM_TEST: ${{ github.event_name == 'workflow_dispatch' && inputs.telegram_test }}
-        run: node scripts/alerts.mjs --data _site/data/latest.json --out _site/data/alerts.json --previous alerts-previous.json
+        run: node scripts/alerts.mjs --data _site/data/latest.json --out _site/data/alerts.json --previous alerts-previous.json --ai ai-previous.json
 
       - name: AI 인사이트 (Gemini, 평일 07:23 또는 수동 실행 때만)
         env:
@@ -76,7 +77,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           SITE_URL: ${{ steps.pages.outputs.base_url }}
-          AI_RUN: ${{ (github.event_name == 'schedule' && github.event.schedule == '23 22 * * 0-4') || (github.event_name == 'workflow_dispatch' && inputs.ai) }}
+          AI_RUN: ${{ (github.event_name == 'schedule' && (github.event.schedule == '23 22 * * 0-4' || github.event.schedule == '23 0 * * 1-5')) || (github.event_name == 'workflow_dispatch' && inputs.ai) }}
           AI_SCHEDULED: ${{ github.event_name == 'schedule' }}
         run: node scripts/ai-insight.mjs --data _site/data/latest.json --out _site/data/ai.json --previous ai-previous.json
 
@@ -91,6 +92,17 @@ jobs:
         with:
           path: _site
 
+      - name: 실패 알림 (텔레그램)
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ] || exit 0
+          curl -s -o /dev/null -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode chat_id="${TELEGRAM_CHAT_ID}" \
+            --data-urlencode text="⚠️ 매크로 대시보드: 데이터 수집 작업이 실패했어요 (${{ github.event_name }}). 사이트는 이전 데이터로 유지됩니다. GitHub Actions 기록을 확인하세요." || true
+
   deploy:
     needs: build
     # main 에서만 배포 (다른 브랜치 시험 실행은 수집·빌드까지만 확인 → 실패 메일 없음)
@@ -102,6 +114,17 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v5
+
+      - name: 실패 알림 (텔레그램)
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ] || exit 0
+          curl -s -o /dev/null -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode chat_id="${TELEGRAM_CHAT_ID}" \
+            --data-urlencode text="⚠️ 매크로 대시보드: 사이트 배포가 실패했어요. 앱에는 이전 버전이 보입니다. GitHub Actions 기록을 확인하세요." || true
 
   # 공개 저장소는 60일간 활동이 없으면 예약 실행이 자동으로 꺼집니다.
   # 예약 실행 때마다 워크플로를 '활성화' API로 다시 켜 두어 멈추지 않게 합니다 (커밋 없음).

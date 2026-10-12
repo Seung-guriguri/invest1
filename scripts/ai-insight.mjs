@@ -39,8 +39,20 @@ const API = 'https://generativelanguage.googleapis.com/v1beta';
 const DAY = 86400000;
 
 /* ---------- 이전 해설 유지 ---------- */
-async function keepPrevious(reason) {
+async function keepPrevious(reason, { fail = false } = {}) {
   console.log(`AI 인사이트: ${reason} → 이전 해설 유지`);
+  // 생성하려다 실패한 경우만 텔레그램으로 알림 (실행 대상 아님·이미 생성됨은 알리지 않음)
+  if (fail && RUN && TG_TOKEN && TG_CHAT) {
+    const note = SCHEDULED && new Date(Date.now() + 9 * 3600000).getUTCHours() < 9 ? '\n09:23 백업 실행에서 한 번 더 시도합니다.' : '\nActions → Run workflow(AI 체크)로 다시 만들 수 있어요.';
+    try {
+      await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ chat_id: TG_CHAT, text: `⚠️ AI 브리핑 생성 실패\n이유: ${String(reason).slice(0, 200)}\n앱에는 이전 브리핑이 그대로 표시됩니다.${note}`, disable_web_page_preview: true }),
+        signal: AbortSignal.timeout(20000)
+      });
+      console.log('  텔레그램으로 실패 알림 전송');
+    } catch (e) { console.log(`  실패 알림 전송 실패: ${e.message}`); }
+  }
   if (!PREV) return;
   try {
     const prev = await readFile(PREV, 'utf8');
@@ -517,7 +529,7 @@ async function main() {
       }
     } catch { /* 이전 해설 없음 → 그대로 생성 */ }
   }
-  if (!KEY) return keepPrevious('GEMINI_API_KEY 없음');
+  if (!KEY) return keepPrevious('GEMINI_API_KEY 없음', { fail: true });
 
   const latest = JSON.parse(await readFile(DATA, 'utf8'));
   const meta = await readIndicatorMeta();
@@ -568,26 +580,26 @@ async function main() {
   for (const m of main) {
     const r = await tryModel(m);
     if (r === 'ok') break;
-    if (r === 'quota') return keepPrevious('무료 한도 초과 (429)');
+    if (r === 'quota') return keepPrevious('무료 한도 초과 (429)', { fail: true });
     if (r === 'busy') anyBusy = true;
   }
   if (!resp && anyBusy && main.length) {
     console.log('  Flash 혼잡 → 40초 뒤 다시 시도');
     await new Promise(r => setTimeout(r, 40000));
-    if (await tryModel(main[0]) === 'quota') return keepPrevious('무료 한도 초과 (429)');
+    if (await tryModel(main[0]) === 'quota') return keepPrevious('무료 한도 초과 (429)', { fail: true });
   }
   for (const m of lite) {
     if (resp) break;
     const r = await tryModel(m);
-    if (r === 'quota') return keepPrevious('무료 한도 초과 (429)');
+    if (r === 'quota') return keepPrevious('무료 한도 초과 (429)', { fail: true });
   }
-  if (!resp) return keepPrevious(`호출 실패: ${lastErr && lastErr.message}`);
+  if (!resp) return keepPrevious(`호출 실패: ${lastErr && lastErr.message}`, { fail: true });
 
   const cand = resp.candidates && resp.candidates[0];
   const text = cand && cand.content && (cand.content.parts || []).map(p => p.text || '').join('');
   let parsed;
   try { parsed = JSON.parse(String(text).replace(/^```(?:json)?\s*|\s*```$/g, '')); }
-  catch (e) { return keepPrevious(`응답 JSON 해석 실패 (finishReason: ${cand && cand.finishReason})`); }
+  catch (e) { return keepPrevious(`응답 JSON 해석 실패 (finishReason: ${cand && cand.finishReason})`, { fail: true }); }
 
   const b = parsed.briefing || {};
   const briefing = {
@@ -607,7 +619,7 @@ async function main() {
     const c = it && meta[it.id] ? clean(it.comment, 320) : null;
     if (c) indicators[it.id] = c;
   }
-  if (!briefing.headline && !briefing.story) return keepPrevious('브리핑 내용이 비어 있음');
+  if (!briefing.headline && !briefing.story) return keepPrevious('브리핑 내용이 비어 있음', { fail: true });
 
   const ordered = {}; for (const id of targets) if (indicators[id]) ordered[id] = indicators[id];
   for (const [k, v] of Object.entries(indicators)) if (!ordered[k]) ordered[k] = v;
@@ -662,4 +674,4 @@ async function main() {
   console.log(warn.length ? `  길이·형식 경고: ${warn.join(', ')}` : '  길이·형식 점검: 모두 기준 이내');
 }
 
-main().catch(e => keepPrevious(`오류: ${e.message}`)).then(() => process.exit(0));
+main().catch(e => keepPrevious(`오류: ${e.message}`, { fail: true })).then(() => process.exit(0));

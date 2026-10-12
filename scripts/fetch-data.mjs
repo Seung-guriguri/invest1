@@ -264,7 +264,7 @@ const sourceLabel = src => src.fred ? `FRED:${src.fred}` : src.yahoo ? `Yahoo:${
 /** 지표 하나: 소스를 순서대로 시도 */
 async function collect(id, sources) {
   const reasons = [];
-  for (const src of sources) {
+  for (const [idx, src] of sources.entries()) {
     const kind = Object.keys(FETCHERS).find(k => src[k]);
     try {
       const raw = await FETCHERS[kind](src);
@@ -272,7 +272,7 @@ async function collect(id, sources) {
       if (obs.length < 2) throw new Error('관측치 부족');
       const freq = guessFreq(obs);
       obs = trim(obs, freq);
-      return { source: sourceLabel(src), freq, fetchedAt: new Date().toISOString(), obs };
+      return { source: sourceLabel(src), freq, fetchedAt: new Date().toISOString(), obs, ...(idx > 0 ? { fallbackReason: reasons.join(' / ') } : {}) };
     } catch (e) {
       reasons.push(`${sourceLabel(src)} → ${e.message}`);
     }
@@ -305,7 +305,18 @@ async function main() {
   const entries = Object.entries(SOURCES);
   await pool(entries, 4, async ([id, sources]) => {
     try {
-      series[id] = await collect(id, sources);
+      const got = await collect(id, sources);
+      // 1순위 소스 실패로 대체 소스를 썼는데, 그 값이 이전에 받아 둔 값보다 오래됐으면 이전 값 유지
+      // (예: 한국은행 ECOS 장애 → FRED 대체 한국 CPI 가 2023년에 멈춰 있는 경우)
+      const prev = previous && previous.series && previous.series[id];
+      if (got.fallbackReason && prev && prev.obs && prev.obs.length && prev.obs[prev.obs.length - 1][0] > got.obs[got.obs.length - 1][0]) {
+        series[id] = prev;
+        errors.push({ id, message: `${got.fallbackReason} / 대체 소스(${got.source})가 이전 값보다 오래됨`, keptPrevious: true });
+        console.log(`✗ ${id.padEnd(12)} 대체 소스 ${got.source} 가 더 오래됨 → 이전 값 유지`);
+        return;
+      }
+      delete got.fallbackReason;
+      series[id] = got;
       const last = series[id].obs[series[id].obs.length - 1];
       console.log(`✓ ${id.padEnd(12)} ${series[id].source.padEnd(26)} ${last[0]}  ${last[1]}`);
     } catch (e) {
