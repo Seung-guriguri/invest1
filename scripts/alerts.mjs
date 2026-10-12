@@ -23,6 +23,7 @@ const arg = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] :
 const DATA = arg('--data', 'data/latest.json');
 const OUT = arg('--out', 'data/alerts.json');
 const PREV = arg('--previous', null);
+const AI_PREV = arg('--ai', null);   // 직전 배포의 ai.json (오늘 아침 브리핑이 만들어졌는지 확인용)
 const TG_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
 let TG_CHAT = (process.env.TELEGRAM_CHAT_ID || '').trim();
 const TG_TEST = String(process.env.TELEGRAM_TEST || '').toLowerCase() === 'true';
@@ -161,6 +162,31 @@ async function sendTelegram(text) {
   if (!res.ok) throw new Error(`HTTP ${res.status} ${(await res.text()).slice(0, 200)}`);
 }
 
+const kstDate = d => new Date(d.getTime() + 9 * 3600000).toISOString().slice(0, 10);
+
+/** 작동 점검 항목 (텔레그램 알림용) */
+function checkHealth(latest, ai) {
+  const out = [];
+  const errors = latest.errors || [];
+  const fresh = errors.filter(e => !e.keptPrevious).length, kept = errors.filter(e => e.keptPrevious).length;
+  if (errors.length >= 10) {
+    out.push({ id: 'health_fetch', text: `⚠️ 데이터 수집 점검 필요\n이번 수집에서 ${errors.length}개 지표를 못 받았어요 (이전 값 유지 ${kept} · 값 없음 ${fresh}).\n한국은행·EIA·Yahoo 등 출처 장애일 수 있어요. 다음 수집에서 자동으로 다시 시도합니다.` });
+  }
+  // 매일 움직이는 핵심 지표가 5일 넘게 멈췄으면
+  const KEY = { sp500: 'S&P 500', us10y: '미국 10년물', wti: 'WTI', usdkrw: '원/달러' };
+  const stale = Object.entries(KEY).filter(([id]) => {
+    const s = latest.series && latest.series[id]; if (!s || !s.obs || !s.obs.length) return true;
+    return Date.now() - Date.parse(s.obs[s.obs.length - 1][0]) > 5 * DAY;
+  }).map(([, n]) => n);
+  if (stale.length) out.push({ id: 'health_stale', text: `⚠️ 핵심 지표 갱신 멈춤\n${stale.join(', ')} 값이 5일 넘게 새로 들어오지 않았어요. 데이터 출처를 확인해야 할 수 있어요.` });
+  // 평일 12시(KST) 이후인데 오늘 아침 AI 브리핑이 없으면
+  const now = new Date(Date.now() + 9 * 3600000), dow = now.getUTCDay(), hour = now.getUTCHours();
+  if (ai && dow >= 1 && dow <= 5 && hour >= 12 && ai.generatedAt && kstDate(new Date(ai.generatedAt)) !== kstDate(new Date())) {
+    out.push({ id: 'health_ai', text: `⚠️ 오늘 아침 AI 브리핑이 만들어지지 않았어요\n마지막 브리핑: ${new Date(Date.parse(ai.generatedAt) + 9 * 3600000).toISOString().slice(0, 16).replace('T', ' ')} (한국시간)\nGitHub 예약 실행이 밀렸을 수 있어요. Actions → Run workflow(AI 체크)로 바로 만들 수 있어요.` });
+  }
+  return out;
+}
+
 async function main() {
   const latest = JSON.parse(await readFile(DATA, 'utf8'));
   let prev = { sent: [] };
@@ -205,7 +231,18 @@ async function main() {
     catch (e) { console.log(`  텔레그램 전송 실패: ${e.message}`); }
   }
 
-  const out = { generatedAt: new Date().toISOString(), active, lastSent };
+  // ── 작동 점검: 수집 실패가 많거나 핵심 지표가 멈췄을 때, 평일 오후까지 오늘 브리핑이 없을 때 (하루 한 번만) ──
+  const health = checkHealth(latest, AI_PREV ? await readFile(AI_PREV, 'utf8').then(JSON.parse).catch(() => null) : null);
+  const todayKst = kstDate(new Date());
+  for (const h of health) {
+    if (lastSent[h.id] && kstDate(new Date(lastSent[h.id])) === todayKst) continue;   // 오늘 이미 보냄
+    console.log(`  작동 점검: ${h.text.split('\n')[0]}`);
+    if (!TG_TOKEN || !TG_CHAT) continue;
+    try { await sendTelegram(h.text); lastSent[h.id] = new Date().toISOString(); }
+    catch (e) { console.log(`  작동 점검 알림 실패: ${e.message}`); }
+  }
+
+  const out = { generatedAt: new Date().toISOString(), active, lastSent, health: health.map(h => h.id) };
   await mkdir(dirname(OUT), { recursive: true });
   await writeFile(OUT, JSON.stringify(out));
   console.log(active.length ? `긴급 경고 ${active.length}건: ${active.map(a => `${a.level} ${a.title} — ${a.points[0]}`).join(' / ')}` : '긴급 경고 없음');
