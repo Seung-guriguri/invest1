@@ -35,6 +35,8 @@ const SCHEDULED = String(process.env.AI_SCHEDULED || '').toLowerCase() === 'true
 const WATCH_DIR = (process.env.WATCH_DIR || '').trim();   // 성적표용 기록 폴더 (배포하지 않는 private/)
 const TG_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
 const TG_CHAT = (process.env.TELEGRAM_CHAT_ID || '').trim();
+// (선택) 공유 채널·그룹 — 브리핑·리포트 요약·칼럼만 같이 보냄 (관심 종목·성적표·실패 알림은 개인 채팅에만)
+const TG_SHARE = (process.env.TELEGRAM_SHARE_CHAT_ID || '').trim();
 const SITE_URL = (process.env.SITE_URL || '').trim();
 const API = 'https://generativelanguage.googleapis.com/v1beta';
 const DAY = 86400000;
@@ -206,6 +208,18 @@ async function autoModels() {
 const CAT_LABEL = { rates: '금리', inflation: '물가', growth: '경기', market: '시장·신용', fx: '환율', energy: '에너지', freight: '운임', stocks: '비축·재고', metals: '금속', grains: '곡물', etf: 'ETF' };
 
 /** 새 브리핑을 텔레그램으로 (4096자 제한 안에서) */
+/** 공유 채널에 같은 내용을 한 번 더 보냄 (설정했고 개인 채팅과 다를 때만) */
+async function shareCopy(text, label) {
+  if (!TG_TOKEN || !TG_SHARE || TG_SHARE === TG_CHAT) return;
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ chat_id: TG_SHARE, text: text.slice(0, 4090), disable_web_page_preview: true }), signal: AbortSignal.timeout(20000)
+    });
+    console.log(res.ok ? `  공유 채널로 ${label} 전송 완료` : `  공유 채널 ${label} 전송 실패: HTTP ${res.status}`);
+  } catch (e) { console.log(`  공유 채널 ${label} 전송 실패: ${e.message}`); }
+}
+
 async function sendBriefingTelegram(b, sections, kst) {
   if (!TG_TOKEN || !TG_CHAT) { console.log('  (텔레그램 미설정 — 브리핑 전송 건너뜀)'); return; }
   const lines = [`🌅 오늘의 AI 브리핑 · ${kst}`, '', `📌 ${b.headline || ''}`];
@@ -232,6 +246,7 @@ async function sendBriefingTelegram(b, sections, kst) {
     });
     console.log(res.ok ? '  텔레그램으로 브리핑 전송 완료' : `  텔레그램 브리핑 전송 실패: HTTP ${res.status}`);
   } catch (e) { console.log(`  텔레그램 브리핑 전송 실패: ${e.message}`); }
+  await shareCopy(text, '브리핑');
 }
 
 /* ---------- 오늘의 칼럼: 섹션형 짧은 칼럼 (브리핑 성공 뒤 1회 추가 호출) ----------
@@ -319,6 +334,7 @@ async function sendColumnTelegram(col) {
     });
     console.log(res.ok ? '  텔레그램으로 칼럼 전송 완료' : `  텔레그램 칼럼 전송 실패: HTTP ${res.status}`);
   } catch (e) { console.log(`  텔레그램 칼럼 전송 실패: ${e.message}`); }
+  await shareCopy(text + '\n\n※ AI가 작성한 참고용 글이며 투자 권유가 아닙니다.', '칼럼');
 }
 
 /* ---------- 관심 종목·ETF: 텔레그램 전용 (앱·ai.json·로그에 내용을 남기지 않음) ---------- */
@@ -495,8 +511,8 @@ function reportShortText(r) {
 }
 
 /** 긴 글은 빈 줄 기준으로 나눠 여러 메시지로 (텔레그램 4096자 제한) */
-async function sendTelegramLong(text, label) {
-  if (!TG_TOKEN || !TG_CHAT) return;
+async function sendTelegramLong(text, label, chat = TG_CHAT) {
+  if (!TG_TOKEN || !chat) return;
   const parts = []; let cur = '';
   for (const block of text.split('\n\n')) {
     if ((cur + '\n\n' + block).length > 3800 && cur) { parts.push(cur); cur = block; } else cur = cur ? cur + '\n\n' + block : block;
@@ -507,12 +523,12 @@ async function sendTelegramLong(text, label) {
     try {
       const res = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ chat_id: TG_CHAT, text: body.slice(0, 4090), disable_web_page_preview: true }), signal: AbortSignal.timeout(20000)
+        body: JSON.stringify({ chat_id: chat, text: body.slice(0, 4090), disable_web_page_preview: true }), signal: AbortSignal.timeout(20000)
       });
       if (!res.ok) { console.log(`  텔레그램 ${label} 전송 실패: HTTP ${res.status}`); return; }
     } catch (e) { console.log(`  텔레그램 ${label} 전송 실패: ${e.message}`); return; }
   }
-  console.log(`  텔레그램으로 ${label} 전송 완료 (${parts.length}개 메시지)`);
+  console.log(`  ${chat === TG_CHAT ? '텔레그램' : '공유 채널'}으로 ${label} 전송 완료 (${parts.length}개 메시지)`);
 }
 
 const SCHEMA = {
@@ -679,7 +695,10 @@ async function main() {
   const report = cleanReport(parsed.report);
   console.log(report ? `  리서치 리포트: 핵심 결론 ${report.summary.length} · 인사이트 ${report.insights.length} · 상충 ${report.conflicts.length} · 시나리오 ${report.scenarios.length}` : '  리서치 리포트: 없음');
   await sendBriefingTelegram(briefing, sections, kst);
-  if (report) await sendTelegramLong(reportShortText(report), '리서치 리포트 요약');
+  if (report) {
+    await sendTelegramLong(reportShortText(report), '리서치 리포트 요약');
+    if (TG_SHARE && TG_SHARE !== TG_CHAT) await sendTelegramLong(reportShortText(report), '리서치 리포트 요약', TG_SHARE);
+  }
   let column = null;
   // 최근 칼럼 제목 (최대 7개) — 같은 주제 반복을 피하도록 칼럼 재료로 넘기고 ai.json 에 이어서 보관
   const kstToday = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
