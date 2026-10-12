@@ -3,3 +3,5 @@ macro-dashboard-backup-*.json
 data/
 _site/
 previous.json
+private/
+.track-updated

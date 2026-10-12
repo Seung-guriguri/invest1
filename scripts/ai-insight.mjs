@@ -32,6 +32,7 @@ const KEY = (process.env.GEMINI_API_KEY || '').trim();
 const MODEL = (process.env.GEMINI_MODEL || '').trim();
 const RUN = String(process.env.AI_RUN || '').toLowerCase() === 'true';
 const SCHEDULED = String(process.env.AI_SCHEDULED || '').toLowerCase() === 'true';
+const WATCH_DIR = (process.env.WATCH_DIR || '').trim();   // 성적표용 기록 폴더 (배포하지 않는 private/)
 const TG_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
 const TG_CHAT = (process.env.TELEGRAM_CHAT_ID || '').trim();
 const SITE_URL = (process.env.SITE_URL || '').trim();
@@ -658,6 +659,18 @@ async function main() {
         rows: rows.filter(r => targets.includes(r.id)).map(({ id, name, value, unit, chg_1m, chg_unit, position }) => ({ id, name, value, unit, chg_1m, chg_unit, position })) }, universe);
       if (watch) await sendWatchlistTelegram(watch, universe, kst);
       else console.log('  관심 종목·ETF: 생성 실패 → 건너뜀');
+      // 성적표(scripts/track.mjs)용 기록: 티커·관심/경계와 지난 브리핑 점검 판정 개수만 (사이트로 배포하지 않는 폴더)
+      if (WATCH_DIR) {
+        const verdict = { hit: 0, partial: 0, miss: 0, hold: 0 };
+        for (const c of CATS) { const r = sections[c] && sections[c].review; if (!r) continue;
+          if (r.startsWith('일부 적중')) verdict.partial++; else if (r.startsWith('적중')) verdict.hit++; else if (r.startsWith('빗나감')) verdict.miss++; else verdict.hold++; }
+        await mkdir(WATCH_DIR, { recursive: true });
+        await writeFile(`${WATCH_DIR}/watch-today.json`, JSON.stringify({
+          date: new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10),
+          ideas: watch ? watch.ideas.map(i => ({ ticker: i.ticker, stance: i.stance })) : [],
+          reviews: Object.values(verdict).some(Boolean) ? verdict : null
+        }));
+      }
     } catch (e) { console.log(`  관심 종목·ETF 오류: ${e.message}`); }
   }
   else console.log('  오늘의 칼럼: 생성 실패 → 브리핑만 전송');
