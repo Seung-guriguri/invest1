@@ -40,7 +40,8 @@ const COMPUTED = {
               calc: (rb, ho, cl) => (rb * 42 * 2 + ho * 42 - cl * 3) / 3 },
   // TTF − Henry Hub 가격차 ($/MMBtu): TTF(€/MWh) × 유로/달러 ÷ 3.412(1MWh = 3.412MMBtu) − 헨리허브
   //   클수록 미국 LNG를 유럽에 팔 때 남는 몫이 커져 LNG 수출·LNG선 수요가 늘기 쉬움
-  lng_spread: { inputs: ['ttf', 'eurusd', 'natgas'], label: 'Calc:TTF−HH',
+  //   asof: 환율(24시간·런던 날짜)과 선물의 날짜 체계가 달라 '세 값이 같은 날짜'만 쓰면 최신 날이 빠짐 → TTF 날짜 기준으로 나머지는 그날 이전 최신값
+  lng_spread: { inputs: ['ttf', 'eurusd', 'natgas'], label: 'Calc:TTF−HH', asof: true,
                 calc: (ttf, fx, hh) => ttf * fx / 3.412 - hh },
   // asof: 첫 재료의 날짜마다 나머지 재료는 그날 이전 가장 최근 값 사용 (휴일·발표 주기가 달라도 계산)
   kr_us_base:     { inputs: ['kr_base', 'us_ffr'], label: 'Calc:한국−미국 기준금리', asof: true, calc: (kr, us) => kr - us },
@@ -305,6 +306,7 @@ async function main() {
 
   const series = {};
   const errors = [];
+  const warnings = [];   // 급변 등 확인이 필요한 지표 (값은 유지)
   const entries = Object.entries(SOURCES);
   await pool(entries, 4, async ([id, sources]) => {
     try {
@@ -326,6 +328,11 @@ async function main() {
         if (extra.length) { got.obs = got.obs.concat(extra); console.log(`  · ${id}: 응답에 최근 ${extra.length}개 관측치 누락 → 이전 값 보존 (${extra[extra.length - 1][0]})`); }
       }
       series[id] = got;
+      // 무결성 점검: 직전 관측치 대비 비정상 급변(시세 오류·선물 월물 교체 등) — 값은 그대로 두고 로그로 알림
+      const o = got.obs, n = o.length;
+      if (n >= 2 && got.freq === 'D' && o[n - 2][1] && Math.abs(o[n - 1][1] / o[n - 2][1] - 1) > 0.25 && Math.sign(o[n - 1][1]) === Math.sign(o[n - 2][1])) {
+        warnings.push(id); console.log(`  ⚠ ${id}: 직전 대비 ${((o[n - 1][1] / o[n - 2][1] - 1) * 100).toFixed(1)}% 급변 (${o[n - 2][0]} ${o[n - 2][1]} → ${o[n - 1][0]} ${o[n - 1][1]}) — 시세 확인 필요`);
+      }
       const last = series[id].obs[series[id].obs.length - 1];
       console.log(`✓ ${id.padEnd(12)} ${series[id].source.padEnd(26)} ${last[0]}  ${last[1]}`);
     } catch (e) {
@@ -370,7 +377,7 @@ async function main() {
 
   const total = entries.length + Object.keys(COMPUTED).length;
   const fresh = total - errors.length;
-  console.log(`\n완료: 성공 ${fresh} / 실패 ${errors.length} / 전체 ${total} → ${OUT}`);
+  console.log(`\n완료: 성공 ${fresh} / 실패 ${errors.length} / 전체 ${total} → ${OUT}${warnings.length ? ` · 급변 확인 ${warnings.length}개 (${warnings.join(', ')})` : ''}`);
   // 하나도 못 받았으면 실패 처리 → 배포를 건너뛰어 기존 사이트 유지
   if (fresh === 0) { console.error('수집된 지표가 없습니다. API 키와 네트워크를 확인하세요.'); process.exit(1); }
 }
