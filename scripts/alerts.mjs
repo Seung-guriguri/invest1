@@ -174,11 +174,12 @@ function checkHealth(latest, ai) {
     out.push({ id: 'health_fetch', text: `⚠️ 데이터 수집 점검 필요\n이번 수집에서 ${errors.length}개 지표를 못 받았어요 (이전 값 유지 ${kept} · 값 없음 ${fresh}).\n한국은행·EIA·Yahoo 등 출처 장애일 수 있어요. 다음 수집에서 자동으로 다시 시도합니다.` });
   }
   // 매일 움직이는 핵심 지표가 5일 넘게 멈췄으면
-  const KEY = { sp500: 'S&P 500', us10y: '미국 10년물', wti: 'WTI', usdkrw: '원/달러' };
-  const stale = Object.entries(KEY).filter(([id]) => {
+  // 기준(일): 미국 국채금리(FRED)는 발표가 하루 늦고 미국 채권시장 휴일(콜럼버스데이 등)이 끼면 5일을 넘기기 쉬워 7일
+  const KEY = { sp500: ['S&P 500', 5], us10y: ['미국 10년물', 7], wti: ['WTI', 5], usdkrw: ['원/달러', 5] };
+  const stale = Object.entries(KEY).filter(([id, [, days]]) => {
     const s = latest.series && latest.series[id]; if (!s || !s.obs || !s.obs.length) return true;
-    return Date.now() - Date.parse(s.obs[s.obs.length - 1][0]) > 5 * DAY;
-  }).map(([, n]) => n);
+    return Date.now() - Date.parse(s.obs[s.obs.length - 1][0]) > days * DAY;
+  }).map(([, [n]]) => n);
   if (stale.length) out.push({ id: 'health_stale', text: `⚠️ 핵심 지표 갱신 멈춤\n${stale.join(', ')} 값이 5일 넘게 새로 들어오지 않았어요. 데이터 출처를 확인해야 할 수 있어요.` });
   // 평일 12시(KST) 이후인데 오늘 아침 AI 브리핑이 없으면
   const now = new Date(Date.now() + 9 * 3600000), dow = now.getUTCDay(), hour = now.getUTCHours();

@@ -319,6 +319,12 @@ async function main() {
         return;
       }
       delete got.fallbackReason;
+      // 같은 출처인데 이번 응답이 이전보다 최근 날짜가 빠져 있으면(Yahoo 등 일시적 누락) 이전의 더 새 관측치를 이어 붙임
+      if (prev && prev.obs && prev.obs.length && prev.source === got.source) {
+        const lastNew = got.obs[got.obs.length - 1][0];
+        const extra = prev.obs.filter(o => o[0] > lastNew);
+        if (extra.length) { got.obs = got.obs.concat(extra); console.log(`  · ${id}: 응답에 최근 ${extra.length}개 관측치 누락 → 이전 값 보존 (${extra[extra.length - 1][0]})`); }
+      }
       series[id] = got;
       const last = series[id].obs[series[id].obs.length - 1];
       console.log(`✓ ${id.padEnd(12)} ${series[id].source.padEnd(26)} ${last[0]}  ${last[1]}`);
