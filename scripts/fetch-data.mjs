@@ -139,10 +139,13 @@ async function fetchYahoo(src) {
   const close = adj && adj.length === r.timestamp.length ? adj : r.indicators.quote[0].close;
   if (src.adj && close !== adj) console.log(`  · ${src.yahoo}: 수정종가 없음 → 일반 종가 사용`);
   let rows = r.timestamp.map((t, i) => [iso(new Date((t + offset) * 1000)), close[i] == null ? NaN : close[i]]);
-  // 정규장이 진행 중이면 오늘 봉은 종가가 아닌 장중 가격 → 제외하고 직전 종가까지만 사용
+  // 정규장이 진행 중이면 오늘 봉은 종가가 아닌 장중 가격 → 제외하고 직전 종가까지만 사용 (주식·ETF·지수)
+  // 단, 선물(=F)·환율(=X)·달러인덱스처럼 거의 24시간 거래되는 시장은 '장중'이 끝나지 않아
+  // 이 규칙을 쓰면 늘 하루 전 값에 멈춤 (예: 한국 아침에 미국 월요일 유가가 빠지고 금요일 값 표시) → 최신 봉 유지
+  const h24 = /=F$|=X$/.test(src.yahoo) || src.yahoo === 'DX-Y.NYB' || ['FUTURE', 'CURRENCY'].includes(r.meta && r.meta.instrumentType);
   const reg = r.meta && r.meta.currentTradingPeriod && r.meta.currentTradingPeriod.regular;
   const now = Date.now() / 1000;
-  if (reg && now >= reg.start && now < reg.end && r.timestamp[r.timestamp.length - 1] >= reg.start) rows = rows.slice(0, -1);
+  if (!h24 && reg && now >= reg.start && now < reg.end && r.timestamp[r.timestamp.length - 1] >= reg.start) rows = rows.slice(0, -1);
   return rows;
 }
 
