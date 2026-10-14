@@ -338,7 +338,7 @@ async function sendColumnTelegram(col) {
   await shareCopy(text + '\n\n※ AI가 작성한 참고용 글이며 투자 권유가 아닙니다.', '칼럼');
 }
 
-/* ---------- 관심 종목·ETF: 텔레그램 전용 (앱·ai.json·로그에 내용을 남기지 않음) ---------- */
+/* ---------- 관심 종목·ETF: 텔레그램 전용 — 개인 채팅 + 공유 채널 (앱·ai.json·로그에 내용을 남기지 않음) ---------- */
 // 후보는 이 목록 안에서만 고르게 함 (없는 티커를 지어내지 않도록). 앱이 추적 중인 ETF·해운주는 자동 포함.
 const WATCH_EXTRA = {
   SPY: 'S&P 500', QQQ: '나스닥 100', IWM: '미국 소형주(러셀 2000)', XLF: '미국 금융주', XLK: '미국 기술주', XLU: '미국 유틸리티',
@@ -454,8 +454,9 @@ async function sendWatchlistTelegram(w, universe, kst) {
     lines.push('', `${i.stance === '경계' ? '🔴' : '🟢'} ${i.ticker} · ${name}`, i.point);
     if (i.invalidation) lines.push(`↳ 철회 조건: ${i.invalidation}`);
   });
-  lines.push('', '※ 텔레그램 전용 · AI가 고른 조사 후보이며 매수·매도 권유가 아닙니다.');
-  let text = lines.join('\n'); if (text.length > 4000) text = text.slice(0, 3990) + '…';
+  const body = lines.join('\n');
+  let text = body + '\n\n※ 텔레그램 전용 · AI가 고른 조사 후보이며 매수·매도 권유가 아닙니다.';
+  if (text.length > 4000) text = text.slice(0, 3990) + '…';
   try {
     const res = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
@@ -463,6 +464,14 @@ async function sendWatchlistTelegram(w, universe, kst) {
     });
     console.log(res.ok ? '  텔레그램으로 관심 종목·ETF 전송 완료' : `  텔레그램 관심 종목 전송 실패: HTTP ${res.status}`);
   } catch (e) { console.log(`  텔레그램 관심 종목 전송 실패: ${e.message}`); }
+  // 공유 채널에도 전송 — 여러 사람이 보므로 투자 권유가 아님을 더 분명하게
+  const shareNote = [
+    '⚠️ 투자 권유가 아닙니다',
+    '· AI가 오늘의 매크로 지표만 보고 고른 "조사해 볼 후보"이며, 매수·매도·보유를 권하지 않습니다.',
+    '· 기업 실적·뉴스는 반영하지 않았고, 틀릴 수 있습니다.',
+    '· 투자 판단과 그 결과의 책임은 본인에게 있습니다.'
+  ].join('\n');
+  await shareCopy((body + '\n\n' + shareNote).slice(0, 4090), '관심 종목·ETF');
 }
 
 const CATS = ['rates', 'inflation', 'growth', 'market', 'fx', 'energy', 'freight', 'stocks', 'metals', 'grains', 'etf'];
