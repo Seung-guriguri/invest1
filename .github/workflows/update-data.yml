@@ -156,8 +156,9 @@ jobs:
 
   # 공개 저장소는 60일간 활동이 없으면 예약 실행이 자동으로 꺼집니다.
   # 예약 실행 때마다 워크플로를 '활성화' API로 다시 켜 두어 멈추지 않게 합니다 (커밋 없음).
+  # GitHub 예약은 늦거나 빠질 수 있어, 외부 예약(cron-job.org, scheduled=true 수동 실행)에서도 함께 실행
   keepalive:
-    if: github.event_name == 'schedule'
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.scheduled)
     runs-on: ubuntu-latest
     permissions:
       actions: write
