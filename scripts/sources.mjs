@@ -90,6 +90,11 @@ export const SOURCES = {
   coal_pw_kor: [{ ember: 'KOR', series: 'Coal' }],
   coal_pw_ind: [{ ember: 'IND', series: 'Coal' }],
   coal_pw_twn: [{ ember: 'TWN', series: 'Coal' }],
+  // LNG 수요 쪽 근거: 가스 발전 비중 (%, 월간, Ember) — 아시아는 JKM, 유럽은 TTF
+  gas_pw_jpn: [{ ember: 'JPN', series: 'Gas' }],
+  gas_pw_kor: [{ ember: 'KOR', series: 'Gas' }],
+  gas_pw_chn: [{ ember: 'CHN', series: 'Gas' }],
+  gas_pw_eu:  [{ ember: 'EU', series: 'Gas' }],
   coal:   [{ fred: 'PCOALAUUSDM' }],                       // IMF 호주(뉴캐슬) 석탄, 월간
   gasoline: [{ yahoo: 'RB=F' }, { fred: 'DGASNYH' }],       // RBOB 휘발유 선물 (실패 시 뉴욕항 현물)
   diesel:   [{ yahoo: 'HO=F' }, { fred: 'DDFUELNYH' }],     // 초저유황 디젤(ULSD) 선물 (실패 시 뉴욕항 현물)
