@@ -81,6 +81,9 @@ export const SOURCES = {
   natgas: [{ yahoo: 'NG=F' }, { fred: 'DHHNGSP' }],
   ttf: [{ yahoo: 'TTF=F' }],                                 // 유럽 천연가스 TTF (€/MWh)
   jkm: [{ yahoo: 'JKM=F' }],                                 // 아시아 LNG 현물 JKM ($/MMBtu, Platts 기준 선물 근월물)
+  power_gas:  [{ eiaGrid: 'NG', avg: 7 }],                  // 미국 발전량 중 천연가스 비중 (%, 7일 평균, EIA-930)
+  power_coal: [{ eiaGrid: 'COL', avg: 7 }],                 // 미국 발전량 중 석탄 비중 (%, 7일 평균, EIA-930)
+  nuclear_util: [{ nrc: true }],                            // 미국 원전 가동률 (%, NRC 원자로 일간 출력 평균)
   coal:   [{ fred: 'PCOALAUUSDM' }],                       // IMF 호주(뉴캐슬) 석탄, 월간
   gasoline: [{ yahoo: 'RB=F' }, { fred: 'DGASNYH' }],       // RBOB 휘발유 선물 (실패 시 뉴욕항 현물)
   diesel:   [{ yahoo: 'HO=F' }, { fred: 'DDFUELNYH' }],     // 초저유황 디젤(ULSD) 선물 (실패 시 뉴욕항 현물)

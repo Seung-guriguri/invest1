@@ -261,9 +261,98 @@ async function fetchEia(src) {
   return obs;
 }
 
-const FETCHERS = { fred: fetchFred, yahoo: fetchYahoo, ecos: fetchEcos, eurostat: fetchEurostat, eia: fetchEia };
+/* ---------- EIA 전력망 (EIA-930, 미국 본토 48개 주 발전원별 일간 발전량) ----------
+ * { eiaGrid: 'NG' | 'COL' | ..., avg: 7(선택: 이동평균) } → 그날 전체 발전량 중 그 발전원 비중(%)
+ * 발전원 여러 개가 같은 응답을 쓰므로 한 번만 받아 공유. 집계가 덜 된 날(전체 발전량이 평소의 70% 미만)은 제외. */
+let gridCache = null;
+async function loadGrid() {
+  const base = 'https://api.eia.gov/v2/electricity/rto/daily-fuel-type-data/data/';
+  const page = async (tz, offset) => {
+    const p = new URLSearchParams({ api_key: EIA_KEY, frequency: 'daily', 'data[0]': 'value', 'facets[respondent][]': 'US48',
+      start: iso(yearsAgo(2)), 'sort[0][column]': 'period', 'sort[0][direction]': 'asc', length: '5000', offset: String(offset) });
+    if (tz) p.set('facets[timezone][]', tz);
+    const j = await getJSON(base + '?' + p);
+    const resp = j && j.response;
+    if (!resp || !Array.isArray(resp.data)) throw new Error('EIA 전력망 응답 형식 오류' + (j && j.error ? `: ${String(j.error).slice(0, 200)}` : ''));
+    return resp;
+  };
+  const all = async tz => {
+    let rows = [], offset = 0;
+    for (let i = 0; i < 20; i++) {
+      const r = await page(tz, offset);
+      rows = rows.concat(r.data);
+      offset += r.data.length;
+      if (!r.data.length || offset >= Number(r.total || 0)) break;
+    }
+    return rows;
+  };
+  let rows = await all('Eastern');
+  if (!rows.length) rows = await all(null);
+  // 시간대가 섞여 오면 Eastern(없으면 처음 보이는 것) 하나만 사용
+  const tzs = [...new Set(rows.map(r => r.timezone).filter(Boolean))];
+  const tz = tzs.includes('Eastern') ? 'Eastern' : tzs[0];
+  if (tz) rows = rows.filter(r => r.timezone === tz);
+  const byDay = new Map();
+  for (const r of rows) {
+    const v = Number(r.value);
+    if (!r.period || !r.fueltype || !Number.isFinite(v)) continue;
+    const d = String(r.period).slice(0, 10);
+    if (!byDay.has(d)) byDay.set(d, {});
+    byDay.get(d)[r.fueltype] = v;
+  }
+  const days = [...byDay.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1))
+    .map(([d, f]) => [d, f, Object.values(f).filter(v => v > 0).reduce((a, b) => a + b, 0)]);
+  const totals = days.map(x => x[2]).sort((a, b) => a - b);
+  const median = totals[Math.floor(totals.length / 2)] || 0;
+  return days.filter(x => x[2] > 0 && x[2] >= median * 0.7);
+}
+async function fetchEiaGrid(src) {
+  if (!EIA_KEY) throw new SkipError('EIA_API_KEY 없음');
+  if (!gridCache) gridCache = loadGrid();
+  let days;
+  try { days = await gridCache; } catch (e) { gridCache = null; throw e; }
+  let obs = days.map(([d, f, total]) => [d, f[src.eiaGrid] == null ? NaN : f[src.eiaGrid] / total * 100]).filter(o => Number.isFinite(o[1]));
+  if (!obs.length) throw new Error(`발전원 ${src.eiaGrid} 없음 (있는 발전원: ${Object.keys((days[days.length - 1] || [])[1] || {}).join(',')})`);
+  if (src.avg) {
+    const n = src.avg;
+    obs = obs.map((o, i) => i < n - 1 ? [o[0], NaN] : [o[0], obs.slice(i - n + 1, i + 1).reduce((s, x) => s + x[1], 0) / n]);
+  }
+  return obs;
+}
+
+/* ---------- 미국 원자력규제위원회 NRC 원자로 일간 출력 (키 불필요) ----------
+ * { nrc: true } → 날짜별 전체 원자로 평균 출력률(%) = 원전 가동률 근사 (정비·고장으로 멈춘 원자로는 0%) */
+async function fetchNrc() {
+  const url = 'https://www.nrc.gov/reading-rm/doc-collections/event-status/reactor-status/powerreactorstatusforlast365days.txt';
+  let text, last;
+  for (let i = 0; i < 3; i++) {
+    try {
+      const res = await fetch(url, { headers: { 'user-agent': UA } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      text = await res.text(); break;
+    } catch (e) { last = e; await sleep(1000 * 2 ** i); }
+  }
+  if (text == null) throw last;
+  const byDay = new Map();
+  for (const line of text.split(/\r?\n/)) {
+    const [dt, unit, pw] = line.split('|').map(x => (x || '').trim());
+    const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(dt || '');
+    const v = Number(pw);
+    if (!m || !unit || pw === '' || !Number.isFinite(v)) continue;   // 머리글·빈 줄 건너뜀
+    const d = `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`;
+    if (!byDay.has(d)) byDay.set(d, []);
+    byDay.get(d).push(v);
+  }
+  const counts = [...byDay.values()].map(a => a.length).sort((a, b) => a - b);
+  const typical = counts[Math.floor(counts.length / 2)] || 0;
+  // 보고된 원자로 수가 평소의 90% 미만인 날은 덜 집계된 것으로 보고 제외
+  return [...byDay.entries()].filter(([, a]) => a.length >= typical * 0.9)
+    .map(([d, a]) => [d, a.reduce((s, x) => s + x, 0) / a.length]);
+}
+
+const FETCHERS = { fred: fetchFred, yahoo: fetchYahoo, ecos: fetchEcos, eurostat: fetchEurostat, eia: fetchEia, eiaGrid: fetchEiaGrid, nrc: fetchNrc };
 const sourceLabel = src => src.fred ? `FRED:${src.fred}` : src.yahoo ? `Yahoo:${src.yahoo}`
-  : src.eurostat ? `Eurostat:${src.eurostat}` : src.eia ? `EIA:${src.eia}` : `ECOS:${src.ecos}/${src.item}`;
+  : src.eurostat ? `Eurostat:${src.eurostat}` : src.eia ? `EIA:${src.eia}` : src.eiaGrid ? `EIA-930:US48/${src.eiaGrid}` : src.nrc ? 'NRC:원자로 출력' : `ECOS:${src.ecos}/${src.item}`;
 
 /** 지표 하나: 소스를 순서대로 시도 */
 async function collect(id, sources) {

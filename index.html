@@ -655,6 +655,12 @@ const CONFIG = {
       level: { dir: 'up', warn: 50, danger: 70 }, change: { dir: 'both', flat: 1.5, warn: 7, danger: 14 } },
     { id: 'jkm', cat: 'energy', name: '아시아 LNG (JKM)', sub: '일본·한국행 LNG 현물가격 (Platts JKM 선물) — 한국 가스 도입 원가', unit: '$/MMBtu', dp: 2, changeMode: 'pct', profile: 'jkm',
       level: { dir: 'up', warn: 15, danger: 20 }, change: { dir: 'both', flat: 1.5, warn: 7, danger: 14 } },
+    { id: 'power_gas', cat: 'energy', name: '미국 가스 발전 비중', sub: '전체 발전량 중 천연가스, 7일 평균 (EIA-930)', unit: '%', dp: 1, changeMode: 'pp', profile: 'powerGas',
+      change: { dir: 'both', flat: 0.5, warn: 3, danger: 5 } },
+    { id: 'power_coal', cat: 'energy', name: '미국 석탄 발전 비중', sub: '전체 발전량 중 석탄, 7일 평균 (EIA-930)', unit: '%', dp: 1, changeMode: 'pp', profile: 'powerCoal',
+      change: { dir: 'both', flat: 0.3, warn: 2, danger: 3.5 } },
+    { id: 'nuclear_util', cat: 'energy', name: '미국 원전 가동률', sub: '전체 원자로 평균 출력, 일간 (NRC)', unit: '%', dp: 1, changeMode: 'pp', profile: 'nuclear',
+      level: { fixed: true, dir: 'down', warn: 85, danger: 78 }, change: { dir: 'down', flat: 0.5, warn: 3, danger: 6 } },
     { id: 'coal', cat: 'energy', name: '석탄', sub: '호주 뉴캐슬, 월간', unit: '$/t', dp: 1, changeMode: 'pct', staleDays: 140, profile: 'coal',
       change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
     { id: 'gasoline', cat: 'energy', name: '휘발유', sub: 'RBOB 선물 (RB=F)', unit: '$/gal', dp: 3, changeMode: 'pct', profile: 'gasoline',
@@ -1102,6 +1108,28 @@ const COMMENTS = {
     fall: '아시아 LNG 하락 → 한국 가스 도입 원가 부담↓',
     high: '아시아 LNG 비싼 구간 → 한국 에너지 수입액 부담, 무역수지 압박',
     flat: '아시아 LNG 보합 → 날씨·중국 수요 변화 대기'
+  },
+  powerGas: {
+    surge: '가스 발전 비중 급증 → 폭염·한파 또는 원전 정지로 가스 수요 급증, 헨리허브 상승 압력',
+    rise: '가스 발전 비중 확대 → 발전용 가스 수요↑, 가스값 지지',
+    plunge: '가스 발전 비중 급감 → 날씨 완화나 풍력·태양광 증가, 가스 수요 둔화',
+    fall: '가스 발전 비중 축소 → 발전용 가스 수요↓',
+    flat: '가스 발전 비중 안정'
+  },
+  powerCoal: {
+    surge: '석탄 발전 비중 급증 → 가스가 비싸 석탄으로 갈아타는 중이거나 전력 수요 급증',
+    rise: '석탄 발전 비중 확대 → 가스값 부담에 따른 연료 전환 신호',
+    plunge: '석탄 발전 비중 급감 → 가스값 하락으로 가스 발전이 석탄을 대체',
+    fall: '석탄 발전 비중 축소 → 가스·재생에너지로 대체',
+    flat: '석탄 발전 비중 안정'
+  },
+  nuclear: {
+    plunge: '원전 가동률 급락 → 원자로 정지·정비 확대, 빈자리를 가스 발전이 메워 가스 수요↑',
+    high: '원전 가동률 크게 낮음 → 정비 시즌 이상의 정지, 가스 발전 수요 증가 요인',
+    warn: '원전 가동률 낮음 → 정비 시즌(봄·가을)인지 확인',
+    rise: '원전 가동률 회복 → 가스 발전 수요 감소 요인',
+    fall: '원전 가동률 하락 → 가스 발전 수요 증가 요인',
+    flat: '원전 가동률 안정'
   },
   lngSpread: {
     surge: 'LNG 수출 마진 급등 → 미국 LNG를 유럽으로 보낼 유인 급증, LNG선 수요↑',
