@@ -154,6 +154,7 @@ Yahoo 시세는 수집 시점에 정규장이 열려 있으면 그날 봉(장중
 | 환율 | 원/달러, 달러인덱스, 엔/달러, 유로/달러, 위안/달러, VIX | Yahoo → FRED |
 | 에너지 | WTI, 브렌트, 천연가스, 휘발유(RBOB, RB=F), 디젤(ULSD, HO=F) | Yahoo → FRED |
 | | 유럽 천연가스 TTF (€/MWh) | Yahoo |
+| | 아시아 LNG JKM ($/MMBtu, 일본·한국행 현물, Platts JKM 선물) | Yahoo |
 | | 3-2-1 크랙 스프레드 (정유 마진 = (휘발유×42×2 + 디젤×42 − WTI×3) ÷ 3, $/배럴) | 위 세 선물로 자동 계산 |
 | | 석탄(호주 뉴캐슬) | FRED(IMF, 월간) |
 | 운임 | 벌크선 운임 (BDRY ETF — BDI 원지수는 무료 API가 없어 대용) | Yahoo |

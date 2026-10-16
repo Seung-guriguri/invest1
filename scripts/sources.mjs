@@ -80,6 +80,7 @@ export const SOURCES = {
   brent:  [{ yahoo: 'BZ=F' }, { fred: 'DCOILBRENTEU' }],
   natgas: [{ yahoo: 'NG=F' }, { fred: 'DHHNGSP' }],
   ttf: [{ yahoo: 'TTF=F' }],                                 // 유럽 천연가스 TTF (€/MWh)
+  jkm: [{ yahoo: 'JKM=F' }],                                 // 아시아 LNG 현물 JKM ($/MMBtu, Platts 기준 선물 근월물)
   coal:   [{ fred: 'PCOALAUUSDM' }],                       // IMF 호주(뉴캐슬) 석탄, 월간
   gasoline: [{ yahoo: 'RB=F' }, { fred: 'DGASNYH' }],       // RBOB 휘발유 선물 (실패 시 뉴욕항 현물)
   diesel:   [{ yahoo: 'HO=F' }, { fred: 'DDFUELNYH' }],     // 초저유황 디젤(ULSD) 선물 (실패 시 뉴욕항 현물)

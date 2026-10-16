@@ -76,7 +76,7 @@
   };
 
   const IDS = {
-    natgas: 'gas', ttf: 'gas', etf_ung: 'gas', lng_spread: 'gas',
+    natgas: 'gas', ttf: 'gas', jkm: 'gas', etf_ung: 'gas', lng_spread: 'gas',
     ng_storage: 'gasStorage',
     gasoline: 'gasoline', crack321: 'gasoline', gasoline_demand: 'gasoline', us_gasoline: 'gasoline',
     diesel: 'distillate', distill_demand: 'distillate', us_distill: 'distillate',
