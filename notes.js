@@ -50,7 +50,32 @@
     watch: '월간 발표(1~3개월 지연) · 뉴캐슬 석탄값 · 아시아 LNG(JKM) · 원전 가동'
   });
 
+  /* 가스 발전 비중 공통 (Ember 월간) — LNG 수요 */
+  const gasPower = (id, region, price, note) => ({
+    what: `${region} 전체 발전량 중 가스 발전 비중(Ember 월간) — LNG 수요의 바로미터${note ? ' · ' + note : ''}`,
+    states: {
+      surge: `가스 비중 급증 → 한파·폭염이나 원전·석탄 공백, LNG 수입 수요↑ (${price} 상승 요인)`,
+      rise: `가스 비중 확대 → LNG 수요 증가 요인 (${price} 지지)`,
+      fall: '가스 비중 축소 → 석탄·원전·재생에너지로 대체, LNG 수요 둔화',
+      plunge: '가스 비중 급감 → LNG가 비싸 다른 연료로 갈아탔거나 전력 수요 둔화',
+      high: '최근 수년 중 높은 비중 → LNG 의존이 큰 구간',
+      low: '최근 수년 중 낮은 비중 → LNG 수요 약한 구간',
+      flat: '보합 → 계절 변화 대기'
+    },
+    pairs: [
+      { when: S => S.up(id) && S.up(price === 'TTF' ? 'ttf' : 'jkm'), text: `${price}도 상승 → 발전용 수요가 LNG 가격을 끌어올리는 중` },
+      { when: S => S.down(id) && S.up(price === 'TTF' ? 'ttf' : 'jkm'), text: `${price}는 오르는데 가스 발전은 축소 → 비싼 LNG를 피해 석탄 등으로 전환` },
+      { when: S => S.up(id) && S.up('lng_spread'), text: 'LNG 수출 마진도 확대 → 미국 LNG 수출·LNG선 수요에 우호적' },
+      { when: () => [12, 1, 2, 7, 8].includes(month()), text: '한겨울·한여름 → 냉난방 수요로 가스 발전이 늘기 쉬운 시기' }
+    ],
+    watch: `월간 발표(1~3개월 지연) · ${price} 가격 · 기온 · 원전 가동`
+  });
+
   global.NOTES = {
+    gas_pw_jpn: gasPower('gas_pw_jpn', '일본', 'JKM', '세계 최대급 LNG 수입국'),
+    gas_pw_kor: gasPower('gas_pw_kor', '한국', 'JKM', '원전·석탄 비중에 따라 LNG 수입 변동'),
+    gas_pw_chn: gasPower('gas_pw_chn', '중국', 'JKM', '비중은 작지만 변동이 아시아 LNG 가격을 좌우'),
+    gas_pw_eu: gasPower('gas_pw_eu', 'EU', 'TTF', '러시아 가스 이후 LNG 의존 확대'),
     coal_pw_jpn: coalPower('coal_pw_jpn', '일본', '호주 열탄 최대 수입국'),
     coal_pw_chn: coalPower('coal_pw_chn', '중국', '세계 최대 석탄 소비국, 수력 부진 때 석탄 급증'),
     coal_pw_kor: coalPower('coal_pw_kor', '한국', '원전 정비·LNG 가격에 따라 석탄 비중 변동'),

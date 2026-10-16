@@ -357,16 +357,19 @@ async function fetchNrc() {
  * 나라별로 한 번만 받아 여러 발전원이 공유. API 주소가 두 개(ember-energy / ember-climate)라 차례로 시도. */
 const emberCache = new Map();
 async function loadEmber(code) {
-  const p = new URLSearchParams({ entity_code: code, start_date: `${new Date().getFullYear() - 11}-01`, is_aggregate_series: 'false', api_key: EMBER_KEY });
   const reasons = [];
-  for (const host of ['https://api.ember-energy.org', 'https://api.ember-climate.org']) {
-    try {
-      const j = await getJSON(`${host}/v1/electricity-generation/monthly?` + p);
-      const rows = Array.isArray(j) ? j : j && Array.isArray(j.data) ? j.data : null;
-      if (!rows) throw new Error('응답 형식 오류: ' + JSON.stringify(j).slice(0, 200));
-      if (!rows.length) throw new Error('데이터 없음');
-      return rows;
-    } catch (e) { reasons.push(`${host.replace('https://', '')} → ${e.message}`); }
+  // 나라는 entity_code(ISO3), EU 같은 묶음 지역은 코드가 없을 수 있어 entity 이름으로도 시도
+  for (const key of ['entity_code', 'entity']) {
+    const p = new URLSearchParams({ [key]: code, start_date: `${new Date().getFullYear() - 11}-01`, is_aggregate_series: 'false', api_key: EMBER_KEY });
+    for (const host of ['https://api.ember-energy.org', 'https://api.ember-climate.org']) {
+      try {
+        const j = await getJSON(`${host}/v1/electricity-generation/monthly?` + p);
+        const rows = Array.isArray(j) ? j : j && Array.isArray(j.data) ? j.data : null;
+        if (!rows) throw new Error('응답 형식 오류: ' + JSON.stringify(j).slice(0, 200));
+        if (!rows.length) throw new Error('데이터 없음');
+        return rows;
+      } catch (e) { reasons.push(`${host.replace('https://', '')}(${key}) → ${e.message}`); }
+    }
   }
   throw new Error(reasons.join(' / '));
 }

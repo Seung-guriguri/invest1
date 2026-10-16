@@ -30,7 +30,7 @@
   if (mode !== 'v2') { document.documentElement.removeAttribute('data-ui'); return; }
   document.documentElement.setAttribute('data-ui', 'v2');
 
-  const CAT_ICON = { rates: '🏦', inflation: '🛒', growth: '🏭', market: '📈', fx: '💱', energy: '🛢️', freight: '🚢', stocks: '📦', metals: '⛏️', grains: '🌾', etf: '🧺' };
+  const CAT_ICON = { rates: '🏦', inflation: '🛒', growth: '🏭', market: '📈', fx: '💱', energy: '🛢️', power: '⚡', freight: '🚢', stocks: '📦', metals: '⛏️', grains: '🌾', etf: '🧺' };
   const dirOf = a => a.diff > 0 ? 'up' : a.diff < 0 ? 'down' : 'flat';
   const trendDir = a => a.trend === 'rise' || a.trend === 'surge' ? 'up' : a.trend === 'fall' || a.trend === 'plunge' ? 'down' : 'flat';
 
