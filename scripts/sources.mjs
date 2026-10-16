@@ -83,7 +83,8 @@ export const SOURCES = {
   jkm: [{ yahoo: 'JKM=F' }],                                 // 아시아 LNG 현물 JKM ($/MMBtu, Platts 기준 선물 근월물)
   power_gas:  [{ eiaGrid: 'NG', avg: 7 }],                  // 미국 발전량 중 천연가스 비중 (%, 7일 평균, EIA-930)
   power_coal: [{ eiaGrid: 'COL', avg: 7 }],                 // 미국 발전량 중 석탄 비중 (%, 7일 평균, EIA-930)
-  nuclear_util: [{ nrc: true }],                            // 미국 원전 가동률 (%, NRC 원자로 일간 출력 평균)
+  nuclear_util: [{ nrc: true }],
+  us_coal_cons: [{ eia: 'TOTAL.CLTCPUS.M', scale: 0.001 }],      // 미국 석탄 소비량 (전 부문, 백만 숏톤, 월간 — EIA 월간 에너지 리뷰)                            // 미국 원전 가동률 (%, NRC 원자로 일간 출력 평균)
   // 호주 열탄 주요 수입국의 석탄 발전 비중 (%, 월간, Ember)
   coal_pw_jpn: [{ ember: 'JPN', series: 'Coal' }],
   coal_pw_chn: [{ ember: 'CHN', series: 'Coal' }],

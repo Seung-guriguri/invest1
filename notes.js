@@ -72,6 +72,23 @@
   });
 
   global.NOTES = {
+    us_coal_cons: {
+      what: '미국 전체 석탄 소비량(월간, 백만 숏톤) — 약 9할이 발전용, 나머지는 제철·산업용',
+      states: {
+        surge: '급증 → 폭염·한파 또는 가스값 상승으로 석탄 발전 확대',
+        rise: '증가 → 가스 대신 석탄을 더 태우는 중, 미국산 석탄 수출 여력 감소',
+        fall: '감소 → 석탄 발전 축소, 장기적으로는 발전소 폐쇄 흐름',
+        plunge: '급감 → 가스값 하락이나 온화한 날씨, 남는 석탄은 수출로 향할 수 있음',
+        flat: '보합 → 연료 전환 움직임 없음'
+      },
+      pairs: [
+        { when: S => S.up('us_coal_cons') && S.up('natgas'), text: '가스값 상승 동반 → 비싼 가스를 피해 석탄으로 갈아타는 중' },
+        { when: S => S.down('us_coal_cons') && S.down('natgas'), text: '가스값 하락 동반 → 싼 가스가 석탄 발전을 밀어내는 중' },
+        { when: S => S.down('us_coal_cons') && S.up('coal'), text: '뉴캐슬 석탄값은 상승 → 미국에서 남는 석탄이 아시아 수출로 향할 유인' },
+        { when: () => [12, 1, 2, 7, 8].includes(month()), text: '한겨울·한여름 → 전력 수요로 석탄 소비가 느는 시기' }
+      ],
+      watch: '월간 발표(약 2~3개월 지연) · 헨리허브 가격 · 미국 석탄 발전 비중(일간) · 석탄 발전소 폐쇄'
+    },
     gas_pw_jpn: gasPower('gas_pw_jpn', '일본', 'JKM', '세계 최대급 LNG 수입국'),
     gas_pw_kor: gasPower('gas_pw_kor', '한국', 'JKM', '원전·석탄 비중에 따라 LNG 수입 변동'),
     gas_pw_chn: gasPower('gas_pw_chn', '중국', 'JKM', '비중은 작지만 변동이 아시아 LNG 가격을 좌우'),
