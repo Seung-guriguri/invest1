@@ -70,6 +70,7 @@ FRED는 미국 세인트루이스 연방준비은행이 운영하는 경제 데�
 3. (선택) 한 번 더 **New repository secret**
    - Name: `ECOS_API_KEY` / Secret: 한국은행 키
 4. (선택) `EIA_API_KEY` / Secret: EIA 키
+5. (선택) `EMBER_API_KEY` / Secret: Ember 키 (아시아 석탄 발전 비중, ember-energy.org 무료 가입)
 
 ### ④ GitHub Pages를 "GitHub Actions" 방식으로 켜기
 
@@ -157,6 +158,7 @@ Yahoo 시세는 수집 시점에 정규장이 열려 있으면 그날 봉(장중
 | | 아시아 LNG JKM ($/MMBtu, 일본·한국행 현물, Platts JKM 선물) | Yahoo |
 | | 미국 가스·석탄 발전 비중 (전체 발전량 중 %, 7일 평균) | EIA-930 (전력망 일간) |
 | | 미국 원전 가동률 (전체 원자로 평균 출력 %, 일간) | NRC 원자로 상태 보고 |
+| | 일본·중국·한국·인도·대만 석탄 발전 비중 (%, 월간 — 호주 열탄 수요) | Ember (`EMBER_API_KEY`) |
 | | 3-2-1 크랙 스프레드 (정유 마진 = (휘발유×42×2 + 디젤×42 − WTI×3) ÷ 3, $/배럴) | 위 세 선물로 자동 계산 |
 | | 석탄(호주 뉴캐슬) | FRED(IMF, 월간) |
 | 운임 | 벌크선 운임 (BDRY ETF — BDI 원지수는 무료 API가 없어 대용) | Yahoo |

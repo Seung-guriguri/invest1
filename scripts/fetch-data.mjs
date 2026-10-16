@@ -8,6 +8,7 @@
  *   FRED_API_KEY  — FRED 지표 (없으면 FRED 소스는 건너뜀)
  *   ECOS_API_KEY  — 한국은행 ECOS 지표 (없으면 건너뜀)
  *   EIA_API_KEY   — 미국 에너지정보청 EIA 지표 (없으면 건너뜀)
+ *   EMBER_API_KEY — Ember 국가별 발전원 비중 (없으면 건너뜀)
  *   Yahoo Finance 는 키 없이 호출 (비공식 API, 막히면 다음 소스로 대체)
  *
  * 출력 형식 (data/latest.json)
@@ -29,6 +30,7 @@ const PREVIOUS = arg('--previous', null);
 const FRED_KEY = (process.env.FRED_API_KEY || '').trim();
 const ECOS_KEY = (process.env.ECOS_API_KEY || '').trim();
 const EIA_KEY = (process.env.EIA_API_KEY || '').trim();
+const EMBER_KEY = (process.env.EMBER_API_KEY || '').trim();
 const UA = 'Mozilla/5.0 (macro-dashboard data fetcher)';
 
 /* ---------- 계산 지표 ----------
@@ -350,9 +352,38 @@ async function fetchNrc() {
     .map(([d, a]) => [d, a.reduce((s, x) => s + x, 0) / a.length]);
 }
 
-const FETCHERS = { fred: fetchFred, yahoo: fetchYahoo, ecos: fetchEcos, eurostat: fetchEurostat, eia: fetchEia, eiaGrid: fetchEiaGrid, nrc: fetchNrc };
+/* ---------- Ember (국가별 월간 발전원 구성) ----------
+ * { ember: 'JPN', series: 'Coal' } → 그 나라 발전량 중 해당 발전원 비중(%, 월간)
+ * 나라별로 한 번만 받아 여러 발전원이 공유. API 주소가 두 개(ember-energy / ember-climate)라 차례로 시도. */
+const emberCache = new Map();
+async function loadEmber(code) {
+  const p = new URLSearchParams({ entity_code: code, start_date: `${new Date().getFullYear() - 11}-01`, is_aggregate_series: 'false', api_key: EMBER_KEY });
+  const reasons = [];
+  for (const host of ['https://api.ember-energy.org', 'https://api.ember-climate.org']) {
+    try {
+      const j = await getJSON(`${host}/v1/electricity-generation/monthly?` + p);
+      const rows = Array.isArray(j) ? j : j && Array.isArray(j.data) ? j.data : null;
+      if (!rows) throw new Error('응답 형식 오류: ' + JSON.stringify(j).slice(0, 200));
+      if (!rows.length) throw new Error('데이터 없음');
+      return rows;
+    } catch (e) { reasons.push(`${host.replace('https://', '')} → ${e.message}`); }
+  }
+  throw new Error(reasons.join(' / '));
+}
+async function fetchEmber(src) {
+  if (!EMBER_KEY) throw new SkipError('EMBER_API_KEY 없음');
+  if (!emberCache.has(src.ember)) emberCache.set(src.ember, loadEmber(src.ember));
+  let rows;
+  try { rows = await emberCache.get(src.ember); } catch (e) { emberCache.delete(src.ember); throw e; }
+  const want = String(src.series).toLowerCase();
+  const hit = rows.filter(r => String(r.series || '').toLowerCase() === want);
+  if (!hit.length) throw new Error(`발전원 ${src.series} 없음 (있는 항목: ${[...new Set(rows.map(r => r.series))].join(',').slice(0, 200)}, 필드: ${Object.keys(rows[0]).join(',')})`);
+  return hit.map(r => [String(r.date).slice(0, 7) + '-01', Number(r.share_of_generation_pct)]);
+}
+
+const FETCHERS = { fred: fetchFred, yahoo: fetchYahoo, ecos: fetchEcos, eurostat: fetchEurostat, eia: fetchEia, eiaGrid: fetchEiaGrid, nrc: fetchNrc, ember: fetchEmber };
 const sourceLabel = src => src.fred ? `FRED:${src.fred}` : src.yahoo ? `Yahoo:${src.yahoo}`
-  : src.eurostat ? `Eurostat:${src.eurostat}` : src.eia ? `EIA:${src.eia}` : src.eiaGrid ? `EIA-930:US48/${src.eiaGrid}` : src.nrc ? 'NRC:원자로 출력' : `ECOS:${src.ecos}/${src.item}`;
+  : src.eurostat ? `Eurostat:${src.eurostat}` : src.eia ? `EIA:${src.eia}` : src.eiaGrid ? `EIA-930:US48/${src.eiaGrid}` : src.nrc ? 'NRC:원자로 출력' : src.ember ? `Ember:${src.ember}/${src.series}` : `ECOS:${src.ecos}/${src.item}`;
 
 /** 지표 하나: 소스를 순서대로 시도 */
 async function collect(id, sources) {
