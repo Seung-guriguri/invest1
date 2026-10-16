@@ -38,7 +38,7 @@
   function chgText(a) {
     const ind = a.ind;
     if (a.diff == null) return '—';
-    if (ind.changeMode === 'pct') return a.pct == null ? '—' : fmtSigned(a.pct, 2) + '%';
+    if (ind.changeMode === 'pct') return a.pct == null ? '—' : fmtSigned(a.pct, 2) + '%' + (a.yoy ? ' (전년比)' : '');
     if (ind.changeMode === 'pp') return fmtSigned(a.diff, 2) + '%p' + (a.yoy ? ' (전년比)' : '');
     return fmtSigned(a.diff, ind.dp);
   }

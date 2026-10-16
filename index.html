@@ -663,6 +663,8 @@ const CONFIG = {
       change: { dir: 'both', flat: 0.3, warn: 2, danger: 3.5 } },
     { id: 'nuclear_util', cat: 'power', name: '미국 원전 가동률', sub: '전체 원자로 평균 출력, 일간 (NRC)', unit: '%', dp: 1, changeMode: 'pp', profile: 'nuclear',
       level: { fixed: true, dir: 'down', warn: 85, danger: 78 }, change: { dir: 'down', flat: 0.5, warn: 3, danger: 6 } },
+    { id: 'us_coal_cons', cat: 'power', name: '미국 석탄 소비량', sub: '전 부문(발전 약 9할), 월간 · 변화는 전년 동월 대비 (EIA)', unit: '백만 t', dp: 1, changeMode: 'pct', staleDays: 130, profile: 'coalCons',
+      change: { yoy: true, dir: 'both', flat: 2, warn: 10, danger: 20 } },
     { id: 'coal_pw_jpn', cat: 'power', name: '일본 석탄 발전 비중', sub: '전체 발전량 중 석탄, 월간 · 변화는 전년 동월 대비 (Ember)', unit: '%', dp: 1, changeMode: 'pp', staleDays: 130, profile: 'coalPower',
       change: { yoy: true, dir: 'both', flat: 1.5, warn: 5, danger: 8 } },
     { id: 'coal_pw_chn', cat: 'power', name: '중국 석탄 발전 비중', sub: '전체 발전량 중 석탄, 월간 · 변화는 전년 동월 대비 (Ember)', unit: '%', dp: 1, changeMode: 'pp', staleDays: 130, profile: 'coalPower',
@@ -1128,6 +1130,13 @@ const COMMENTS = {
     fall: '아시아 LNG 하락 → 한국 가스 도입 원가 부담↓',
     high: '아시아 LNG 비싼 구간 → 한국 에너지 수입액 부담, 무역수지 압박',
     flat: '아시아 LNG 보합 → 날씨·중국 수요 변화 대기'
+  },
+  coalCons: {
+    surge: '미국 석탄 소비 급증 → 폭염·한파나 가스값 상승에 따른 석탄 발전 확대',
+    rise: '미국 석탄 소비 증가 → 가스 대신 석탄 발전이 늘어나는 중, 미국산 석탄 수출 여력↓',
+    plunge: '미국 석탄 소비 급감 → 가스값 하락이나 발전소 폐쇄, 남는 석탄이 수출로 향할 수 있음',
+    fall: '미국 석탄 소비 감소 → 석탄 발전 축소 흐름',
+    flat: '미국 석탄 소비 보합'
   },
   gasPower: {
     surge: '가스 발전 비중 급증 → LNG 수입 수요 급증, JKM·TTF 상승 압력',
@@ -1809,7 +1818,7 @@ function changeHTML(a) {
   const arrow = a.diff > 0 ? '▲' : a.diff < 0 ? '▼' : '–';
   if (ind.changeMode === 'pct') {
     const p = a.pct == null ? '-' : fmt(Math.abs(a.pct), 2) + '%';
-    return `<span class="change num">${arrow} ${p} <span class="pct">(${fmtSigned(a.diff, ind.dp)})</span></span>`;
+    return `<span class="change num">${arrow} ${p} <span class="pct">(${a.yoy ? '전년 동월 대비' : fmtSigned(a.diff, ind.dp)})</span></span>`;
   }
   const unit = ind.changeMode === 'pp' ? '%p' : (ind.unit ? ' ' + esc(ind.unit) : '');
   const showPct = ind.changeMode === 'pp' && a.pct != null && a.prev > 0 && a.value > 0;
