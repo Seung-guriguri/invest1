@@ -653,6 +653,8 @@ const CONFIG = {
       change: { dir: 'both', flat: 2, warn: 8, danger: 15 } },
     { id: 'ttf', cat: 'energy', name: '유럽 천연가스 (TTF)', sub: '네덜란드 TTF 선물 — 유럽 가스 기준가격, LNG 수입 수요', unit: '€/MWh', dp: 2, changeMode: 'pct', profile: 'ttf',
       level: { dir: 'up', warn: 50, danger: 70 }, change: { dir: 'both', flat: 1.5, warn: 7, danger: 14 } },
+    { id: 'jkm', cat: 'energy', name: '아시아 LNG (JKM)', sub: '일본·한국행 LNG 현물가격 (Platts JKM 선물) — 한국 가스 도입 원가', unit: '$/MMBtu', dp: 2, changeMode: 'pct', profile: 'jkm',
+      level: { dir: 'up', warn: 15, danger: 20 }, change: { dir: 'both', flat: 1.5, warn: 7, danger: 14 } },
     { id: 'coal', cat: 'energy', name: '석탄', sub: '호주 뉴캐슬, 월간', unit: '$/t', dp: 1, changeMode: 'pct', staleDays: 140, profile: 'coal',
       change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
     { id: 'gasoline', cat: 'energy', name: '휘발유', sub: 'RBOB 선물 (RB=F)', unit: '$/gal', dp: 3, changeMode: 'pct', profile: 'gasoline',
@@ -1092,6 +1094,14 @@ const COMMENTS = {
     fall: '유럽 가스 하락 → 유럽 에너지 원가 부담↓',
     high: '유럽 가스 비싼 구간 → 유럽 제조업 원가 부담, LNG 수입 확대',
     flat: '유럽 가스 보합 → 저장량·날씨 변화 대기'
+  },
+  jkm: {
+    surge: '아시아 LNG 급등 → 한국·일본 가스 도입 원가 급등, 전기·가스요금 압력',
+    rise: '아시아 LNG 상승 → 한국 가스 도입 원가↑, LNG 확보 경쟁',
+    plunge: '아시아 LNG 급락 → 공급 걱정 완화 또는 아시아 수요 둔화',
+    fall: '아시아 LNG 하락 → 한국 가스 도입 원가 부담↓',
+    high: '아시아 LNG 비싼 구간 → 한국 에너지 수입액 부담, 무역수지 압박',
+    flat: '아시아 LNG 보합 → 날씨·중국 수요 변화 대기'
   },
   lngSpread: {
     surge: 'LNG 수출 마진 급등 → 미국 LNG를 유럽으로 보낼 유인 급증, LNG선 수요↑',
