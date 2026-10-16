@@ -84,6 +84,12 @@ export const SOURCES = {
   power_gas:  [{ eiaGrid: 'NG', avg: 7 }],                  // 미국 발전량 중 천연가스 비중 (%, 7일 평균, EIA-930)
   power_coal: [{ eiaGrid: 'COL', avg: 7 }],                 // 미국 발전량 중 석탄 비중 (%, 7일 평균, EIA-930)
   nuclear_util: [{ nrc: true }],                            // 미국 원전 가동률 (%, NRC 원자로 일간 출력 평균)
+  // 호주 열탄 주요 수입국의 석탄 발전 비중 (%, 월간, Ember)
+  coal_pw_jpn: [{ ember: 'JPN', series: 'Coal' }],
+  coal_pw_chn: [{ ember: 'CHN', series: 'Coal' }],
+  coal_pw_kor: [{ ember: 'KOR', series: 'Coal' }],
+  coal_pw_ind: [{ ember: 'IND', series: 'Coal' }],
+  coal_pw_twn: [{ ember: 'TWN', series: 'Coal' }],
   coal:   [{ fred: 'PCOALAUUSDM' }],                       // IMF 호주(뉴캐슬) 석탄, 월간
   gasoline: [{ yahoo: 'RB=F' }, { fred: 'DGASNYH' }],       // RBOB 휘발유 선물 (실패 시 뉴욕항 현물)
   diesel:   [{ yahoo: 'HO=F' }, { fred: 'DDFUELNYH' }],     // 초저유황 디젤(ULSD) 선물 (실패 시 뉴욕항 현물)

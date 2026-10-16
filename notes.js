@@ -29,7 +29,33 @@
     { when: S => S.up('bdry'), text: '벌크선 운임도 상승 → 수입 곡물 운송비 추가 부담' }
   ];
 
+  /* 호주 열탄 수입국 석탄 발전 비중 공통 (Ember 월간) */
+  const coalPower = (id, country, note) => ({
+    what: `${country} 전체 발전량 중 석탄 발전 비중(Ember 월간) — 호주 열탄 수요의 바로미터${note ? ' · ' + note : ''}`,
+    states: {
+      surge: '석탄 비중 급증 → 원전·수력·가스 공백을 석탄이 메우는 중, 열탄 수입 수요↑',
+      rise: '석탄 비중 확대 → 열탄 수입 수요 증가 요인',
+      fall: '석탄 비중 축소 → 재생에너지·원전·가스로 대체, 열탄 수요 둔화',
+      plunge: '석탄 비중 급감 → 전력 수요 둔화나 다른 발전원 급증',
+      high: '최근 수년 중 높은 비중 → 석탄 의존이 큰 구간',
+      low: '최근 수년 중 낮은 비중 → 탈석탄·대체 발전 진행',
+      flat: '보합 → 계절 변화 대기'
+    },
+    pairs: [
+      { when: S => S.up(id) && S.up('coal'), text: '뉴캐슬 석탄값도 상승 → 수입국 수요가 가격을 끌어올리는 중' },
+      { when: S => S.up(id) && S.up('jkm'), text: '아시아 LNG도 비쌈 → 가스 대신 석탄을 더 태우는 연료 전환' },
+      { when: S => S.up(id) && S.up('bdry'), text: '벌크선 운임도 상승 → 석탄 물동량 증가가 운임에 반영' },
+      { when: () => [12, 1, 2, 7, 8].includes(month()), text: '한겨울·한여름 → 전력 수요가 커서 석탄 발전이 늘기 쉬운 시기' }
+    ],
+    watch: '월간 발표(1~3개월 지연) · 뉴캐슬 석탄값 · 아시아 LNG(JKM) · 원전 가동'
+  });
+
   global.NOTES = {
+    coal_pw_jpn: coalPower('coal_pw_jpn', '일본', '호주 열탄 최대 수입국'),
+    coal_pw_chn: coalPower('coal_pw_chn', '중국', '세계 최대 석탄 소비국, 수력 부진 때 석탄 급증'),
+    coal_pw_kor: coalPower('coal_pw_kor', '한국', '원전 정비·LNG 가격에 따라 석탄 비중 변동'),
+    coal_pw_ind: coalPower('coal_pw_ind', '인도', '국내 석탄 위주, 부족분을 수입'),
+    coal_pw_twn: coalPower('coal_pw_twn', '대만', '탈원전 이후 석탄·LNG 의존 확대'),
     /* ───────── 에너지 ───────── */
     wti: {
       what: '미국 원유 기준가격 — 휘발유·디젤·항공유 원가와 물가에 직결',
@@ -190,7 +216,8 @@
       pairs: [
         { when: S => S.up('natgas') && S.up('coal'), text: '가스·석탄 동반 상승 → 발전 연료 전반의 비용 부담' },
         { when: S => S.down('natgas') && S.up('coal'), text: '가스는 약한데 석탄만 강함 → 산지 공급 차질 등 석탄 자체 요인' },
-        { when: S => S.up('iron_ore'), text: '철광석도 상승 → 중국 철강·산업 생산 확대와 맞물렸을 수 있음' }
+        { when: S => S.up('iron_ore'), text: '철광석도 상승 → 중국 철강·산업 생산 확대와 맞물렸을 수 있음' },
+        { when: S => ['coal_pw_jpn', 'coal_pw_chn', 'coal_pw_kor', 'coal_pw_ind', 'coal_pw_twn'].some(id => S.up(id)), text: '아시아 수입국 석탄 발전 비중 확대 → 열탄 수요 증가 요인' }
       ],
       watch: '월간 발표(1~2개월 지연) · 중국·인도 전력 수요 · 호주 날씨'
     },

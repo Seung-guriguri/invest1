@@ -661,6 +661,16 @@ const CONFIG = {
       change: { dir: 'both', flat: 0.3, warn: 2, danger: 3.5 } },
     { id: 'nuclear_util', cat: 'energy', name: '미국 원전 가동률', sub: '전체 원자로 평균 출력, 일간 (NRC)', unit: '%', dp: 1, changeMode: 'pp', profile: 'nuclear',
       level: { fixed: true, dir: 'down', warn: 85, danger: 78 }, change: { dir: 'down', flat: 0.5, warn: 3, danger: 6 } },
+    { id: 'coal_pw_jpn', cat: 'energy', name: '일본 석탄 발전 비중', sub: '전체 발전량 중 석탄, 월간 (Ember) — 호주 열탄 수요', unit: '%', dp: 1, changeMode: 'pp', staleDays: 130, profile: 'coalPower',
+      change: { dir: 'both', flat: 1, warn: 4, danger: 7 } },
+    { id: 'coal_pw_chn', cat: 'energy', name: '중국 석탄 발전 비중', sub: '전체 발전량 중 석탄, 월간 (Ember) — 호주 열탄 수요', unit: '%', dp: 1, changeMode: 'pp', staleDays: 130, profile: 'coalPower',
+      change: { dir: 'both', flat: 1, warn: 4, danger: 7 } },
+    { id: 'coal_pw_kor', cat: 'energy', name: '한국 석탄 발전 비중', sub: '전체 발전량 중 석탄, 월간 (Ember) — 호주 열탄 수요', unit: '%', dp: 1, changeMode: 'pp', staleDays: 130, profile: 'coalPower',
+      change: { dir: 'both', flat: 1, warn: 4, danger: 7 } },
+    { id: 'coal_pw_ind', cat: 'energy', name: '인도 석탄 발전 비중', sub: '전체 발전량 중 석탄, 월간 (Ember) — 호주 열탄 수요', unit: '%', dp: 1, changeMode: 'pp', staleDays: 130, profile: 'coalPower',
+      change: { dir: 'both', flat: 1, warn: 4, danger: 7 } },
+    { id: 'coal_pw_twn', cat: 'energy', name: '대만 석탄 발전 비중', sub: '전체 발전량 중 석탄, 월간 (Ember) — 호주 열탄 수요', unit: '%', dp: 1, changeMode: 'pp', staleDays: 130, profile: 'coalPower',
+      change: { dir: 'both', flat: 1, warn: 4, danger: 7 } },
     { id: 'coal', cat: 'energy', name: '석탄', sub: '호주 뉴캐슬, 월간', unit: '$/t', dp: 1, changeMode: 'pct', staleDays: 140, profile: 'coal',
       change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
     { id: 'gasoline', cat: 'energy', name: '휘발유', sub: 'RBOB 선물 (RB=F)', unit: '$/gal', dp: 3, changeMode: 'pct', profile: 'gasoline',
@@ -1108,6 +1118,13 @@ const COMMENTS = {
     fall: '아시아 LNG 하락 → 한국 가스 도입 원가 부담↓',
     high: '아시아 LNG 비싼 구간 → 한국 에너지 수입액 부담, 무역수지 압박',
     flat: '아시아 LNG 보합 → 날씨·중국 수요 변화 대기'
+  },
+  coalPower: {
+    surge: '석탄 발전 비중 급증 → 열탄 수입 수요 급증, 뉴캐슬 석탄값·벌크선 운임 지지',
+    rise: '석탄 발전 비중 확대 → 열탄 수입 수요 증가 요인',
+    plunge: '석탄 발전 비중 급감 → 열탄 수요 둔화',
+    fall: '석탄 발전 비중 축소 → 다른 발전원으로 대체',
+    flat: '석탄 발전 비중 안정'
   },
   powerGas: {
     surge: '가스 발전 비중 급증 → 폭염·한파 또는 원전 정지로 가스 수요 급증, 헨리허브 상승 압력',
