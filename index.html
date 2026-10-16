@@ -485,6 +485,7 @@
  *                               dir:'down'→ 값 < warn 노랑,  값 < danger 빨강
  *   change     : 변화 기준 신호등. dir:'up'(상승만) | 'down'(하락만) | 'both'(양방향 절대값)
  *                flat 미만 변화는 "보합", danger 이상은 "급등/급락"으로 해설. warn/danger 생략 시 해설에만 사용
+ *                yoy: true → 직전 값 대신 1년 전 같은 달 값과 비교 (계절성이 큰 월간 지표)
  *   → 최종 신호등 = 수준 신호와 변화 신호 중 더 나쁜 쪽
  *   ※ "직전 값"은 직전 관측치입니다. 자동 데이터는 일간 지표면 전 거래일, 월간 지표면 전월.
  *   profile    : COMMENTS 의 해설 묶음 이름. comments 로 지표별 문구 덮어쓰기 가능
@@ -661,16 +662,16 @@ const CONFIG = {
       change: { dir: 'both', flat: 0.3, warn: 2, danger: 3.5 } },
     { id: 'nuclear_util', cat: 'energy', name: '미국 원전 가동률', sub: '전체 원자로 평균 출력, 일간 (NRC)', unit: '%', dp: 1, changeMode: 'pp', profile: 'nuclear',
       level: { fixed: true, dir: 'down', warn: 85, danger: 78 }, change: { dir: 'down', flat: 0.5, warn: 3, danger: 6 } },
-    { id: 'coal_pw_jpn', cat: 'energy', name: '일본 석탄 발전 비중', sub: '전체 발전량 중 석탄, 월간 (Ember) — 호주 열탄 수요', unit: '%', dp: 1, changeMode: 'pp', staleDays: 130, profile: 'coalPower',
-      change: { dir: 'both', flat: 1, warn: 4, danger: 7 } },
-    { id: 'coal_pw_chn', cat: 'energy', name: '중국 석탄 발전 비중', sub: '전체 발전량 중 석탄, 월간 (Ember) — 호주 열탄 수요', unit: '%', dp: 1, changeMode: 'pp', staleDays: 130, profile: 'coalPower',
-      change: { dir: 'both', flat: 1, warn: 4, danger: 7 } },
-    { id: 'coal_pw_kor', cat: 'energy', name: '한국 석탄 발전 비중', sub: '전체 발전량 중 석탄, 월간 (Ember) — 호주 열탄 수요', unit: '%', dp: 1, changeMode: 'pp', staleDays: 130, profile: 'coalPower',
-      change: { dir: 'both', flat: 1, warn: 4, danger: 7 } },
-    { id: 'coal_pw_ind', cat: 'energy', name: '인도 석탄 발전 비중', sub: '전체 발전량 중 석탄, 월간 (Ember) — 호주 열탄 수요', unit: '%', dp: 1, changeMode: 'pp', staleDays: 130, profile: 'coalPower',
-      change: { dir: 'both', flat: 1, warn: 4, danger: 7 } },
-    { id: 'coal_pw_twn', cat: 'energy', name: '대만 석탄 발전 비중', sub: '전체 발전량 중 석탄, 월간 (Ember) — 호주 열탄 수요', unit: '%', dp: 1, changeMode: 'pp', staleDays: 130, profile: 'coalPower',
-      change: { dir: 'both', flat: 1, warn: 4, danger: 7 } },
+    { id: 'coal_pw_jpn', cat: 'energy', name: '일본 석탄 발전 비중', sub: '전체 발전량 중 석탄, 월간 · 변화는 전년 동월 대비 (Ember)', unit: '%', dp: 1, changeMode: 'pp', staleDays: 130, profile: 'coalPower',
+      change: { yoy: true, dir: 'both', flat: 1.5, warn: 5, danger: 8 } },
+    { id: 'coal_pw_chn', cat: 'energy', name: '중국 석탄 발전 비중', sub: '전체 발전량 중 석탄, 월간 · 변화는 전년 동월 대비 (Ember)', unit: '%', dp: 1, changeMode: 'pp', staleDays: 130, profile: 'coalPower',
+      change: { yoy: true, dir: 'both', flat: 1.5, warn: 5, danger: 8 } },
+    { id: 'coal_pw_kor', cat: 'energy', name: '한국 석탄 발전 비중', sub: '전체 발전량 중 석탄, 월간 · 변화는 전년 동월 대비 (Ember)', unit: '%', dp: 1, changeMode: 'pp', staleDays: 130, profile: 'coalPower',
+      change: { yoy: true, dir: 'both', flat: 1.5, warn: 5, danger: 8 } },
+    { id: 'coal_pw_ind', cat: 'energy', name: '인도 석탄 발전 비중', sub: '전체 발전량 중 석탄, 월간 · 변화는 전년 동월 대비 (Ember)', unit: '%', dp: 1, changeMode: 'pp', staleDays: 130, profile: 'coalPower',
+      change: { yoy: true, dir: 'both', flat: 1.5, warn: 5, danger: 8 } },
+    { id: 'coal_pw_twn', cat: 'energy', name: '대만 석탄 발전 비중', sub: '전체 발전량 중 석탄, 월간 · 변화는 전년 동월 대비 (Ember)', unit: '%', dp: 1, changeMode: 'pp', staleDays: 130, profile: 'coalPower',
+      change: { yoy: true, dir: 'both', flat: 1.5, warn: 5, danger: 8 } },
     { id: 'coal', cat: 'energy', name: '석탄', sub: '호주 뉴캐슬, 월간', unit: '$/t', dp: 1, changeMode: 'pct', staleDays: 140, profile: 'coal',
       change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
     { id: 'gasoline', cat: 'energy', name: '휘발유', sub: 'RBOB 선물 (RB=F)', unit: '$/gal', dp: 3, changeMode: 'pct', profile: 'gasoline',
@@ -1579,6 +1580,12 @@ function analyze(ind) {
 
   // ── 직전 관측치 대비 (하루 급변 신호) ──
   const C = ind.change || {};
+  if (C.yoy) {
+    // 계절성이 큰 월간 지표: 1년 전 같은 달(±20일) 값과 비교
+    const target = Date.parse(cur.date) - 365.25 * DAY;
+    const e = history.slice(1).find(x => Math.abs(Date.parse(x.date) - target) <= 20 * DAY) || null;
+    a.prevE = e; a.prev = e ? e.value : null; a.yoy = true;
+  }
   if (a.prev != null) {
     a.diff = Math.round((a.value - a.prev) * 1e8) / 1e8; // 부동소수 오차 제거 (4.5-4.2=0.2999… 방지)
     a.pct = a.prev !== 0 ? Math.round((a.diff / Math.abs(a.prev)) * 100 * 1e6) / 1e6 : null;
@@ -1658,9 +1665,10 @@ function pickComment(ind, a) {
   else if (t === 'rise' || t === 'fall') key = t;
   else if (L >= 1 && p.warn) key = 'warn';
   else if (L >= 1 && p.high) key = 'high';
-  else if (t == null) return '직전 값이 없어 변화 판단 불가 — 이전 값을 함께 입력하면 해설이 정확해집니다';
+  else if (t == null) return a.yoy ? '1년 전 같은 달 값이 없어 변화 판단 불가' : '직전 값이 없어 변화 판단 불가 — 이전 값을 함께 입력하면 해설이 정확해집니다';
   else key = 'flat';
   const text = fill(p[key] || p.flat);
+  if (a.yoy && ['rise', 'fall', 'surge', 'plunge'].includes(key) && text) return '1년 전 같은 달보다 ' + text;
   // 일간·주간 지표: 카드의 '직전 대비 %'와 헷갈리지 않게 추세 기준을 앞에 붙임
   if ((a.freq === 'D' || a.freq === 'W') && ['rise', 'fall', 'surge', 'plunge'].includes(key) && text) {
     return (a.trendSrc === '1m' ? '한 달 새 ' : a.freq === 'W' ? '한 주 새 ' : '하루 새 ') + text;
@@ -1781,7 +1789,7 @@ function render() {
 
 function changeHTML(a) {
   const ind = a.ind;
-  if (a.diff == null) return '<span class="change">직전 값 없음</span>';
+  if (a.diff == null) return `<span class="change">${a.yoy ? '전년 같은 달 값 없음' : '직전 값 없음'}</span>`;
   const arrow = a.diff > 0 ? '▲' : a.diff < 0 ? '▼' : '–';
   if (ind.changeMode === 'pct') {
     const p = a.pct == null ? '-' : fmt(Math.abs(a.pct), 2) + '%';
@@ -1789,6 +1797,7 @@ function changeHTML(a) {
   }
   const unit = ind.changeMode === 'pp' ? '%p' : (ind.unit ? ' ' + esc(ind.unit) : '');
   const showPct = ind.changeMode === 'pp' && a.pct != null && a.prev > 0 && a.value > 0;
+  if (a.yoy) return `<span class="change num">${arrow} ${fmt(Math.abs(a.diff), Math.max(ind.dp, ind.changeMode === 'pp' ? 2 : 0))}${unit} <span class="pct">(전년 동월 대비)</span></span>`;
   return `<span class="change num">${arrow} ${fmt(Math.abs(a.diff), Math.max(ind.dp, ind.changeMode === 'pp' ? 2 : 0))}${unit}${showPct ? ` <span class="pct">(${fmtSigned(a.pct, 2)}%)</span>` : ''}</span>`;
 }
 
@@ -1922,7 +1931,7 @@ function statusLine(a) {
     const d = ind.changeMode === 'pct'
       ? (a.pct == null ? null : `${fmtSigned(a.pct, 1)}%`)
       : `${fmtSigned(a.diff, ind.changeMode === 'pp' ? 2 : ind.dp)}${ind.changeMode === 'pp' ? '%p' : ''}`;
-    if (d) parts.push(`직전 대비 ${d}`);
+    if (d) parts.push(`${a.yoy ? '전년 동월 대비' : '직전 대비'} ${d}`);
   }
   if (a.m1) parts.push(m1Text(a));
   if (a.season) parts.push(seasonText(a)); else if (a.pctl) parts.push(positionText(a));
