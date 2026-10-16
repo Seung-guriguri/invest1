@@ -663,7 +663,7 @@ const CONFIG = {
       change: { dir: 'both', flat: 0.3, warn: 2, danger: 3.5 } },
     { id: 'nuclear_util', cat: 'power', name: '미국 원전 가동률', sub: '전체 원자로 평균 출력, 일간 (NRC)', unit: '%', dp: 1, changeMode: 'pp', profile: 'nuclear',
       level: { fixed: true, dir: 'down', warn: 85, danger: 78 }, change: { dir: 'down', flat: 0.5, warn: 3, danger: 6 } },
-    { id: 'us_coal_cons', cat: 'power', name: '미국 석탄 소비량', sub: '전 부문(발전 약 9할), 월간 · 변화는 전년 동월 대비 (EIA)', unit: '백만 t', dp: 1, changeMode: 'pct', staleDays: 130, profile: 'coalCons',
+    { id: 'us_coal_cons', cat: 'power', name: '미국 석탄 소비량', sub: '전 부문(발전 약 9할), 월간 · 변화는 전년 동월 대비 (EIA)', unit: '백만 t', dp: 1, changeMode: 'pct', staleDays: 170, profile: 'coalCons',
       change: { yoy: true, dir: 'both', flat: 2, warn: 10, danger: 20 } },
     { id: 'coal_pw_jpn', cat: 'power', name: '일본 석탄 발전 비중', sub: '전체 발전량 중 석탄, 월간 · 변화는 전년 동월 대비 (Ember)', unit: '%', dp: 1, changeMode: 'pp', staleDays: 130, profile: 'coalPower',
       change: { yoy: true, dir: 'both', flat: 1.5, warn: 5, danger: 8 } },

@@ -87,7 +87,7 @@
         { when: S => S.down('us_coal_cons') && S.up('coal'), text: '뉴캐슬 석탄값은 상승 → 미국에서 남는 석탄이 아시아 수출로 향할 유인' },
         { when: () => [12, 1, 2, 7, 8].includes(month()), text: '한겨울·한여름 → 전력 수요로 석탄 소비가 느는 시기' }
       ],
-      watch: '월간 발표(약 2~3개월 지연) · 헨리허브 가격 · 미국 석탄 발전 비중(일간) · 석탄 발전소 폐쇄'
+      watch: '월간 발표(약 3~4개월 지연) · 헨리허브 가격 · 미국 석탄 발전 비중(일간) · 석탄 발전소 폐쇄'
     },
     gas_pw_jpn: gasPower('gas_pw_jpn', '일본', 'JKM', '세계 최대급 LNG 수입국'),
     gas_pw_kor: gasPower('gas_pw_kor', '한국', 'JKM', '원전·석탄 비중에 따라 LNG 수입 변동'),
