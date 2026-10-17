@@ -128,6 +128,7 @@
   .checklist .why { display: block; font-size: 12px; color: var(--text-2); margin-top: 1px; }
   .checklist label { display: flex; gap: 10px; cursor: pointer; width: 100%; }
   .checklist input { position: absolute; opacity: 0; pointer-events: none; }
+  .checklist .chk-link { flex: none; align-self: center; border: 1px solid var(--border); background: var(--surface-2); color: var(--accent); border-radius: 999px; padding: 3px 10px; font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
 
   /* 지표별 인사이트 (상세 화면) */
   .ind-insight { margin-top: 12px; border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; background: var(--surface-2); }
@@ -1908,10 +1909,10 @@ function render() {
     : `<div class="count ${cls}"><b class="num">${n}</b><span>${label}</span></div>`).join('');
 
   const done = loadChecks();
-  $('#checklist').innerHTML = buildChecklist(R).map((item, i) => {
+  $('#checklist').innerHTML = [...buildChecklist(R), ...divergenceChecks()].map((item, i) => {
     const id = 'chk' + i, isDone = done.includes(item.text);
     return `<li class="${isDone ? 'done' : ''}"><label for="${id}"><input type="checkbox" id="${id}" data-check="${esc(item.text)}" ${isDone ? 'checked' : ''}>
-      <span class="box" aria-hidden="true"></span><span class="txt">${esc(item.text)}<span class="why">${esc(item.why || '')}</span></span></label></li>`;
+      <span class="box" aria-hidden="true"></span><span class="txt">${esc(item.text)}<span class="why">${esc(item.why || '')}</span></span></label>${item.pair ? `<button type="button" class="chk-link" data-edit="${item.pair[0]}" data-corrwith="${item.pair[1]}">비교 ›</button>` : ''}</li>`;
   }).join('');
 
   renderAlerts();
@@ -2390,7 +2391,7 @@ function corrSectionHTML(id) {
   if (!me) return `<section class="ind-corr" aria-label="상관관계"><h3>🔗 상관관계</h3><p class="corr-note">이력이 짧아 계산할 수 없습니다 (관측치 10개 이상 필요).</p></section>`;
   const list = CONFIG.indicators.map(i => corrSeries(i.id)).filter(Boolean);
   const t = CORR.top(id, list);
-  const chip = (x, cls) => `<button type="button" class="${cls}" data-edit="${x.id}" title="표본 ${x.n}${x.basis === 'M' ? '개월' : '주'}">${esc(IND[x.id].name)}<b>${fmtR(x.r)}</b></button>`;
+  const chip = (x, cls) => { const dv = DIVERGE.get(id + '|' + x.id); return `<button type="button" class="${cls}" data-edit="${x.id}" title="표본 ${x.n}${x.basis === 'M' ? '개월' : '주'}${dv ? ` · 최근 ${dv.n}${dv.unit} 엇갈림 (${fmtR(dv.rr)})` : ''}">${dv ? '⚠ ' : ''}${esc(IND[x.id].name)}<b>${fmtR(x.r)}</b></button>`; };
   const saved = (DataStore.getSettings().corrPick || {})[id];
   const pick = saved && IND[saved] && saved !== id ? saved : (t.pos[0] || t.neg[0] || {}).id;
   const opts = CONFIG.categories.map(c => {
@@ -2407,6 +2408,35 @@ function corrSectionHTML(id) {
     <div id="corrOut"></div>
     <p class="corr-note">주간(월간 지표가 끼면 월간) 변화율로 계산 · 순위는 최근 1년(월간 3년) · 같이 움직였다고 원인·결과는 아님</p>
   </section>`;
+}
+/* 엇갈림 감시 짝: [A, B, 평소 방향 (1 같은 방향 · −1 반대 방향)] — 경제적 연결이 있는 짝만 (모든 짝을 보면 우연한 엇갈림이 너무 많음) */
+const WATCH_PAIRS = [
+  ['wti', 'etf_xle', 1], ['natgas', 'etf_ung', 1], ['copper', 'us10y', 1], ['gold', 'real10y', -1],
+  ['dxy', 'usdkrw', 1], ['sp500', 'kospi', 1], ['usdkrw', 'kospi', -1], ['hy_spread', 'sp500', -1],
+  ['us10y', 'mortgage', 1], ['bdry', 'iron_ore', 1], ['tanker_fro', 'etf_bwet', 1], ['brent', 'bei10y', 1],
+  ['dxy', 'gold', -1], ['copper', 'sp500', 1]
+];
+/** 지금 엇갈린 감시 짝 (render 마다 계산, 상세 화면 ⚠ 표시에도 사용) */
+let DIVERGE = new Map();
+function computeDivergences() {
+  DIVERGE = new Map();
+  if (!window.CORR) return [];
+  const out = [];
+  for (const [a, b, expect] of WATCH_PAIRS) {
+    if (!IND[a] || !IND[b]) continue;
+    const A = corrSeries(a), B = corrSeries(b); if (!A || !B) continue;
+    const d = CORR.divergence(A, B, expect);
+    if (d && d.on) { const x = { a, b, expect, ...d }; DIVERGE.set(a + '|' + b, x); DIVERGE.set(b + '|' + a, x); out.push(x); }
+  }
+  return out.sort((x, y) => Math.abs(y.r1) - Math.abs(x.r1));
+}
+/** 오늘 볼 것: 엇갈림 최대 2줄 */
+function divergenceChecks() {
+  return computeDivergences().slice(0, 2).map(d => ({
+    text: `⚠ ${IND[d.a].name}·${IND[d.b].name} — 평소 ${d.expect > 0 ? '같은 방향' : '반대 방향'}인데 최근 ${d.n}${d.unit} 엇갈림`,
+    why: `1년 상관 ${fmtR(d.r1)} → 최근 ${fmtR(d.rr)} · ${IND[d.a].name} ${chgFmt(d.ca, d.a, corrSeries(d.a).mode)} / ${IND[d.b].name} ${chgFmt(d.cb, d.b, corrSeries(d.b).mode)} (최근 ${d.n}${d.unit} 누적)`,
+    pair: [d.a, d.b]
+  }));
 }
 const CORR_TABS = [['sum', '요약'], ['roll', '추이'], ['evt', '사건 반응'], ['ratio', '비율']];
 /** 작은 선 차트 (여러 선, 선택: 0 기준선·고정 범위) */
@@ -2698,6 +2728,10 @@ document.addEventListener('click', e => {
     const ind = IND[detailState.id], a = analyze(ind);
     drawDetailChart(ind, a.history.slice().reverse(), a.freq, a.levelLines);
   } else if (t.dataset.edit) {
+    if (t.dataset.corrwith) {   // 엇갈림 '비교 ›': 그 짝을 직접 비교에 미리 선택
+      const m = Object.assign({}, DataStore.getSettings().corrPick || {}); m[t.dataset.edit] = t.dataset.corrwith;
+      DataStore.setSettings({ corrPick: m, corrTab: 'roll' });
+    }
     detailState.range = null; openEdit(t.dataset.edit);
   } else if (t.dataset.del) {
     if (confirm(`${t.dataset.del} 값을 삭제할까요?`)) { DataStore.removeEntry(t.dataset.id, t.dataset.del); render(); openEdit(t.dataset.id); }

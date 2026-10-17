@@ -110,6 +110,14 @@ async function main() {
       await page.click('#corrOut [data-corrtab="sum"]');
       await page.evaluate(() => document.querySelector('#editSheet').close());
       check(co.sec && co.win === 3 && co.svg && co.saved === 'brent', `상관관계: 순위·직접 비교·차트·선택 기억 ${JSON.stringify(co)}`);
+      // 엇갈림 감지: 계산 함수를 잠시 바꿔 첫 감시 짝이 엇갈린 상황을 만들고 화면 연결 확인
+      await page.evaluate(() => { window.__div = CORR.divergence; CORR.divergence = (A, B) => ({ on: A.id === 'wti' && B.id === 'etf_xle', r1: 0.8, rr: -0.3, n: 8, unit: '주', ca: 0.05, cb: -0.04, basis: 'W' }); setView('today'); render(); });
+      const dv1 = await page.evaluate(() => ({ items: [...document.querySelectorAll('#checklist .chk-link')].length, txt: /엇갈림/.test(document.querySelector('#checklist').innerText) }));
+      await page.click('#checklist .chk-link');
+      const dv2 = await page.evaluate(() => ({ open: document.querySelector('#editSheet').open, pick: document.querySelector('#corrPick').value, tab: document.querySelector('#corrOut [aria-pressed="true"]').dataset.corrtab, warn: [...document.querySelectorAll('#editSheet .ind-corr [data-edit]')].some(b => b.textContent.startsWith('⚠')) }));
+      await page.evaluate(() => { document.querySelector('#editSheet').close(); CORR.divergence = window.__div; render(); });
+      if (process.env.SHOT_DIR) { await page.evaluate(() => { CORR.divergence = () => ({ on: true, r1: 0.8, rr: -0.3, n: 8, unit: '주', ca: 0.05, cb: -0.04, basis: 'W' }); render(); document.querySelector('#checklist').scrollIntoView(); }); await page.screenshot({ path: `${process.env.SHOT_DIR}/diverge-${ui}-${scheme}.png` }); await page.evaluate(() => { CORR.divergence = window.__div; render(); }); }
+      check(dv1.items === 1 && dv1.txt && dv2.open && dv2.pick === 'etf_xle' && dv2.tab === 'roll', `엇갈림 감지 → 오늘 볼 것 → 비교 열기 ${JSON.stringify({ ...dv1, ...dv2 })}`);
       const shared = await page.evaluate(() => ['wti', 'us_cpi', 'coal_pw_jpn', 'scfi'].map(id => { try { return Share.render(id).canvas.width; } catch (e) { return id + ':' + e.message; } }));
       check(shared.every(w => w === 1080), `공유 이미지 그리기 ${JSON.stringify(shared)}`);
       const rt = await page.evaluate(() => {
