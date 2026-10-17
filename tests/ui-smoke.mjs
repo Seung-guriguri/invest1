@@ -43,7 +43,7 @@ function fixture(cfg) {
   return { generatedAt: today.toISOString(), series, errors: [{ id: 'natgas', message: '테스트 실패', keptPrevious: true }] };
 }
 const AI = { generatedAt: new Date().toISOString(), model: 'test',
-  briefing: { headline: '테스트 브리핑', story: '합성 데이터로 만든 테스트 문장입니다.', top3: ['하나', '둘', '셋'], points: ['수치'], korea: '한국', watch: ['확인'], counterpoint: '반대' },
+  briefing: { headline: '테스트 브리핑', story: '합성 데이터로 만든 테스트 문장입니다.', top3: ['하나', '둘', '셋'], points: ['수치'], korea: '한국', watch: ['확인'], counterpoint: '반대', refs: [{ id: 'wti', date: '2020-01-01' }, { id: 'us10y', date: '2020-01-01' }, { id: 'nope', date: '2020-01-01' }], grounding: { checked: 5, matched: 4, unmatched: ['9.9%'] } },
   sections: { rates: { headline: '금리 제목', body: '금리 본문', review: '' } }, indicators: { wti: '테스트 해설' } };
 
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png' };
@@ -132,6 +132,10 @@ async function main() {
       await page.goto(URL0 + '#ind=wti'); await page.waitForTimeout(1000);
       check(await page.evaluate(() => document.querySelector('#editSheet').open && activeTab === 'energy'), '공유 링크(#ind=wti)로 상세 열림');
     }
+    await page.evaluate(() => { setView('ai'); render(); });
+    const gr = await page.evaluate(() => ({ chips: document.querySelectorAll('#aiBrief .ai-refs [data-edit]').length, newer: !!document.querySelector('#aiBrief .ai-refs .newer'), chk: /숫자 확인: 본문 숫자 5개 중 4개/.test(document.querySelector('#aiBrief').innerText) }));
+    if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/ai-${ui}-${scheme}.png` });
+    check(gr.chips === 2 && gr.newer && gr.chk, `${tag}: AI 근거 지표·기준일·숫자 확인 ${JSON.stringify(gr)}`);
     check(!errs.length, `${tag}: 스크립트 오류 없음${errs.length ? ' — ' + errs.slice(0, 3).join(' / ') : ''}`);
     await ctx.close();
   }

@@ -162,6 +162,12 @@
   .ai-brief ul { margin: 6px 0 0; padding-left: 18px; font-size: 13.5px; }
   .ai-brief li { margin: 3px 0; }
   .ai-brief .row { font-size: 13.5px; margin: 8px 0 0; }
+  .ai-refs { margin: 4px 0 10px; font-size: 12.5px; color: var(--text-2); }
+  .ai-refs .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+  .ai-refs .chips button { border: 1px solid var(--border); background: var(--surface-2); color: var(--text); border-radius: 999px; padding: 2px 9px; font: inherit; font-size: 12px; cursor: pointer; max-width: 100%; overflow-wrap: anywhere; text-align: left; }
+  .ai-refs .chips button small { color: var(--text-2); margin-left: 4px; }
+  .ai-refs .chips button.newer small { color: #b35c00; }
+  .ai-refs .gchk { margin-top: 4px; }
   .ai-brief .row b { font-size: 12px; color: var(--text-2); display: block; }
   .ai-secs { margin-top: 10px; border-top: 1px solid var(--border); }
   .ai-brief details.ai-column { margin-top: 10px; border: 1px solid var(--border); border-radius: 12px; padding: 4px 12px; }
@@ -2240,6 +2246,7 @@ function renderAIBrief() {
     ${b.headline ? `<h2>${esc(b.headline)}</h2>` : ''}
     ${b.top3 && b.top3.length ? `<div class="ai-top3"><b>✅ 오늘 꼭 볼 3가지</b><ol>${b.top3.map(x => `<li>${esc(x)}</li>`).join('')}</ol></div>` : ''}
     ${b.story ? `<p class="story">${esc(b.story)}</p>` : ''}
+    ${aiRefsHTML(b.refs)}${aiGroundHTML(b.grounding)}
     ${aiSectionsHTML(ai)}
     ${aiReportHTML(ai.report)}
     ${ai.column && ai.column.title ? `<details class="ai-column"><summary>📰 오늘의 칼럼 — ${esc(ai.column.title)}</summary>
@@ -2330,11 +2337,26 @@ function aiReportHTML(r) {
 }
 
 /** 분류별 AI 브리핑 (한 줄 제목 + 짧은 이야기, 눌러서 펼침) */
+/** AI 근거 지표 칩: 이름 · AI 가 본 기준일 (그 뒤 새 데이터가 들어왔으면 표시) */
+function aiRefsHTML(refs, label = '근거 지표 · 기준일') {
+  const list = (refs || []).filter(r => r && IND[r.id]);
+  if (!list.length) return '';
+  return `<div class="ai-refs"><b>${label}</b><div class="chips">${list.map(r => {
+    const a = R && R[r.id], now = a && a.cur ? a.cur.date : null, newer = now && r.date && now > r.date;
+    return `<button type="button" data-edit="${r.id}" class="${newer ? 'newer' : ''}" title="${newer ? `AI 작성 뒤 새 데이터 (${esc(now)})` : ''}">${esc(IND[r.id].name)}<small>${esc(r.date || '')}${newer ? ' → 새 값 있음' : ''}</small></button>`;
+  }).join('')}</div></div>`;
+}
+/** 본문 숫자 대조 결과 (코드 검증) */
+function aiGroundHTML(g) {
+  if (!g || !g.checked) return '';
+  const miss = g.checked - g.matched;
+  return `<div class="ai-refs gchk">숫자 확인: 본문 숫자 ${g.checked}개 중 ${g.matched}개가 수집 데이터 값과 일치${miss ? ` · ${miss}개는 데이터에서 바로 찾지 못함(${esc((g.unmatched || []).join(', '))}) — 계산·반올림 값일 수 있음` : ''}</div>`;
+}
 function aiSectionsHTML(ai) {
   const secs = ai.sections || {};
   const items = CONFIG.categories.filter(c => secs[c.id]).map(c => {
     const x = secs[c.id];
-    return `<details class="ai-sec"><summary><span class="ai-cat">${esc(c.label)}</span><span>${esc(x.headline || '')}</span></summary>${x.body ? `<p>${esc(x.body)}</p>` : ''}${reviewHTML(x)}</details>`;
+    return `<details class="ai-sec"><summary><span class="ai-cat">${esc(c.label)}</span><span>${esc(x.headline || '')}</span></summary>${x.body ? `<p>${esc(x.body)}</p>` : ''}${aiRefsHTML(x.refs, '근거')}${reviewHTML(x)}</details>`;
   });
   return items.length ? `<div class="ai-secs">${items.join('')}</div>` : '';
 }
