@@ -39,7 +39,7 @@
     --sample: #6b4fd8;  --sample-bg: #efeafe;
     --shadow: 0 1px 2px rgba(16, 24, 40, .06);
     --radius: 14px;
-    --footer-h: 44px;
+    --footer-h: 0px;   /* v1: 하단 고정 띠 없음 (v2 는 하단 메뉴 높이로 덮어씀) */
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
@@ -305,11 +305,9 @@
   button.count[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: -2px; }
 
   /* 하단 고정 문구 */
-  .disclaimer {
-    position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
-    background: var(--surface); border-top: 1px solid var(--border);
-    padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); text-align: center;
-    font-size: 12.5px; color: var(--text-2);
+  .disclaimer {   /* 맨 아래에 한 번만 (고정하지 않음) */
+    padding: 4px 16px calc(20px + env(safe-area-inset-bottom)); text-align: center;
+    font-size: 12px; color: var(--text-2);
   }
 
   /* 설정 화면 */
