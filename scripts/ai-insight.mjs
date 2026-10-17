@@ -579,6 +579,40 @@ async function sendTelegramLong(text, label, chat = TG_CHAT) {
   console.log(`  ${chat === TG_CHAT ? '텔레그램' : '공유 채널'}으로 ${label} 전송 완료 (${parts.length}개 메시지)`);
 }
 
+/* ---------- AI 근거 검증 (코드가 확인 — AI 가 쓴 지표 ID·숫자를 데이터와 대조) ---------- */
+/** AI 가 낸 근거 지표 ID → 실제 데이터에 있는 것만 [{id, date}] (없으면 본문에 나온 지표 이름으로 찾음) */
+function groundRefs(ids, rows, texts = [], max = 8) {
+  const byId = new Map(rows.map(r => [r.id, r]));
+  let out = [...new Set((Array.isArray(ids) ? ids : []).map(String))].filter(id => byId.has(id));
+  if (!out.length && texts.length) {
+    const joined = texts.join(' ');
+    out = rows.filter(r => { const n = String(r.name || '').split(' (')[0]; return n.length >= 2 && joined.includes(n); }).map(r => r.id);
+  }
+  return out.slice(0, max).map(id => ({ id, date: byId.get(id).date }));
+}
+/** 본문 숫자 중 데이터 값(현재값·변화율·분포 위치·평년 대비)과 맞는 비율 — 날짜·연도·개수 표현은 제외 */
+function checkNumbers(texts, rows) {
+  const known = [];
+  for (const r of rows) for (const k of ['value', 'chg_prev', 'chg_1m', 'chg_3m', 'chg_1y', 'position', 'season_dev', 'chg_since_brief']) {
+    const v = r[k]; if (v != null && Number.isFinite(v)) known.push(Math.abs(v));
+  }
+  for (const r of rows) if (r.position != null) known.push(100 - r.position);   // '상위 22%' 표현
+  const nums = [];
+  for (const t of texts) {
+    const src = String(t || '').replace(/\d{4}[-./]\d{1,2}([-./]\d{1,2})?/g, ' ').replace(/\d{1,2}\s*월\s*\d{1,2}\s*일/g, ' ');
+    for (const m of src.matchAll(/([+−-]?)(\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)\s*(%p|%|bp|달러|\$|원|배|개|가지|월|일|주|년|분기|차|위|번|명|곳)?/g)) {
+      const unit = m[3] || '', x = Number(m[2].replace(/,/g, ''));
+      if (/^(개|가지|월|일|주|년|분기|차|위|번|명|곳)$/.test(unit)) continue;
+      if (!m[2].includes('.') && x < 10 && !unit) continue;           // 작은 정수(문장 속 개수 등)
+      if (!m[2].includes('.') && x >= 1900 && x <= 2100 && !unit) continue;   // 연도
+      nums.push({ raw: m[0].trim(), x });
+    }
+  }
+  const ok = n => known.some(k => { const tol = Math.max(0.051, Math.abs(k) * 0.006); return Math.abs(k - n.x) <= tol || (k >= 1000 && Math.abs(k / 1000 - n.x) <= 0.051) || Math.abs(Math.round(k) - n.x) < 0.5 && !String(n.raw).includes('.'); });
+  const unmatched = nums.filter(n => !ok(n)).map(n => n.raw);
+  return { checked: nums.length, matched: nums.length - unmatched.length, unmatched: unmatched.slice(0, 6) };
+}
+
 const SCHEMA = {
   type: 'OBJECT',
   properties: {
@@ -590,13 +624,14 @@ const SCHEMA = {
         points: { type: 'ARRAY', items: { type: 'STRING' } },
         korea: { type: 'STRING' },
         watch: { type: 'ARRAY', items: { type: 'STRING' } },
-        counterpoint: { type: 'STRING' }
+        counterpoint: { type: 'STRING' },
+        refs: { type: 'ARRAY', items: { type: 'STRING' } }
       },
       required: ['headline', 'story', 'top3', 'points', 'korea', 'watch', 'counterpoint']
     },
     sections: {
       type: 'ARRAY',
-      items: { type: 'OBJECT', properties: { cat: { type: 'STRING' }, headline: { type: 'STRING' }, body: { type: 'STRING' }, review: { type: 'STRING' } }, required: ['cat', 'headline', 'body', 'review'] }
+      items: { type: 'OBJECT', properties: { cat: { type: 'STRING' }, headline: { type: 'STRING' }, body: { type: 'STRING' }, review: { type: 'STRING' }, refs: { type: 'ARRAY', items: { type: 'STRING' } } }, required: ['cat', 'headline', 'body', 'review'] }
     },
     indicators: {
       type: 'ARRAY',
@@ -741,11 +776,18 @@ async function main() {
     korea: clean(b.korea, 240), watch: (b.watch || []).map(p => clean(p, 100)).filter(Boolean).slice(0, 4),
     counterpoint: clean(b.counterpoint, 200)
   };
+  // 근거 지표·기준일 (실제 데이터에 있는 ID 만) + 본문 숫자 대조
+  const bTexts = [briefing.headline, briefing.story, ...briefing.top3, ...briefing.points, briefing.korea, briefing.counterpoint];
+  briefing.refs = groundRefs(b.refs, rows, bTexts);
+  briefing.grounding = checkNumbers(bTexts, rows);
+  console.log(`  근거 지표 ${briefing.refs.length}개 · 본문 숫자 ${briefing.grounding.checked}개 중 데이터와 일치 ${briefing.grounding.matched}개`);
   const sections = {};
   for (const it of parsed.sections || []) {
     if (!it || !CATS.includes(it.cat) || sections[it.cat]) continue;
     const headline = clean(it.headline, 40), body = clean(it.body, 260), review = prevBlock ? checkReview(it.cat, clean(it.review, 160), rows) : null;
-    if (headline || body) sections[it.cat] = { headline, body, ...(review ? { review } : {}) };
+    const catRows = rows.filter(r => r.cat === it.cat);
+    const refs = groundRefs(it.refs, catRows.length ? catRows : rows, [headline, body], 3);
+    if (headline || body) sections[it.cat] = { headline, body, ...(review ? { review } : {}), ...(refs.length ? { refs } : {}) };
   }
   const indicators = {};
   for (const it of parsed.indicators || []) {
@@ -834,7 +876,7 @@ async function main() {
 }
 
 // 테스트에서 문장 다듬기 함수만 가져다 쓸 수 있게 내보냄. 직접 실행할 때만 생성 시작
-export { clean, cleanWatch, soften, BANNED };
+export { clean, cleanWatch, soften, BANNED, groundRefs, checkNumbers };
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch(e => keepPrevious(`오류: ${e.message}`, { fail: true })).then(() => process.exit(0));
 }

@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 import { COMPUTED, clean, guessFreq, trim, valueAsOf, round } from '../scripts/fetch-data.mjs';
-import { clean as aiClean, soften, cleanWatch } from '../scripts/ai-insight.mjs';
+import { clean as aiClean, soften, cleanWatch, groundRefs, checkNumbers } from '../scripts/ai-insight.mjs';
 import { SOURCES } from '../scripts/sources.mjs';
 import { loadConfig } from '../scripts/lib/config.mjs';
 import { validateData } from '../scripts/validate-data.mjs';
@@ -188,4 +188,21 @@ test('분석: 모든 모듈이 빈 데이터·합성 데이터에서 오류 없�
     assert.ok(Array.isArray(res.observations) && !res.observations.some(o => /오류/.test(o.text)), m.id);
     assert.ok(res.rules.every(r => r.state === 'hold'));
   }
+});
+
+/* ---------- AI 근거 검증 ---------- */
+const gRows = [
+  { id: 'us10y', name: '미국 10년물 금리', cat: 'rates', value: 4.12, date: '2026-10-16', chg_prev: -0.03, chg_1m: 0.21, position: 78 },
+  { id: 'wti', name: 'WTI 원유 (미국)', cat: 'energy', value: 71.35, date: '2026-10-16', chg_1m: -5.4, chg_1y: -12.33 }
+];
+test('AI 근거 지표: 데이터에 없는 ID 제거, 기준일은 데이터에서 붙임, ID 가 없으면 본문 이름으로 찾음', () => {
+  assert.deepEqual(groundRefs(['us10y', 'made_up', 'us10y'], gRows), [{ id: 'us10y', date: '2026-10-16' }]);
+  assert.deepEqual(groundRefs([], gRows, ['WTI 원유가 하락']), [{ id: 'wti', date: '2026-10-16' }]);
+  assert.deepEqual(groundRefs(undefined, gRows), []);
+});
+test('AI 숫자 대조: 값·변화율·분포 위치와 맞는지, 날짜·연도·개수는 제외', () => {
+  const g = checkNumbers(['미국 10년물 4.12%, 한 달 +0.21%p, 상위 22%. WTI 71.4달러(1개월 −5.4%)', '3가지 확인, 2026년 10월 16일, 2026-10-16 기준', '엉뚱한 9.99%'], gRows);
+  assert.equal(g.checked, 6);
+  assert.equal(g.matched, 5);
+  assert.deepEqual(g.unmatched, ['9.99%']);
 });
