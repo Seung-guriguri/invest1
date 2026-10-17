@@ -254,10 +254,14 @@
     setTimeout(() => URL.revokeObjectURL(url), 1500);
   }
 
-  /** 공유 버튼 */
+  /** 🖼 이미지로 공유
+   * 카톡 등은 이미지와 글을 함께 받으면 글을 버리므로, 설명·링크를 먼저 클립보드에 복사해 두고
+   * 이미지를 보낸 뒤 대화창에 붙여넣게 함 (텔레그램처럼 글을 함께 받는 앱은 캡션으로도 붙음) */
   async function shareIndicator(id) {
     if (!id || !IND[id]) return;
     try {
+      const a0 = analyze(IND[id]);
+      const copied = await copyText(shareText(id, a0));
       if (document.fonts && document.fonts.ready) await document.fonts.ready;
       const { canvas, a } = render(id);
       const text = shareText(id, a);
@@ -265,22 +269,29 @@
       const name = `${id}-${a.cur ? a.cur.date : DataStore.isoDate(new Date())}.png`;
       const file = new File([blob], name, { type: 'image/png' });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        if (copied) toast('설명·링크를 복사했어요 — 이미지를 보낸 뒤 붙여넣기 하세요');
         try { await navigator.share({ files: [file], text, title: a.ind.name }); return; }
         catch (e) { if (e && e.name === 'AbortError') return; /* 공유 실패 → 아래 대체 경로 */ }
       }
       download(blob, name);
-      const copied = await copyText(text);
       toast(copied ? '이미지를 저장하고 설명·링크를 복사했습니다' : '이미지를 저장했습니다');
     } catch (e) {
       toast('공유 이미지를 만들지 못했습니다: ' + e.message);
     }
   }
 
-  /** 링크만 복사 (길게 누를 때 등 보조용) */
-  async function copyLink(id) {
-    const ok = await copyText(linkFor(id));
-    toast(ok ? '바로가기 링크를 복사했습니다' : linkFor(id));
+  /** 🔗 링크로 공유 — 요약 한 줄 + 링크 (카톡에선 링크 미리보기 카드로 보임) */
+  async function shareLink(id) {
+    if (!id || !IND[id]) return;
+    const a = analyze(IND[id]);
+    const full = shareText(id, a), line = full.split('\n')[0], url = linkFor(id);
+    if (navigator.share) {
+      try { await navigator.share({ title: a.ind.name, text: line, url }); return; }
+      catch (e) { if (e && e.name === 'AbortError') return; }
+    }
+    const ok = await copyText(full);
+    toast(ok ? '요약과 링크를 복사했습니다' : url);
   }
 
-  global.Share = { shareIndicator, copyLink, render, shareText, linkFor };
+  global.Share = { shareIndicator, shareLink, render, shareText, linkFor };
 })(window);
