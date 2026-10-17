@@ -257,6 +257,28 @@
   .comment { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); font-size: 13.5px; }
   .season-note { margin-top: 4px; font-size: 12.5px; color: var(--text-2); }
   .empty { color: var(--text-2); font-size: 14px; }
+  /* 화면 전환: body[data-view] 에 맞는 영역만 보임 */
+  body[data-view="today"] .v-list, body[data-view="today"] .v-ai,
+  body[data-view="list"] .v-today, body[data-view="list"] .v-ai,
+  body[data-view="ai"] .v-today, body[data-view="ai"] .v-list { display: none !important; }
+  .views { display: flex; gap: 6px; padding-top: 0; padding-bottom: 4px; }
+  .views button { flex: 1; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); border-radius: 12px; padding: 9px 4px; font: inherit; font-size: 14.5px; font-weight: 600; cursor: pointer; }
+  .views button[aria-current="page"] { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .v-today + .v-today, .v-ai + .v-ai { margin-top: 12px; }
+  .ai-mini .more { margin-top: 10px; border: 0; background: none; color: var(--accent); font: inherit; font-size: 14px; font-weight: 600; padding: 0; cursor: pointer; }
+  .watch-now { display: grid; gap: 8px; }
+  .watch-now .all-good { color: var(--text-2); font-size: 14px; margin: 0; }
+  .today-check h2 small, .ins-wrap summary small { font-weight: 400; font-size: 12px; color: var(--text-2); }
+  .ins-wrap { margin-top: 12px; border-top: 1px dashed var(--border); padding-top: 10px; }
+  .ins-wrap > summary { cursor: pointer; font-weight: 600; font-size: 15px; }
+  .ins-wrap[open] > summary { margin-bottom: 8px; }
+  .tabs.groups { margin-bottom: 8px; }
+  .tabs-bar .tabs { flex-wrap: wrap; overflow: visible; margin: 0; padding: 0; }   /* 묶음·세부 탭 모두 한눈에 (가로 스크롤 없음) */
+  .tabs-bar .tabs + .tabs { row-gap: 6px; }
+  .tabs-bar .tabs.groups { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  .tabs-bar .tabs:not(.groups) .tab { font-size: 13.5px; padding-top: 5px; padding-bottom: 5px; }
+  .tabs.groups .tab { font-weight: 700; }
+  .tabs:empty { display: none; }
   /* 카드 정리: 설명 한 줄 · 값/변화/스파크 고정 배치 · 날짜 줄 한 줄 · 양호는 배지 없이 왼쪽 색띠로만 */
   .card { padding: 11px 14px 12px; min-width: 0; overflow: hidden; }
   .cards > * { min-width: 0; }
@@ -401,6 +423,13 @@
     </button>
   </header>
 
+  <!-- 화면 전환 (v1: 위쪽 버튼 / v2: 아래 메뉴가 같은 역할) -->
+  <nav class="wrap views" id="viewNav" aria-label="화면">
+    <button type="button" data-view="today">📅 오늘</button>
+    <button type="button" data-view="list">📊 지표</button>
+    <button type="button" data-view="ai">✨ AI</button>
+  </nav>
+
   <main class="wrap">
     <div class="banner" id="sampleBanner" hidden>
       <div class="grow"><b>샘플 데이터 표시 중</b> — 화면 예시용 가짜 값이며 실제 시세가 아닙니다.</div>
@@ -408,24 +437,35 @@
     </div>
 
     <section id="alerts" aria-label="긴급 경고" hidden></section>
-    <section class="panel ai-brief" id="aiBrief" aria-label="오늘의 AI 브리핑" hidden></section>
+    <!-- 오늘: AI 요약 · 경고/주의 지표 · 오늘 볼 것 -->
+    <section class="panel ai-brief ai-mini v-today" id="aiMini" aria-label="오늘의 AI 브리핑 요약" hidden></section>
 
-    <section class="panel" aria-label="요약">
+    <section class="panel v-today" aria-label="요약">
       <div class="counts" id="counts"></div>
-      <h2>오늘의 체크리스트</h2>
+      <h2 id="watchTitle">지금 주의·경고 지표</h2>
+      <div class="watch-now" id="watchNow"></div>
+    </section>
+
+    <section class="panel today-check v-today" aria-label="오늘 볼 것">
+      <h2>오늘 볼 것 <small>규칙 기반 체크리스트</small></h2>
       <ul class="checklist" id="checklist"></ul>
+      <details class="ins-wrap" id="insWrap">
+        <summary>매크로 인사이트 <small id="insCount"></small></summary>
+        <div id="insights"></div>
+      </details>
     </section>
 
-    <section class="panel insights" aria-label="매크로 인사이트">
-      <h2>매크로 인사이트 <small>규칙 기반 일반 해석</small></h2>
-      <div id="insights"></div>
-    </section>
+    <!-- AI: 브리핑 전문 · 분류별 요약 · 리서치 리포트 · 칼럼 -->
+    <section class="panel ai-brief v-ai" id="aiBrief" aria-label="오늘의 AI 브리핑" hidden></section>
+    <p class="hint v-ai" id="aiEmpty" hidden>아직 AI 브리핑이 없습니다. 평일 아침에 만들어집니다.</p>
 
-    <div class="tabs-bar">
+    <!-- 지표: 분류 묶음 → 세부 탭 → 카드 -->
+    <div class="tabs-bar v-list">
+      <nav class="tabs groups" id="tabGroups" aria-label="분류 묶음"></nav>
       <nav class="tabs" role="tablist" id="tabs" aria-label="카테고리"></nav>
     </div>
 
-    <section class="cards" id="cards" role="tabpanel" aria-live="polite"></section>
+    <section class="cards v-list" id="cards" role="tabpanel" aria-live="polite"></section>
   </main>
 </div>
 
@@ -1807,7 +1847,24 @@ function safeTest(rule, S) { try { return !!rule.test(S); } catch (e) { console.
 /* ---------- 렌더링 ---------- */
 let R = {};
 let activeTab = DataStore.getSettings().tab;
-let listFilter = null;   // '2' 경고 · '1' 주의 · 'stale' 오래됨 · null 꺼짐
+let listFilter = null;
+let view = 'today';      // 'today' 오늘 · 'list' 지표 · 'ai' AI
+/** 지표 탭 묶음 (한눈에 보이게 2단계: 묶음 → 세부 탭) */
+const TAB_GROUPS = [
+  { id: 'macro', label: '거시', cats: ['rates', 'inflation', 'growth', 'market', 'fx'] },
+  { id: 'res', label: '에너지·자원', cats: ['energy', 'power', 'stocks', 'metals', 'grains'] },
+  { id: 'ship', label: '해운', cats: ['freight'] },
+  { id: 'etf', label: 'ETF', cats: ['etf'] }
+];
+const groupOf = cat => TAB_GROUPS.find(g => g.cats.includes(cat)) || TAB_GROUPS[0];
+const lastTabInGroup = {};
+function setView(v, opts = {}) {
+  view = ['today', 'list', 'ai'].includes(v) ? v : 'today';
+  document.body.dataset.view = view;
+  document.querySelectorAll('#viewNav [data-view]').forEach(b => b.setAttribute('aria-current', b.dataset.view === view ? 'page' : 'false'));
+  document.dispatchEvent(new CustomEvent('viewchange', { detail: view }));
+  if (!opts.keepScroll) window.scrollTo({ top: 0 });
+}   // '2' 경고 · '1' 주의 · 'stale' 오래됨 · null 꺼짐
 if (!CONFIG.categories.some(c => c.id === activeTab)) activeTab = CONFIG.categories[0].id;
 
 function render() {
@@ -1832,7 +1889,11 @@ function render() {
 
   renderAlerts();
   renderAIBrief();
+  const watch = all.filter(a => a.signal >= 1).sort((x, y) => y.signal - x.signal);
+  $('#watchTitle').textContent = watch.length ? `지금 주의·경고 지표 ${watch.length}개` : '지금 주의·경고 지표';
+  $('#watchNow').innerHTML = watch.length ? watch.map(cardHTML).join('') : '<p class="all-good">모든 지표가 양호합니다.</p>';
   const ins = buildInsights(R);
+  $('#insCount').textContent = ins.length ? `${ins.length}개` : '';
   $('#insights').innerHTML = ins.length ? ins.map((it, i) => `
     <details class="insight" ${i === 0 ? 'open' : ''}>
       <summary><b>${esc(it.title)}</b>${it.summary ? `<span>${esc(it.summary)}</span>` : ''}</summary>
@@ -1844,13 +1905,21 @@ function render() {
       }).join('')}</div>` : ''}
     </details>`).join('') : '<p class="hint" style="margin:0">지금은 여러 지표가 함께 가리키는 두드러진 흐름이 없습니다. 개별 지표 추이만 확인하세요.</p>';
 
-  $('#tabs').innerHTML = CONFIG.categories.map(cat => {
-    const sigs = all.filter(a => a.ind.cat === cat.id && a.signal != null).map(a => a.signal);
-    const worst = sigs.length ? Math.max(...sigs) : null;
+  const worstOf = cats => { const sg = all.filter(a => cats.includes(a.ind.cat) && a.signal != null).map(a => a.signal); return sg.length ? Math.max(...sg) : null; };
+  const grp = groupOf(activeTab);
+  lastTabInGroup[grp.id] = activeTab;
+  $('#tabGroups').innerHTML = TAB_GROUPS.map(g => {
+    const w = worstOf(g.cats), sel = !listFilter && g.id === grp.id;
+    return `<button class="tab" type="button" aria-pressed="${sel}" aria-selected="${sel}" data-group="${g.id}">
+      <span class="dot ${w == null ? '' : 's' + w}" aria-hidden="true"></span>${esc(g.label)}</button>`;
+  }).join('');
+  const subCats = CONFIG.categories.filter(cat => grp.cats.includes(cat.id));
+  $('#tabs').innerHTML = subCats.length > 1 ? subCats.map(cat => {
+    const worst = worstOf([cat.id]);
     const sel = !listFilter && cat.id === activeTab;
     return `<button class="tab" role="tab" aria-selected="${sel}" data-tab="${cat.id}">
       <span class="dot ${worst == null ? '' : 's' + worst}" aria-hidden="true"></span>${esc(cat.label)}</button>`;
-  }).join('');
+  }).join('') : '';
 
   if (listFilter) { $('#cards').innerHTML = filterListHTML(all); return; }
   const tabList = all.filter(a => a.ind.cat === activeTab);
@@ -1872,9 +1941,8 @@ function filterListHTML(all) {
 }
 function setFilter(f) {
   listFilter = listFilter === f ? null : f;
+  if (listFilter) setView('list');
   render();
-  const bar = document.querySelector('.tabs-bar') || $('#tabs');
-  if (listFilter && bar) window.scrollTo({ top: bar.getBoundingClientRect().top + window.scrollY - 8, behavior: 'smooth' });
 }
 
 function changeHTML(a) {
@@ -1992,8 +2060,17 @@ function columnHTML(c) {
 
 function renderAIBrief() {
   const el = $('#aiBrief'); const ai = DataStore.getAI();
-  if (!ai) { el.hidden = true; return; }
+  const mini = $('#aiMini');
+  $('#aiEmpty').hidden = !!ai;
+  if (!ai) { el.hidden = true; mini.hidden = true; return; }
   const b = ai.briefing;
+  mini.innerHTML = `<div class="ai-label">오늘의 AI 브리핑</div>
+    ${b.headline ? `<h2>${esc(b.headline)}</h2>` : ''}
+    ${b.top3 && b.top3.length ? `<div class="ai-top3"><b>✅ 오늘 꼭 볼 3가지</b><ol>${b.top3.map(x => `<li>${esc(x)}</li>`).join('')}</ol></div>` : ''}
+    ${b.story ? `<p class="story">${esc(b.story)}</p>` : ''}
+    <button type="button" class="more" data-view="ai">분류별 요약 · 리서치 리포트 · 칼럼 보기 ›</button>
+    <p class="ai-meta">${esc(aiMetaText(ai))}</p>`;
+  mini.hidden = false;
   const list = (title, arr) => arr && arr.length ? `<div class="row"><b>${title}</b><ul>${arr.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>` : '';
   const row = (title, txt) => txt ? `<div class="row"><b>${title}</b>${esc(txt)}</div>` : '';
   el.innerHTML = `<div class="ai-label">오늘의 AI 브리핑</div>
@@ -2408,7 +2485,7 @@ function route() {
   $('#mainView').setAttribute('aria-hidden', String(settings));
   if (settings) { syncSettingsFields(); $('#settingsView').scrollTop = 0; return; }
   const linked = linkedIndicator();
-  if (linked && activeTab !== linked.cat) activeTab = linked.cat;   // 공유 링크: 그 지표의 탭으로
+  if (linked) { if (activeTab !== linked.cat) activeTab = linked.cat; setView('list'); }   // 공유 링크: 지표 화면의 그 탭으로
   render();
   openFromHash();
 }
@@ -2441,9 +2518,17 @@ async function reloadRemote(silent) {
 document.addEventListener('click', e => {
   const sm = $('#shareMenu');
   if (sm && !sm.hidden && !e.target.closest('#shareMenu,[data-action="share-ind"]')) sm.hidden = true;
-  const t = e.target.closest('[data-tab],[data-edit],[data-del],[data-action],[data-range],[data-filter]');
+  const t = e.target.closest('[data-tab],[data-edit],[data-del],[data-action],[data-range],[data-filter],[data-group],[data-view]');
   if (!t) return;
-  if (t.dataset.filter) {
+  if (t.dataset.view) {
+    if (t.dataset.view !== 'list') listFilter = null;
+    setView(t.dataset.view); render();
+  } else if (t.dataset.group) {
+    const g = TAB_GROUPS.find(x => x.id === t.dataset.group);
+    listFilter = null;
+    activeTab = lastTabInGroup[g.id] || g.cats[0];
+    DataStore.setSettings({ tab: activeTab }); render();
+  } else if (t.dataset.filter) {
     setFilter(t.dataset.filter);
   } else if (t.dataset.tab) {
     listFilter = null;
@@ -2537,6 +2622,7 @@ window.addEventListener('hashchange', route);
 /* ---------- 시작 ---------- */
 $('#todayLabel').textContent = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
 applyTheme();
+setView('today', { keepScroll: true });
 route(); // 캐시된 자동 데이터로 먼저 표시
 reloadRemote(true).then(() => {
   // 자동 데이터도, 입력값도 없는 첫 실행이면 화면 예시용 샘플

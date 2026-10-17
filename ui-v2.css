@@ -228,3 +228,11 @@
 [data-ui="v2"] .empty-group .empty-list { display: block; }
 [data-ui="v2"] .filter-head { background: transparent; border: 0; padding: 12px 0 4px; }
 [data-ui="v2"] .filter-cat { margin: 14px 0 0; color: var(--text-3); }
+
+/* 화면 전환은 아래 메뉴가 맡으므로 위쪽 버튼 줄은 숨김 (v2) */
+[data-ui="v2"] #viewNav { display: none; }
+[data-ui="v2"] .watch-now { display: block; }
+[data-ui="v2"] .tabs.groups .tab { font-size: 15.5px; }
+[data-ui="v2"] .tabs-bar .tabs + .tabs { margin-top: 2px; }
+[data-ui="v2"] .tabs-bar .tabs { flex-wrap: wrap; margin: 0; padding: 0; row-gap: 8px; }
+[data-ui="v2"] .tabs-bar .tabs:not(.groups) .tab { padding: 7px 13px; font-size: 14px; }
