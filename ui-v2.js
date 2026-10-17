@@ -81,7 +81,7 @@
   const nav = document.createElement('nav');
   nav.className = 'nav2';
   nav.setAttribute('aria-label', '화면 이동');
-  nav.innerHTML = [['home', '홈'], ['list', '지표'], ['ai', 'AI'], ['set', '설정']]
+  nav.innerHTML = [['ai', 'AI'], ['home', '오늘'], ['list', '지표'], ['set', '설정']]
     .map(([k, t]) => `<button type="button" data-nav="${k}">${ICON[k]}<span>${t}</span></button>`).join('');
   document.body.appendChild(nav);
 
@@ -95,6 +95,7 @@
     const k = b.dataset.nav;
     if (k === 'set') { location.hash = '#settings'; setOn(k); return; }
     goMain();
+    viewTouched = true;
     if (k !== 'list') listFilter = null;
     setView(NAV_VIEW[k]); render();
     setOn(k);
