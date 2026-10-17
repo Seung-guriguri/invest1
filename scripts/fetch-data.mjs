@@ -20,6 +20,7 @@
  * ===================================================================== */
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { SOURCES } from './sources.mjs';
 
 const args = process.argv.slice(2);
@@ -505,4 +506,8 @@ async function main() {
   if (fresh === 0) { console.error('수집된 지표가 없습니다. API 키와 네트워크를 확인하세요.'); process.exit(1); }
 }
 
-main().catch(e => { console.error(e); process.exit(1); });
+// 테스트(tests/)에서 계산·정리 함수만 가져다 쓸 수 있게 내보냄. 직접 실행할 때만 수집 시작
+export { COMPUTED, clean, guessFreq, trim, valueAsOf, round };
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch(e => { console.error(e); process.exit(1); });
+}

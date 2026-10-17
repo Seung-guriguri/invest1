@@ -20,6 +20,7 @@
  * ===================================================================== */
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import '../season.js';   // globalThis.SEASON 등록
 import { SOURCES } from './sources.mjs';
 import { closes, retAfter, retSoFar } from './watch-perf.mjs';
@@ -832,4 +833,8 @@ async function main() {
   console.log(warn.length ? `  길이·형식 경고: ${warn.join(', ')}` : '  길이·형식 점검: 모두 기준 이내');
 }
 
-main().catch(e => keepPrevious(`오류: ${e.message}`, { fail: true })).then(() => process.exit(0));
+// 테스트에서 문장 다듬기 함수만 가져다 쓸 수 있게 내보냄. 직접 실행할 때만 생성 시작
+export { clean, cleanWatch, soften, BANNED };
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch(e => keepPrevious(`오류: ${e.message}`, { fail: true })).then(() => process.exit(0));
+}

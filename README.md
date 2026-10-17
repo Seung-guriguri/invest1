@@ -13,6 +13,10 @@ index.html                      화면 + 스타일 + 앱 로직. 스크립트 �
 prompts/ai-system.md, ai-user.md  AI 인사이트 프롬프트 (역할·규칙 / 데이터 틀)
 prompts/ai-column.md            오늘의 칼럼 프롬프트 (섹션별 헤드라인 + 3~5줄의 짧은 칼럼)
 tankers.js                      🛢 유조선 가이드 (운임 탭 하단: 배 크기 사다리 · 관련주 9개 미니 시세 · 운임 동인)
+tests/                          단위 테스트(unit.test.mjs) · 화면 스모크 테스트(ui-smoke.mjs) — docs/architecture.md 참고
+docs/                           구조·데이터 흐름(architecture.md) · 지표 카탈로그(indicator-catalog.md, 자동 생성)
+scripts/validate-data.mjs       수집 결과 구조 검증 (깨졌으면 배포 중단)
+scripts/catalog.mjs             지표 카탈로그 문서 생성
 share.js                        지표 공유 — 공유용 이미지(캔버스) + 바로가기 링크(#ind=지표ID)
 guides.js                       🚢 벌크선 가이드(운임 탭) · 🛢 석유 밸류체인(에너지 탭) — 단계·선형별 관련주 미니 시세 (tankers.js 스타일 공용)
 scripts/ai-insight.mjs          AI 인사이트 생성 (Gemini, 하루 1회)
