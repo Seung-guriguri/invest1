@@ -27,6 +27,7 @@
 | `notes.js` | 지표별 인사이트 문구(의미·함께 보면·확인할 것) |
 | `season.js` | 계절 메모 (화면·AI 프롬프트 공용) |
 | `tankers.js` · `guides.js` | 유조선·벌크선·석유 밸류체인 가이드 |
+| `corr.js` | 지표 간 상관관계 (변화율 기준, 주간/월간 맞춤, 선행·후행, 겹친 차트) — 상세 화면의 🔗 상관관계 |
 | `share.js` | 공유 이미지(캔버스) + 바로가기 링크(`#ind=지표ID`) |
 | `ui-v2.css` · `ui-v2.js` | v2 디자인(목록형·하단 메뉴). v1 은 index.html 기본 스타일 |
 | `sw.js` | 서비스 워커(네트워크 우선, 오프라인 대비) |
@@ -54,7 +55,7 @@ Node 스크립트는 `scripts/lib/config.mjs` 로 index.html 의 CONFIG 를 그�
 
 | 명령 | 내용 | 언제 |
 |---|---|---|
-| `node --test tests/unit.test.mjs` | 계산 공식, 관측치 정리, AI 문장 다듬기, 지표 정의 일관성, 해설 id, 카탈로그 최신, 데이터 구조 검증 | 배포 워크플로 시작 시 · PR |
+| `node --test tests/unit.test.mjs` | 계산 공식, 관측치 정리, AI 문장 다듬기, 지표 정의 일관성, 해설 id, 카탈로그 최신, 데이터 구조 검증, 상관 계산 | 배포 워크플로 시작 시 · PR |
 | `node tests/ui-smoke.mjs` | 합성 데이터로 실제 브라우저: v1·v2 × 라이트·다크, 화면 전환, 모든 분류·지표 상세, 공유 이미지, 백업·복원, 공유 링크, 360px 가로 넘침 | PR · 작업 브랜치 push (`test.yml`) |
 | `node scripts/validate-data.mjs <파일>` | 수집 결과 구조 검증 | 배포 워크플로 수집 직후 |
 
