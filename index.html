@@ -156,6 +156,15 @@
   .corr-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--text-2); margin-top: 4px; }
   .corr-legend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 4px; }
   .corr-note { font-size: 11.5px; color: var(--text-2); margin: 6px 0 0; }
+  .corr-tabs { display: flex; gap: 4px; margin: 10px 0 4px; }
+  .corr-tabs button { flex: 1; min-width: 0; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); border-radius: 9px; padding: 6px 2px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+  .corr-tabs button[aria-pressed="true"] { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .corr-say small { color: var(--text-2); font-size: 11.5px; }
+  .corr-tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .corr-tbl th, .corr-tbl td { padding: 5px 3px; border-top: 1px solid var(--border); text-align: right; }
+  .corr-tbl thead th { font-weight: 600; color: var(--text-2); font-size: 11.5px; border-top: 0; }
+  .corr-tbl tbody th { text-align: left; white-space: nowrap; }
+  .corr-tbl .muted { color: var(--text-2); text-align: left; }
   .tab-summary { font-size: 13px; color: var(--text-2); background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 8px 12px; margin-bottom: 10px; }
   .tab-summary b { color: var(--text); }
 
@@ -2399,26 +2408,90 @@ function corrSectionHTML(id) {
     <p class="corr-note">주간(월간 지표가 끼면 월간) 변화율로 계산 · 순위는 최근 1년(월간 3년) · 같이 움직였다고 원인·결과는 아님</p>
   </section>`;
 }
+const CORR_TABS = [['sum', '요약'], ['roll', '추이'], ['evt', '사건 반응'], ['ratio', '비율']];
+/** 작은 선 차트 (여러 선, 선택: 0 기준선·고정 범위) */
+function miniLineSVG(lines, opt = {}) {
+  const W = 320, H = opt.h || 130, pad = 4;
+  const all = lines.flatMap(l => l.v);
+  const lo = opt.lo != null ? opt.lo : Math.min(...all), hi = opt.hi != null ? opt.hi : Math.max(...all), span = hi - lo || 1;
+  const y = v => (pad + (1 - (v - lo) / span) * (H - pad * 2)).toFixed(1);
+  const pts = arr => arr.map((v, i) => `${(pad + i / Math.max(1, arr.length - 1) * (W - pad * 2)).toFixed(1)},${y(v)}`).join(' ');
+  const zero = opt.zero && lo < 0 && hi > 0 ? `<line x1="0" x2="${W}" y1="${y(0)}" y2="${y(0)}" stroke="var(--border)" stroke-width="1" stroke-dasharray="4 3"/>` : '';
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opt.label || '차트')}">${zero}${lines.map(l => `<polyline points="${pts(l.v)}" fill="none" stroke="${l.c}" stroke-width="1.8" stroke-linejoin="round"/>`).join('')}</svg>`;
+}
+const corrStep = v => { if (!(v > 0)) return 1; const e = Math.pow(10, Math.floor(Math.log10(v))), m = v / e; return (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * e; };
+const fmtSig = v => { const x = Math.abs(v); return fmt(v, x >= 100 ? 0 : x >= 1 ? 2 : 4); };
+/** 변화 크기 표시: pct 모드 = %, diff 모드 = 지표 단위 (% 지표는 %p) */
+function chgFmt(x, id, mode) {
+  if (x == null || !Number.isFinite(x)) return '—';
+  if (mode === 'pct') return fmtSigned(x * 100, Math.abs(x * 100) < 1 ? 2 : 1) + '%';
+  const ind = IND[id], u = ind.unit === '%' ? '%p' : (ind.unit || '');
+  return fmtSigned(x, Math.max(ind.dp, Math.abs(x) < 1 ? 2 : 1)) + (u ? ' ' + u : '');
+}
 function renderCorrPair(id, other) {
   const out = $('#corrOut'); if (!out) return;
   const A = corrSeries(id), B = other && corrSeries(other);
   if (!A || !B) { out.innerHTML = ''; return; }
-  const p = CORR.pair(A, B), nm = x => esc(IND[x].name);
-  const main = p.windows[1];
-  const lead = p.lead ? `<p class="corr-say">⏱ 시차: <b>${p.lead.lag > 0 ? `${nm(id)} → ${nm(other)}` : `${nm(other)} → ${nm(id)}`}</b> — 앞의 지표가 약 <b>${Math.abs(p.lead.lag)}${p.unit}</b> 먼저 움직이는 경향 (r ${fmtR(p.lead.r)}, 표본 ${p.lead.n})</p>` : '';
-  const ov = CORR.overlay(A, B, p.basis === 'M' ? 60 : 104);
-  let chart = '';
-  if (ov) {
-    const W = 320, H = 130, pad = 4, all = [...ov.a, ...ov.b], lo = Math.min(...all), hi = Math.max(...all), span = hi - lo || 1;
-    const pts = arr => arr.map((v, i) => `${(pad + i / (arr.length - 1) * (W - pad * 2)).toFixed(1)},${(pad + (1 - (v - lo) / span) * (H - pad * 2)).toFixed(1)}`).join(' ');
-    chart = `<div class="corr-chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="두 지표 겹친 차트">
-      <polyline points="${pts(ov.a)}" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linejoin="round"/>
-      <polyline points="${pts(ov.b)}" fill="none" stroke="#e8890c" stroke-width="1.8" stroke-linejoin="round"/></svg>
-      <div class="corr-legend"><span><i style="background:var(--accent)"></i>${nm(id)}</span><span><i style="background:#e8890c"></i>${nm(other)}</span><span>${esc(ov.keys[0])} ~ ${esc(ov.keys[ov.keys.length - 1])} · 시작=100</span></div></div>`;
+  const nm = x => esc(IND[x].name);
+  const tab = CORR_TABS.some(t => t[0] === DataStore.getSettings().corrTab) ? DataStore.getSettings().corrTab : 'sum';
+  const tabs = `<div class="corr-tabs" role="group" aria-label="비교 보기">${CORR_TABS.map(([k, t]) => `<button type="button" data-corrtab="${k}" aria-pressed="${k === tab}">${t}</button>`).join('')}</div>`;
+  const legend = (extra = '') => `<div class="corr-legend"><span><i style="background:var(--accent)"></i>${nm(id)}</span><span><i style="background:#e8890c"></i>${nm(other)}</span>${extra}</div>`;
+  let body = '';
+  if (tab === 'sum') {
+    const p = CORR.pair(A, B), main = p.windows[1];
+    const bt = CORR.beta(A, B);
+    let sens = '';
+    if (bt) {
+      const step = A.mode === 'pct' ? 0.01 : (IND[id].unit === '%' ? 0.1 : corrStep(bt.sdx));
+      const stepTxt = A.mode === 'pct' ? '1%' : `${fmt(step, step < 1 ? 2 : 0)}${IND[id].unit === '%' ? '%p' : ' ' + esc(IND[id].unit || '')}`;
+      sens = `<p class="corr-say">📐 민감도: ${nm(id)} <b>${stepTxt} ↑</b> → ${nm(other)} 평균 <b>${chgFmt(bt.beta * step, other, B.mode)}</b> <small>(${p.basis === 'M' ? '월간 3년' : '주간 1년'}, 표본 ${bt.n}${Math.abs(bt.r) < 0.3 ? ' · 상관이 약해 참고만' : ''})</small></p>`;
+    }
+    const lead = p.lead ? `<p class="corr-say">⏱ 시차: <b>${p.lead.lag > 0 ? `${nm(id)} → ${nm(other)}` : `${nm(other)} → ${nm(id)}`}</b> — 앞의 지표가 약 <b>${Math.abs(p.lead.lag)}${p.unit}</b> 먼저 움직이는 경향 (r ${fmtR(p.lead.r)}, 표본 ${p.lead.n})</p>` : '';
+    const ov = CORR.overlay(A, B, p.basis === 'M' ? 60 : 104);
+    body = `<div class="corr-win">${p.windows.map(w => `<div>${w.label}<b>${w.r == null ? '—' : fmtR(w.r)}</b>${w.r == null ? '데이터 부족' : `표본 ${w.n}`}</div>`).join('')}</div>
+      ${main.r != null ? `<p class="corr-say">최근 ${main.label}: ${CORR.strength(main.r)}${p.windows[0].r != null && Math.abs(p.windows[0].r - main.r) >= 0.3 ? ` — 최근 ${p.windows[0].label}은 ${fmtR(p.windows[0].r)}로 관계가 달라지는 중` : ''}</p>` : ''}
+      ${sens}${lead}
+      ${ov ? `<div class="corr-chart">${miniLineSVG([{ v: ov.a, c: 'var(--accent)' }, { v: ov.b, c: '#e8890c' }], { label: '두 지표 겹친 차트' })}${legend(`<span>${esc(ov.keys[0])} ~ ${esc(ov.keys[ov.keys.length - 1])} · 시작=100</span>`)}</div>` : ''}`;
+  } else if (tab === 'roll') {
+    const ro = CORR.rolling(A, B);
+    if (ro.pts.length < 2) body = `<p class="corr-note">겹치는 기간이 짧아 추이를 그릴 수 없습니다 (${ro.window}${ro.basis === 'M' ? '개월' : '주'} 창이 2개 이상 필요).</p>`;
+    else {
+      const cur = ro.pts[ro.pts.length - 1].r, rs = ro.pts.map(x => x.r);
+      body = `<p class="corr-say">최근 ${ro.basis === 'M' ? '3년(월간)' : '1년(주간)'} 창으로 잰 상관의 흐름 — 지금 <b>${fmtR(cur)}</b> (범위 ${fmtR(Math.min(...rs))} ~ ${fmtR(Math.max(...rs))})</p>
+        ${ro.flip ? `<p class="corr-say">🔄 <b>${esc(ro.flip.key)}</b> 무렵 관계 반전 (${fmtR(ro.flip.from)} → 지금 ${fmtR(cur)})</p>` : ''}
+        <div class="corr-chart">${miniLineSVG([{ v: rs, c: 'var(--accent)' }], { lo: -1, hi: 1, zero: true, label: '이동 상관 추이' })}
+        <div class="corr-legend"><span>${esc(ro.pts[0].key)} ~ ${esc(ro.pts[ro.pts.length - 1].key)}</span><span>위 = +1(같은 방향) · 점선 = 0 · 아래 = −1(반대)</span></div></div>`;
+    }
+  } else if (tab === 'evt') {
+    const ev = CORR.events(A, B);
+    if (!ev) body = '<p class="corr-note">이력이 짧아 사건 반응을 계산할 수 없습니다.</p>';
+    else {
+      const [h1, h2] = ev.horizons, u = ev.unit;
+      const row = (label, g, isBase) => {
+        const n = isBase ? null : g.n;
+        if (!isBase && n < 5) return `<tr><th>${label}</th><td colspan="4" class="muted">사례 ${n}번 — 부족</td></tr>`;
+        const [r1, r2] = g.res;
+        return `<tr><th>${label}</th><td>${isBase ? '—' : n + '번'}</td><td>${chgFmt(r1.avg, other, B.mode)}</td><td>${chgFmt(r2.avg, other, B.mode)}</td><td>${r2.n ? `${isBase ? Math.round(r2.up / r2.n * 100) + '%' : `${r2.up}/${r2.n}`}` : '—'}</td></tr>`;
+      };
+      body = `<p class="corr-say"><b>${nm(id)}</b>: 한 ${u} 사이 평소 변동의 <b>${ev.k}배</b> 넘게 움직인 뒤 → <b>${nm(other)}</b> 평균 변화</p>
+        <table class="corr-tbl"><thead><tr><th></th><th>사례</th><th>${h1}${u} 뒤</th><th>${h2}${u} 뒤</th><th>${h2}${u} 뒤 상승</th></tr></thead><tbody>
+        ${row('급등 뒤', ev.up)}${row('급락 뒤', ev.down)}${row('평소', ev.base, true)}</tbody></table>
+        ${ev.up.last || ev.down.last ? `<p class="corr-note">최근 사례: ${ev.up.last ? `급등 ${esc(ev.up.last)}` : ''}${ev.up.last && ev.down.last ? ' · ' : ''}${ev.down.last ? `급락 ${esc(ev.down.last)}` : ''}</p>` : ''}
+        <p class="corr-note">과거 평균일 뿐 예측이 아님 · 사례가 적으면 우연일 수 있음 · 연달아 일어난 사건은 한 번으로 셈</p>`;
+    }
+  } else {
+    const ra = CORR.ratio(A, B);
+    if (!ra) body = '<p class="corr-note">겹치는 기간이 짧아 계산할 수 없습니다.</p>';
+    else {
+      const label = ra.kind === 'ratio' ? `${nm(id)} ÷ ${nm(other)}` : `${nm(id)} − ${nm(other)}`;
+      const p = Math.round(ra.pctl), where = p >= 50 ? `상위 ${Math.max(1, 100 - p)}%` : `하위 ${Math.max(1, p)}%`;
+      body = `<p class="corr-say">${ra.kind === 'ratio' ? '비율' : '차이'} <b>${label}</b> = <b>${fmtSig(ra.cur)}</b> — 수집 기간 중 <b>${where}</b>${p >= 90 || p <= 10 ? ' (극단 구간)' : ''}</p>
+        ${ra.kind === 'diff' ? '<p class="corr-note">0 이하 값이 있는 지표라 비율 대신 차이로 계산 (단위가 다르면 크기 비교는 의미 없음)</p>' : ''}
+        <div class="corr-chart">${miniLineSVG([{ v: ra.vals, c: 'var(--accent)' }], { label: '비율 추이', zero: ra.kind === 'diff' })}
+        <div class="corr-legend"><span>${esc(ra.keys[0])} ~ ${esc(ra.keys[ra.keys.length - 1])}</span><span>최고 ${fmtSig(ra.max.v)} (${esc(ra.max.key)})</span><span>최저 ${fmtSig(ra.min.v)} (${esc(ra.min.key)})</span></div></div>`;
+    }
   }
-  out.innerHTML = `<div class="corr-win">${p.windows.map(w => `<div>${w.label}<b>${w.r == null ? '—' : fmtR(w.r)}</b>${w.r == null ? '데이터 부족' : `표본 ${w.n}`}</div>`).join('')}</div>
-    ${main.r != null ? `<p class="corr-say">최근 ${main.label}: ${CORR.strength(main.r)}${p.windows[0].r != null && Math.abs(p.windows[0].r - main.r) >= 0.3 ? ` — 최근 ${p.windows[0].label}은 ${fmtR(p.windows[0].r)}로 관계가 달라지는 중` : ''}</p>` : ''}
-    ${lead}${chart}`;
+  out.innerHTML = tabs + body;
 }
 
 let detailState = { id: null, range: null };
@@ -2497,6 +2570,10 @@ function openEdit(id) {
   const cp = $('#corrPick');
   if (cp) {
     renderCorrPair(id, cp.value);
+    $('#corrOut').onclick = e => {
+      const b = e.target.closest('[data-corrtab]'); if (!b) return;
+      DataStore.setSettings({ corrTab: b.dataset.corrtab }); renderCorrPair(id, cp.value);
+    };
     cp.onchange = () => {
       const m = Object.assign({}, DataStore.getSettings().corrPick || {}); m[id] = cp.value; DataStore.setSettings({ corrPick: m });
       renderCorrPair(id, cp.value);

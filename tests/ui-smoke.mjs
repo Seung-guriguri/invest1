@@ -95,10 +95,19 @@ async function main() {
       const co = await page.evaluate(() => {
         openEdit('wti'); const sec = document.querySelector('#editSheet .ind-corr'); const sel = document.querySelector('#corrPick');
         sel.value = 'brent'; sel.dispatchEvent(new Event('change'));
+        DataStore.setSettings({ corrTab: 'sum' }); sel.dispatchEvent(new Event('change'));
         const r = { sec: !!sec, chips: sec.querySelectorAll('[data-edit]').length, win: document.querySelectorAll('#corrOut .corr-win div').length, svg: !!document.querySelector('#corrOut svg'), saved: (DataStore.getSettings().corrPick || {}).wti };
         return r;
       });
-      if (process.env.SHOT_DIR) { await page.evaluate(() => document.querySelector('#editSheet .ind-corr').scrollIntoView()); await page.screenshot({ path: `${process.env.SHOT_DIR}/corr-${ui}-${scheme}.png` }); }
+      const tabsOk = [];
+      for (const tb of ['sum', 'roll', 'evt', 'ratio']) {
+        await page.click(`#corrOut [data-corrtab="${tb}"]`);
+        const st = await page.evaluate(tb => ({ tb, on: document.querySelector(`#corrOut [data-corrtab="${tb}"]`).getAttribute('aria-pressed') === 'true', txt: document.querySelector('#corrOut').innerText.length, saved: DataStore.getSettings().corrTab, wide: document.querySelector('#editSheet').scrollWidth > document.querySelector('#editSheet').clientWidth + 1 }), tb);
+        tabsOk.push(st.on && st.txt > 40 && st.saved === tb && !st.wide ? tb : JSON.stringify(st));
+        if (process.env.SHOT_DIR) { await page.evaluate(() => document.querySelector('#corrPick').scrollIntoView()); await page.screenshot({ path: `${process.env.SHOT_DIR}/corr-${tb}-${ui}-${scheme}.png` }); }
+      }
+      check(tabsOk.join() === 'sum,roll,evt,ratio', `관계 분석 탭 (요약·추이·사건 반응·비율) ${tabsOk.join(' | ')}`);
+      await page.click('#corrOut [data-corrtab="sum"]');
       await page.evaluate(() => document.querySelector('#editSheet').close());
       check(co.sec && co.win === 3 && co.svg && co.saved === 'brent', `상관관계: 순위·직접 비교·차트·선택 기억 ${JSON.stringify(co)}`);
       const shared = await page.evaluate(() => ['wti', 'us_cpi', 'coal_pw_jpn', 'scfi'].map(id => { try { return Share.render(id).canvas.width; } catch (e) { return id + ':' + e.message; } }));
