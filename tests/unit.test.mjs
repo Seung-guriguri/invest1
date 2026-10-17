@@ -123,3 +123,69 @@ test('validateData: 급변은 오류가 아니라 검증 필요 메모 (값 유�
   assert.deepEqual(r.errors, []);
   assert.equal(r.stats.spikes, 1);
 });
+
+/* ---------- 분석 모듈·관계 카탈로그·산업별 경고 규칙 (analysis.js) ---------- */
+const loadAnalysis = async () => {
+  const ctx = {}; vm.createContext(ctx);
+  vm.runInContext(await readFile(new URL('../analysis.js', import.meta.url), 'utf8'), ctx);
+  return ctx.ANALYSIS;
+};
+/** 합성 분석 결과: hist 는 [날짜, 값] 오래된 순 */
+const fakeA = (id, rows, extra = {}) => {
+  const history = rows.map(([date, value]) => ({ date, value })).reverse();
+  return { ind: { id, name: id }, history, cur: history[0], value: history[0].value, freq: 'D', quality: { code: 'ok' }, ...extra };
+};
+test('분석: 모듈·관계·규칙의 지표 id 가 CONFIG 에 있음 (계산 행 $jkm_ttf 제외)', async () => {
+  const A = await loadAnalysis(), cfg = await loadConfig();
+  const ids = new Set(cfg.indicators.map(i => i.id)), bad = [];
+  const ok = id => ids.has(id) || id === '$jkm_ttf';
+  for (const m of A.modules) { assert.ok(m.gaps.length && typeof m.observe === 'function', m.id); for (const [, r] of m.rows) r.forEach(id => ok(id) || bad.push(m.id + ':' + id)); }
+  for (const r of A.relations) {
+    assert.ok(A.relTypes[r.type], `${r.id} 유형`);
+    if (r.type === 'stat') assert.equal(r.pair.length, 2, r.id);
+    [...(r.from || []), ...(r.to || []), ...(r.pair || [])].forEach(id => ok(id) || bad.push(r.id + ':' + id));
+  }
+  for (const r of A.rules) {
+    for (const k of ['title', 'triggerText', 'clearText']) assert.ok(r[k], `${r.id}.${k}`);
+    assert.ok(r.evidence.length && ['trigger', 'clear', 'counter'].every(k => typeof r[k] === 'function'), r.id);
+    assert.equal(r.mode, 'shadow', `${r.id}: 검증 전 규칙은 시험 운영`);
+    assert.ok(A.modules.some(m => m.id === r.sector), r.id);
+    r.evidence.forEach(id => ok(id) || bad.push(r.id + ':' + id));
+  }
+  assert.deepEqual(bad, []);
+  assert.equal(new Set(A.rules.map(r => r.id)).size, A.rules.length, '규칙 id 중복');
+});
+test('분석: 경고 규칙 상태 — 발생 / 경계 / 정상 / 판단 보류', async () => {
+  const A = await loadAnalysis(), rule = A.rules.find(r => r.id === 'crude-refinery-outage');
+  const st = (v, q = 'ok') => A.evalRule(rule, A.makeCtx({ refinery_util: fakeA('refinery_util', [['2026-10-01', v]], { quality: { code: q } }) })).state;
+  assert.equal(st(80), 'on'); assert.equal(st(86), 'watch'); assert.equal(st(90), 'off'); assert.equal(st(80, 'stale'), 'hold');
+  assert.equal(A.evalRule(rule, A.makeCtx({})).state, 'hold', '데이터 없음 → 판단 보류');
+});
+test('분석: JKM−TTF 가격차 계산과 데이터 없을 때 null', async () => {
+  const A = await loadAnalysis();
+  const R = { jkm: fakeA('jkm', [['2026-10-01', 12]]), ttf: fakeA('ttf', [['2026-10-01', 34.12]]), eurusd: fakeA('eurusd', [['2026-10-01', 1]]) };
+  near(A.makeCtx(R).jkmTtf().value, 2);
+  assert.equal(A.makeCtx({ jkm: R.jkm }).jkmTtf(), null);
+});
+test('분석: 비교 기준 — 직전·전년, 주간 변화율 상관', async () => {
+  const A = await loadAnalysis();
+  const rows = [], rows2 = [], rows3 = [];
+  for (let i = 0; i < 400; i += 7) {
+    const d = new Date(Date.UTC(2025, 8, 1) + i * 86400000).toISOString().slice(0, 10), x = 100 + i + (i % 21 ? 5 : -5);
+    rows.push([d, x]); rows2.push([d, x * 2]); rows3.push([d, 1000 - x]);
+  }
+  const c = A.makeCtx({ a: fakeA('a', rows, { freq: 'W' }), b: fakeA('b', rows2, { freq: 'W' }), n: fakeA('n', rows3, { freq: 'W' }) });
+  near(c.wk('a').abs, rows.at(-1)[1] - rows.at(-2)[1]);
+  assert.ok(c.yoy('a') && Math.abs(Date.parse(c.yoy('a').from) - (Date.parse(rows.at(-1)[0]) - 365 * 86400000)) <= 10 * 86400000);
+  near(A.weeklyCorr(c, 'a', 'b').r, 1, 1e-9);
+  assert.ok(A.weeklyCorr(c, 'a', 'n').r < -0.5, String(A.weeklyCorr(c, 'a', 'n').r));
+  assert.equal(A.weeklyCorr(A.makeCtx({}), 'a', 'b'), null);
+});
+test('분석: 모든 모듈이 빈 데이터·합성 데이터에서 오류 없이 실행', async () => {
+  const A = await loadAnalysis();
+  for (const m of A.modules) {
+    const res = A.runModule(m, {});
+    assert.ok(Array.isArray(res.observations) && !res.observations.some(o => /오류/.test(o.text)), m.id);
+    assert.ok(res.rules.every(r => r.state === 'hold'));
+  }
+});
