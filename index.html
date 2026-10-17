@@ -128,6 +128,11 @@
   .checklist .why { display: block; font-size: 12px; color: var(--text-2); margin-top: 1px; }
   .checklist label { display: flex; gap: 10px; cursor: pointer; width: 100%; }
   .checklist input { position: absolute; opacity: 0; pointer-events: none; }
+  .div-row { display: grid; grid-template-columns: 1fr auto; gap: 1px 8px; width: 100%; text-align: left; border: 0; border-top: 1px solid var(--border); background: none; padding: 7px 0; cursor: pointer; font-size: 13.5px; }
+  .div-row .nm { min-width: 0; overflow-wrap: anywhere; font-weight: 600; } .div-row .nm small { font-weight: 400; color: var(--text-2); font-size: 11.5px; }
+  .div-row .st { font-size: 12px; font-weight: 700; white-space: nowrap; }
+  .div-row .st.s2 { color: var(--red); } .div-row .st.s1 { color: #9a6700; } .div-row .st.s0 { color: var(--green); } .div-row .st.sn { color: var(--grey); }
+  .div-row .nums { grid-column: 1 / -1; font-size: 12px; color: var(--text-2); font-variant-numeric: tabular-nums; }
   .checklist .chk-link { flex: none; align-self: center; border: 1px solid var(--border); background: var(--surface-2); color: var(--accent); border-radius: 999px; padding: 3px 10px; font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
 
   /* 지표별 인사이트 (상세 화면) */
@@ -478,6 +483,10 @@
       <details class="ins-wrap" id="insWrap">
         <summary>매크로 인사이트 <small id="insCount"></small></summary>
         <div id="insights"></div>
+      </details>
+      <details class="ins-wrap" id="divWrap">
+        <summary>엇갈림 감시 <small id="divCount"></small></summary>
+        <div id="divList"></div>
       </details>
     </section>
 
@@ -1922,6 +1931,7 @@ function render() {
   $('#watchNow').innerHTML = watch.length ? watch.map(cardHTML).join('') : '<p class="all-good">모든 지표가 양호합니다.</p>';
   const ins = buildInsights(R);
   $('#insCount').textContent = ins.length ? `${ins.length}개` : '';
+  const dvs = divergenceStatusHTML(); $('#divCount').textContent = dvs.count; $('#divList').innerHTML = dvs.html;
   $('#insights').innerHTML = ins.length ? ins.map((it, i) => `
     <details class="insight" ${i === 0 ? 'open' : ''}>
       <summary><b>${esc(it.title)}</b>${it.summary ? `<span>${esc(it.summary)}</span>` : ''}</summary>
@@ -2430,6 +2440,24 @@ function computeDivergences() {
   }
   return out.sort((x, y) => Math.abs(y.r1) - Math.abs(x.r1));
 }
+/** 감시 짝 전체 현황 (오늘 화면 '엇갈림 감시' 접힘 목록) — 지금 상태와 이유 */
+function divergenceStatusHTML() {
+  if (!window.CORR) return { count: '', html: '' };
+  let on = 0;
+  const rows = WATCH_PAIRS.filter(([a, b]) => IND[a] && IND[b]).map(([a, b, expect]) => {
+    const A = corrSeries(a), B = corrSeries(b);
+    const d = A && B ? CORR.divergence(A, B, expect) : null;
+    let st, cls;
+    if (!d) { st = '데이터 부족'; cls = 'sn'; }
+    else if (d.on) { st = '⚠ 엇갈림'; cls = 's2'; on++; }
+    else if (expect * d.r1 < 0.5) { st = '평소 관계 약함'; cls = 'sn'; }
+    else if (d.rr != null && expect * d.rr < 0) { st = '경계 (움직임 작음)'; cls = 's1'; }
+    else { st = '정상'; cls = 's0'; }
+    const nums = d ? `평소 ${fmtR(d.r1)} → 최근 ${d.n}${d.unit} ${d.rr == null ? '—' : fmtR(d.rr)}` : '이력 부족';
+    return `<button type="button" class="div-row" data-edit="${a}" data-corrwith="${b}"><span class="nm">${esc(IND[a].name)} · ${esc(IND[b].name)} <small>${expect > 0 ? '같은 방향' : '반대 방향'}</small></span><span class="st ${cls}">${st}</span><span class="nums">${nums}</span></button>`;
+  });
+  return { count: `${rows.length}쌍 · 엇갈림 ${on}`, html: rows.join('') + '<p class="corr-note">엇갈림 = 평소(최근 8주 직전 1년) 상관이 ±0.5 이상인데 최근 8주 상관이 반대 부호이고, 두 지표가 서로 반대로 의미 있게 움직였을 때 · 누르면 그 짝의 추이 보기</p>' };
+}
 /** 오늘 볼 것: 엇갈림 최대 2줄 */
 function divergenceChecks() {
   return computeDivergences().slice(0, 2).map(d => ({
@@ -2706,7 +2734,7 @@ async function reloadRemote(silent) {
 document.addEventListener('click', e => {
   const sm = $('#shareMenu');
   if (sm && !sm.hidden && !e.target.closest('#shareMenu,[data-action="share-ind"]')) sm.hidden = true;
-  const t = e.target.closest('[data-tab],[data-edit],[data-del],[data-action],[data-range],[data-filter],[data-group],[data-view]');
+  const t = e.target.closest('[data-tab],[data-edit],[data-del],[data-action],[data-range],[data-filter],[data-group],button[data-view]');   // body 에도 data-view 가 있으므로 버튼만
   if (!t) return;
   if (t.dataset.view) {
     viewTouched = true;
