@@ -53,13 +53,13 @@
     }
     const tag = a.signal === 2 ? `<span class="tg r">${esc(a.moveLabel || '경고')}</span>`
       : a.signal === 1 ? '<span class="tg y">주의</span>' : '';
-    const stale = (a.stale ? '<span class="tg g">오래됨</span>' : '') + qualityBadges(a, 'tg');
+    const stale = a.stale ? '<span class="tg g">오래됨</span>' : '';
     const unit = ind.unit && ind.unit.length <= 4 ? `<small>${esc(ind.unit)}</small>` : '';
     const sub = ind.sub || '';
     const label = `${ind.name}, ${fmt(a.value, ind.dp)}${ind.unit || ''}, ${a.yoy ? '전년 동월 대비' : '직전 대비'} ${chgText(a)}${a.signal === 2 ? ', ' + (a.moveLabel || '경고') : a.signal === 1 ? ', 주의' : ''}`;
     return `<button class="row2${a.isSample ? ' sample' : ''}" data-edit="${ind.id}" type="button" aria-label="${esc(label)}">
       ${icon}
-      <span class="mid"><span class="nm">${esc(ind.name)}${tag}</span>${stale ? `<span class="tgs">${stale}</span>` : ''}<span class="ds">${esc(sub)}</span></span>
+      <span class="mid"><span class="nm">${esc(ind.name)}${tag}${stale}</span><span class="ds">${esc(sub)}</span></span>
       <span class="sp ${trendDir(a)}">${sparkSVG(a)}</span>
       <span class="rt"><span class="vl num">${fmt(a.value, ind.dp)}${unit}</span><span class="ch num ${dirOf(a)}" style="display:block">${chgText(a)}</span></span>
       ${showComment(a) ? `<span class="cm">${esc(a.comment)}</span>` : ''}
@@ -76,20 +76,19 @@
     home: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3 3 10v10a1 1 0 0 0 1 1h5v-6h6v6h5a1 1 0 0 0 1-1V10Z"/></svg>',
     list: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>',
     ai: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l2.4 5.6L20 11l-5.6 2.4L12 19l-2.4-5.6L4 11l5.6-2.4Z"/></svg>',
-    an: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.8-4.8"/></svg>',
     set: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>'
   };
   const nav = document.createElement('nav');
   nav.className = 'nav2';
   nav.setAttribute('aria-label', '화면 이동');
-  nav.innerHTML = [['ai', 'AI'], ['home', '오늘'], ['an', '분석'], ['list', '지표'], ['set', '설정']]
+  nav.innerHTML = [['ai', 'AI'], ['home', '오늘'], ['list', '지표'], ['set', '설정']]
     .map(([k, t]) => `<button type="button" data-nav="${k}">${ICON[k]}<span>${t}</span></button>`).join('');
   document.body.appendChild(nav);
 
-  // 아래 메뉴 = 화면 전환 (index.html 의 setView: AI · 오늘 · 분석 · 지표)
+  // 아래 메뉴 = 화면 전환 (index.html 의 setView: 오늘 · 지표 · AI)
   const goMain = () => { if (location.hash === '#settings') { history.pushState('', '', location.pathname + location.search); route(); } };
-  const NAV_VIEW = { home: 'today', list: 'list', ai: 'ai', an: 'analysis' };
-  const VIEW_NAV = { today: 'home', list: 'list', ai: 'ai', analysis: 'an' };
+  const NAV_VIEW = { home: 'today', list: 'list', ai: 'ai' };
+  const VIEW_NAV = { today: 'home', list: 'list', ai: 'ai' };
   function setOn(k) { nav.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.nav === k)); }
   nav.addEventListener('click', e => {
     const b = e.target.closest('[data-nav]'); if (!b) return;
