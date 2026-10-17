@@ -1902,8 +1902,8 @@ function sparkSVG(a) {
   return `<svg class="spark" viewBox="0 0 ${W} ${H}" aria-hidden="true"><path d="${d}"/><circle cx="${x(pts.length - 1).toFixed(1)}" cy="${y(last.value).toFixed(1)}" r="3"/></svg>`;
 }
 
-/** 카드에 한 줄 해석을 보일지: 주의·경고이거나 급등·급락한 지표만 (나머지는 상세 화면에서) */
-function showComment(a) { return !!a.comment && (a.signal >= 1 || a.trend === 'surge' || a.trend === 'plunge'); }
+/** 카드에 한 줄 해석을 보일지 (지금은 해석이 있으면 모두 표시) */
+function showComment(a) { return !!a.comment; }
 
 function cardHTML(a) {
   const ind = a.ind;
