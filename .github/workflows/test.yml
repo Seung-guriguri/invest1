@@ -1,0 +1,30 @@
+# 코드 변경 검사 — PR 과 작업 브랜치 push 때 실행 (main 배포 전에 미리 확인)
+#  · 단위 테스트: 계산 공식·지표 정의·AI 문장 검사·데이터 구조 검증·카탈로그 최신 여부
+#  · 화면 스모크 테스트: 합성 데이터로 실제 브라우저에서 v1·v2 × 라이트·다크 화면, 모든 지표 상세, 공유 이미지, 백업·복원
+name: 테스트
+
+on:
+  pull_request:
+  push:
+    branches-ignore: [main, v1-final]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: 단위 테스트
+        run: node --test tests/unit.test.mjs
+      - name: 브라우저 설치 (Playwright)
+        run: |
+          npm i --no-save --no-package-lock playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: 화면 스모크 테스트
+        run: node tests/ui-smoke.mjs

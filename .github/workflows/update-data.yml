@@ -52,6 +52,9 @@ jobs:
         with:
           node-version: 22
 
+      - name: 단위 테스트 (계산 공식·지표 정의·AI 문장 검사 — 실패하면 배포하지 않고 기존 사이트 유지)
+        run: node --test tests/unit.test.mjs
+
       - id: pages
         uses: actions/configure-pages@v6
 
@@ -68,6 +71,9 @@ jobs:
           EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
           EMBER_API_KEY: ${{ secrets.EMBER_API_KEY }}
         run: node scripts/fetch-data.mjs --previous previous.json --out _site/data/latest.json
+
+      - name: 데이터 구조 검증 (구조가 깨졌을 때만 배포 중단 · 급변·오래됨은 기록만)
+        run: node scripts/validate-data.mjs _site/data/latest.json
 
       - name: 긴급 경고 판단 (정제 가동률·하이일드 스프레드·VIX, 텔레그램 알림은 설정 시에만)
         env:
