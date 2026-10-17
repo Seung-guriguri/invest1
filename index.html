@@ -257,6 +257,18 @@
   .comment { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); font-size: 13.5px; }
   .season-note { margin-top: 4px; font-size: 12.5px; color: var(--text-2); }
   .empty { color: var(--text-2); font-size: 14px; }
+  /* 데이터 없는 지표 묶음 · 경고/주의 모아보기 */
+  .empty-group { background: var(--surface); border: 1px dashed var(--border); border-radius: var(--radius); padding: 10px 14px; }
+  .empty-group > summary { cursor: pointer; font-size: 13.5px; color: var(--text-2); }
+  .empty-group[open] > summary { margin-bottom: 10px; }
+  .empty-group .empty-list { display: grid; gap: 10px; }
+  .filter-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; }
+  .filter-head span { flex: 1; color: var(--text-2); }
+  .filter-head span b { color: var(--text); }
+  .filter-head button { border: 1px solid var(--border); background: var(--surface-2); color: var(--text); border-radius: 999px; padding: 4px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+  .filter-cat { margin: 6px 2px 0; font-size: 13px; color: var(--text-2); font-weight: 600; }
+  button.count { border: 0; font: inherit; color: inherit; cursor: pointer; }
+  button.count[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: -2px; }
 
   /* 하단 고정 문구 */
   .disclaimer {
@@ -1782,6 +1794,7 @@ function safeTest(rule, S) { try { return !!rule.test(S); } catch (e) { console.
 /* ---------- 렌더링 ---------- */
 let R = {};
 let activeTab = DataStore.getSettings().tab;
+let listFilter = null;   // '2' 경고 · '1' 주의 · 'stale' 오래됨 · null 꺼짐
 if (!CONFIG.categories.some(c => c.id === activeTab)) activeTab = CONFIG.categories[0].id;
 
 function render() {
@@ -1792,8 +1805,10 @@ function render() {
 
   const c = s => all.filter(a => a.signal === s).length;
   $('#counts').innerHTML = [
-    ['red', c(2), '경고'], ['yellow', c(1), '주의'], ['green', c(0), '양호'], ['stale', all.filter(a => a.stale).length, '오래됨']
-  ].map(([cls, n, label]) => `<div class="count ${cls}"><b class="num">${n}</b><span>${label}</span></div>`).join('');
+    ['red', c(2), '경고', '2'], ['yellow', c(1), '주의', '1'], ['green', c(0), '양호', ''], ['stale', all.filter(a => a.stale).length, '오래됨', 'stale']
+  ].map(([cls, n, label, f]) => f && n
+    ? `<button type="button" class="count ${cls}" data-filter="${f}" aria-pressed="${listFilter === f}" aria-label="${label} ${n}개 모아보기"><b class="num">${n}</b><span>${label}</span></button>`
+    : `<div class="count ${cls}"><b class="num">${n}</b><span>${label}</span></div>`).join('');
 
   const done = loadChecks();
   $('#checklist').innerHTML = buildChecklist(R).map((item, i) => {
@@ -1819,15 +1834,34 @@ function render() {
   $('#tabs').innerHTML = CONFIG.categories.map(cat => {
     const sigs = all.filter(a => a.ind.cat === cat.id && a.signal != null).map(a => a.signal);
     const worst = sigs.length ? Math.max(...sigs) : null;
-    const sel = cat.id === activeTab;
+    const sel = !listFilter && cat.id === activeTab;
     return `<button class="tab" role="tab" aria-selected="${sel}" data-tab="${cat.id}">
       <span class="dot ${worst == null ? '' : 's' + worst}" aria-hidden="true"></span>${esc(cat.label)}</button>`;
   }).join('');
 
+  if (listFilter) { $('#cards').innerHTML = filterListHTML(all); return; }
   const tabList = all.filter(a => a.ind.cat === activeTab);
-  $('#cards').innerHTML = tabAIHTML(activeTab) + tabSummaryHTML(tabList) + tabList.map(cardHTML).join('')
+  const withData = tabList.filter(a => a.cur), noData = tabList.filter(a => !a.cur);
+  $('#cards').innerHTML = tabAIHTML(activeTab) + tabSummaryHTML(tabList) + withData.map(cardHTML).join('')
     + (activeTab === 'freight' && typeof tankerGuideHTML === 'function' ? tankerGuideHTML() : '')   // 🛢 유조선 가이드 (tankers.js)
-    + (typeof guideHTML === 'function' ? guideHTML(activeTab) : '');   // 🚢 벌크선 · 🛢 석유 밸류체인 (guides.js)
+    + (typeof guideHTML === 'function' ? guideHTML(activeTab) : '')   // 🚢 벌크선 · 🛢 석유 밸류체인 (guides.js)
+    + (noData.length ? `<details class="empty-group"><summary>직접 입력 지표 ${noData.length}개 · 자동 데이터 없음</summary><div class="empty-list">${noData.map(cardHTML).join('')}</div></details>` : '');
+}
+
+/* ---------- 경고·주의·오래됨 모아보기 (요약의 개수를 누르면) ---------- */
+const FILTER_LABEL = { 2: '경고', 1: '주의', stale: '오래된 데이터' };
+function filterListHTML(all) {
+  const match = a => listFilter === 'stale' ? a.stale : a.signal === Number(listFilter);
+  const list = all.filter(match);
+  const groups = CONFIG.categories.map(cat => [cat, list.filter(a => a.ind.cat === cat.id)]).filter(([, l]) => l.length);
+  return `<div class="filter-head"><span><b>${FILTER_LABEL[listFilter]} 지표 ${list.length}개</b> · 전체 분류에서 모음</span><button type="button" data-action="clear-filter">✕ 해제</button></div>`
+    + (groups.length ? groups.map(([cat, l]) => `<h3 class="filter-cat">${esc(cat.label)}</h3>${l.map(cardHTML).join('')}`).join('') : '<p class="hint">해당 지표가 없습니다.</p>');
+}
+function setFilter(f) {
+  listFilter = listFilter === f ? null : f;
+  render();
+  const bar = document.querySelector('.tabs-bar') || $('#tabs');
+  if (listFilter && bar) window.scrollTo({ top: bar.getBoundingClientRect().top + window.scrollY - 8, behavior: 'smooth' });
 }
 
 function changeHTML(a) {
@@ -1868,6 +1902,9 @@ function sparkSVG(a) {
   return `<svg class="spark" viewBox="0 0 ${W} ${H}" aria-hidden="true"><path d="${d}"/><circle cx="${x(pts.length - 1).toFixed(1)}" cy="${y(last.value).toFixed(1)}" r="3"/></svg>`;
 }
 
+/** 카드에 한 줄 해석을 보일지: 주의·경고이거나 급등·급락한 지표만 (나머지는 상세 화면에서) */
+function showComment(a) { return !!a.comment && (a.signal >= 1 || a.trend === 'surge' || a.trend === 'plunge'); }
+
 function cardHTML(a) {
   const ind = a.ind;
   const s = a.signal == null ? 'sn' : 's' + a.signal;
@@ -1878,21 +1915,18 @@ function cardHTML(a) {
       <div class="card-head"><div class="card-title">${title}</div><span class="light sn"><span class="dot"></span>${lightLabel}</span></div>
       <p class="empty">자동 데이터 없음 — 눌러서 직접 입력하세요.</p></button>`;
   }
+  // 카드는 간결하게: 기준일 + 1개월·위치 한 줄. 업데이트 시각·출처·계절 메모는 상세 화면에서
   const badges = [
     a.isSample ? '<span class="badge sample">샘플</span>' : '',
-    a.stale ? `<span class="badge stale" title="${esc(a.staleReason)}">오래된 데이터</span>` : '',
-    !a.isSample && sourceName(a) ? `<span class="badge auto">${esc(sourceName(a))}</span>` : ''
+    a.stale ? `<span class="badge stale" title="${esc(a.staleReason)}">오래된 데이터</span>` : ''
   ].join('');
-  const dateTxt = a.isSample
-    ? '기준일 샘플'
-    : `기준일 ${esc(fmtObsDate(a.cur.date, a.freq))} · 업데이트 ${esc(toLocalISO(a.cur.updatedAt))}`;
+  const metaParts = [a.isSample ? '기준일 샘플' : `기준일 ${fmtObsDate(a.cur.date, a.freq)}`];
+  if (!a.isSample) metaParts.push(m1Text(a), a.season ? seasonText(a) : positionText(a));
   return `<button class="card ${s}${a.isSample ? ' sample' : ''}" data-edit="${ind.id}" type="button" aria-label="${esc(ind.name)} ${lightLabel}, 눌러서 차트와 상세 보기">
     <div class="card-head"><div class="card-title">${title}</div><span class="light ${s}"><span class="dot ${s}"></span>${lightLabel}</span></div>
     <div class="value-row"><span class="value num">${fmt(a.value, ind.dp)}<span class="unit">${esc(ind.unit)}</span></span>${changeHTML(a)}${sparkSVG(a)}</div>
-    <div class="meta">${badges}<span>${dateTxt}</span></div>
-    ${!a.isSample && (a.m1 || a.pctl || a.season) ? `<div class="meta" style="margin-top:2px">${[m1Text(a), a.season ? seasonText(a) : positionText(a)].filter(Boolean).map(t => `<span>${esc(t)}</span>`).join('<span aria-hidden="true">·</span>')}</div>` : ''}
-    <div class="comment">${esc(a.comment || '')}</div>
-    ${seasonNoteHTML(ind.id)}
+    <div class="meta">${badges}${metaParts.filter(Boolean).map(t => `<span>${esc(t)}</span>`).join('<span aria-hidden="true">·</span>')}</div>
+    ${showComment(a) ? `<div class="comment">${esc(a.comment)}</div>` : ''}
   </button>`;
 }
 
@@ -2384,9 +2418,12 @@ async function reloadRemote(silent) {
 document.addEventListener('click', e => {
   const sm = $('#shareMenu');
   if (sm && !sm.hidden && !e.target.closest('#shareMenu,[data-action="share-ind"]')) sm.hidden = true;
-  const t = e.target.closest('[data-tab],[data-edit],[data-del],[data-action],[data-range]');
+  const t = e.target.closest('[data-tab],[data-edit],[data-del],[data-action],[data-range],[data-filter]');
   if (!t) return;
-  if (t.dataset.tab) {
+  if (t.dataset.filter) {
+    setFilter(t.dataset.filter);
+  } else if (t.dataset.tab) {
+    listFilter = null;
     activeTab = t.dataset.tab; DataStore.setSettings({ tab: activeTab }); render();
   } else if (t.dataset.range) {
     detailState.range = t.dataset.range; DataStore.setSettings({ range: t.dataset.range });
@@ -2403,6 +2440,8 @@ document.addEventListener('click', e => {
     if (history.length > 1 && location.hash === '#settings') history.back(); else location.hash = '';
   } else if (t.dataset.action === 'close-sheet') {
     $('#editSheet').close();
+  } else if (t.dataset.action === 'clear-filter') {
+    setFilter(null);
   } else if (t.dataset.action === 'share-ind') {
     const m = $('#shareMenu'); m.hidden = !m.hidden;
     if (!m.hidden) m.querySelector('button').focus();
