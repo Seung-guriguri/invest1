@@ -47,9 +47,9 @@
 | `indpro` | 미국 산업생산 | % | 실측 | FRED INDPRO | pp |
 | `retail` | 미국 소매판매 | % | 실측 | FRED RSAFS | pp |
 | `umcsent` | 미시간 소비자심리지수 |  | 실측 | FRED UMCSENT | abs |
-| `pmi_philly` | 필라델피아 연은 제조업지수 |  | 실측 | FRED GACDFSA066MSFRBPHI | abs |
-| `pmi_empire` | 뉴욕 연은 제조업지수 |  | 실측 | FRED GACDISA066MSFRBNY → FRED GACDINA066MNFRBNY | abs |
-| `pmi_dallas` | 댈러스 연은 제조업지수 |  | 실측 | FRED BACTSAMFRBDAL | abs |
+| `pmi_philly` | 필라델피아 연은 제조업지수 |  | 대용 | FRED GACDFSA066MSFRBPHI | abs |
+| `pmi_empire` | 뉴욕 연은 제조업지수 |  | 대용 | FRED GACDISA066MSFRBNY → FRED GACDINA066MNFRBNY | abs |
+| `pmi_dallas` | 댈러스 연은 제조업지수 |  | 대용 | FRED BACTSAMFRBDAL | abs |
 | `cfnai` | 시카고 연은 전미활동지수 |  | 실측 | FRED CFNAIMA3 | abs |
 | `gdp` | 미국 실질 GDP 성장률 | % | 실측 | FRED A191RL1Q225SBEA | pp |
 
@@ -117,12 +117,12 @@
 
 | ID | 이름 | 단위 | 성격 | 출처 (1순위 → 대체) | 변화 판단 |
 |---|---|---|---|---|---|
-| `bdry` | 벌크선 운임 | $ | 실측 | Yahoo BDRY | pct |
+| `bdry` | 벌크선 운임 | $ | 대용 | Yahoo BDRY | pct |
 | `scfi` | 컨테이너 운임 SCFI |  | 직접 입력 | — | pct |
 | `freight_ppi` | 미국 원양 화물운송 PPI | % | 실측 | FRED PCU483111483111 | pp |
-| `tanker_fro` | VLCC 원유선 (FRO) | $ | 실측 | Yahoo FRO | pct |
-| `tanker_stng` | 석유제품선 (STNG) | $ | 실측 | Yahoo STNG | pct |
-| `lng_flng` | LNG선 (FLNG) | $ | 실측 | Yahoo FLNG | pct |
+| `tanker_fro` | VLCC 원유선 (FRO) | $ | 대용 | Yahoo FRO | pct |
+| `tanker_stng` | 석유제품선 (STNG) | $ | 대용 | Yahoo STNG | pct |
+| `lng_flng` | LNG선 (FLNG) | $ | 대용 | Yahoo FLNG | pct |
 | `lng_spread` | LNG 수출 마진 (TTF−헨리허브) | $/MMBtu | 계산 | 계산: TTF−HH | abs |
 
 ## 비축·재고 (13)
@@ -183,7 +183,7 @@
 | `etf_remx` | REMX | $ | 실측 | Yahoo REMX | pct |
 | `etf_dbc` | DBC | $ | 실측 | Yahoo DBC | pct |
 | `etf_dba` | DBA | $ | 실측 | Yahoo DBA | pct |
-| `etf_bwet` | BWET | $ | 실측 | Yahoo BWET | pct |
+| `etf_bwet` | BWET | $ | 대용 | Yahoo BWET | pct |
 | `etf_xli` | XLI | $ | 실측 | Yahoo XLI | pct |
 | `etf_itb` | ITB | $ | 실측 | Yahoo ITB | pct |
 | `etf_kre` | KRE | $ | 실측 | Yahoo KRE | pct |

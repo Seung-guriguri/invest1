@@ -236,3 +236,10 @@
 [data-ui="v2"] .tabs-bar .tabs + .tabs { margin-top: 2px; }
 [data-ui="v2"] .tabs-bar .tabs { flex-wrap: wrap; margin: 0; padding: 0; row-gap: 8px; }
 [data-ui="v2"] .tabs-bar .tabs:not(.groups) .tab { padding: 7px 13px; font-size: 14px; }
+
+/* 품질 배지(오래됨·지연·검증 필요·대용)는 이름 아래 한 줄 — 이름 두 줄 제한에 가려지지 않게 */
+.row2 .tgs { display: block; margin-top: 3px; line-height: 1.6; }
+.row2 .tgs .tg { margin-left: 0; margin-right: 4px; }
+.row2 .tg.q-late { background: rgba(255, 149, 0, .16); color: #e08a00; }
+.row2 .tg.q-check { background: var(--sample-bg, rgba(179, 161, 255, .14)); color: var(--sample, #8b6cf6); }
+.row2 .tg.q-proxy { background: transparent; border: 1px solid var(--border); color: var(--text-3); font-weight: 600; }
