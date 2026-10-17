@@ -18,7 +18,7 @@ import { COMPUTED } from '../scripts/fetch-data.mjs';
 import { loadConfig } from '../scripts/lib/config.mjs';
 
 const ROOT = new URL('..', import.meta.url).pathname;
-const FILES = ['index.html', 'data.js', 'notes.js', 'season.js', 'tankers.js', 'guides.js', 'share.js', 'ui-v2.css', 'ui-v2.js', 'manifest.json', 'sw.js', 'icons'];
+const FILES = ['index.html', 'data.js', 'notes.js', 'season.js', 'tankers.js', 'guides.js', 'analysis.js', 'share.js', 'ui-v2.css', 'ui-v2.js', 'manifest.json', 'sw.js', 'icons'];
 
 /** 합성 데이터: 지표마다 주기에 맞는 결정적(같은 입력 → 같은 값) 시계열 */
 function fixture(cfg) {
@@ -78,9 +78,23 @@ async function main() {
     await page.goto(URL0); await page.waitForTimeout(1200);
     const tag = `${ui}/${scheme}`;
     check(await page.evaluate(() => document.body.dataset.view) === 'ai', `${tag}: 첫 화면 AI`);
-    for (const v of ['today', 'list', 'ai']) {
+    for (const v of ['today', 'analysis', 'list', 'ai']) {
       await page.evaluate(v => { setView(v); render(); }, v);
       check(await page.evaluate(v => document.body.dataset.view === v, v), `${tag}: ${v} 화면 전환`);
+    }
+    for (const m of ['crude', 'gas', 'ship']) {
+      await page.evaluate(m => { setView('analysis'); analysisMod = m; render(); }, m);
+      const an = await page.evaluate(() => ({ rows: document.querySelectorAll('#analysisView .an-row').length, rules: document.querySelectorAll('#analysisView .an-rule').length,
+        rels: document.querySelectorAll('#analysisView .an-rel').length, shown: !!document.querySelector('#analysisView').offsetHeight, wide: document.documentElement.scrollWidth > innerWidth }));
+      if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/an-${ui}-${scheme}-${m}.png`, fullPage: true });
+      check(an.shown && an.rows > 5 && an.rules >= 3 && an.rels >= 3 && !an.wide, `${tag}: 분석 ${m} ${JSON.stringify(an)}`);
+    }
+    if (ui === 'v1' && scheme === 'light') {
+      await page.evaluate(() => { analysisMod = 'crude'; render(); });
+      await page.click('#analysisView .an-row[data-edit="wti"]');
+      check(await page.evaluate(() => { const o = document.querySelector('#editSheet').open; document.querySelector('#editSheet').close(); return o; }), '분석 표에서 지표 상세 열림');
+      const st = await page.evaluate(() => document.querySelector('#analysisView').innerText);
+      check(/판단 보류/.test(st) && /텔레그램으로 보내지 않습니다/.test(st), '분석 경고 규칙: 품질 문제 지표는 판단 보류, 시험 운영 표시');
     }
     await page.evaluate(() => { setView('list'); });
     for (const c of cfg.categories) {
