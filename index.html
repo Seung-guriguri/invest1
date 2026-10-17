@@ -137,6 +137,25 @@
   .ind-insight dd { margin: 1px 0 0; font-size: 13.5px; }
   .ind-insight ul { margin: 2px 0 0; padding-left: 18px; }
   .ind-insight li { margin: 2px 0; }
+  /* 상관관계 (corr.js) */
+  .ind-corr { margin-top: 12px; border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; }
+  .ind-corr h3 { font-size: 14px; margin: 0 0 6px; }
+  .ind-corr h3 small { font-weight: 400; color: var(--text-2); font-size: 12px; }
+  .ind-corr .lbl { display: block; font-size: 12px; font-weight: 700; color: var(--text-2); margin: 6px 0 3px; }
+  .corr-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+  .corr-chips button { border: 1px solid var(--border); background: var(--surface-2); border-radius: 999px; padding: 3px 10px; font-size: 12.5px; cursor: pointer; max-width: 100%; text-align: left; overflow-wrap: anywhere; }
+  .corr-chips button b { margin-left: 4px; font-variant-numeric: tabular-nums; }
+  .corr-chips .pos b { color: var(--red); } .corr-chips .neg b { color: #1f6fd1; }
+  .ind-corr select { width: 100%; margin-top: 2px; }
+  .corr-win { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 8px 0 4px; }
+  .corr-win div { background: var(--surface-2); border-radius: 10px; padding: 6px 4px; text-align: center; font-size: 12px; color: var(--text-2); }
+  .corr-win b { display: block; font-size: 17px; color: var(--text); font-variant-numeric: tabular-nums; }
+  .corr-say { font-size: 13.5px; margin: 6px 0 0; }
+  .corr-chart { margin-top: 8px; }
+  .corr-chart svg { width: 100%; height: auto; display: block; }
+  .corr-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--text-2); margin-top: 4px; }
+  .corr-legend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 4px; }
+  .corr-note { font-size: 11.5px; color: var(--text-2); margin: 6px 0 0; }
   .tab-summary { font-size: 13px; color: var(--text-2); background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 8px 12px; margin-bottom: 10px; }
   .tab-summary b { color: var(--text); }
 
@@ -549,6 +568,7 @@
 <script src="tankers.js?v=__BUILD__"></script>
 <script src="share.js?v=__BUILD__"></script>
 <script src="guides.js?v=__BUILD__"></script>
+<script src="corr.js?v=__BUILD__"></script>
 <script>
 'use strict';
 
@@ -2347,6 +2367,60 @@ function thresholdText(ind, a) {
   return parts.length ? parts.join('<br>') : '신호등 임계값 없음 (해설만 표시)';
 }
 
+/* ---------- 상관관계 (corr.js) ---------- */
+/** 상관 계산용 시계열: 자동·직접 입력 이력 (샘플 제외) */
+function corrSeries(id) {
+  const a = (R && R[id]) || analyze(IND[id]);
+  if (!a || a.isSample || !a.history || a.history.length < 10) return null;
+  return { id, mode: IND[id].changeMode === 'pct' ? 'pct' : 'diff', freq: a.freq, hist: a.history };
+}
+const fmtR = r => (r > 0 ? '+' : r < 0 ? '−' : '') + Math.abs(r).toFixed(2);
+function corrSectionHTML(id) {
+  if (!window.CORR) return '';
+  const me = corrSeries(id);
+  if (!me) return `<section class="ind-corr" aria-label="상관관계"><h3>🔗 상관관계</h3><p class="corr-note">이력이 짧아 계산할 수 없습니다 (관측치 10개 이상 필요).</p></section>`;
+  const list = CONFIG.indicators.map(i => corrSeries(i.id)).filter(Boolean);
+  const t = CORR.top(id, list);
+  const chip = (x, cls) => `<button type="button" class="${cls}" data-edit="${x.id}" title="표본 ${x.n}${x.basis === 'M' ? '개월' : '주'}">${esc(IND[x.id].name)}<b>${fmtR(x.r)}</b></button>`;
+  const saved = (DataStore.getSettings().corrPick || {})[id];
+  const pick = saved && IND[saved] && saved !== id ? saved : (t.pos[0] || t.neg[0] || {}).id;
+  const opts = CONFIG.categories.map(c => {
+    const items = CONFIG.indicators.filter(i => i.cat === c.id && i.id !== id && list.some(s => s.id === i.id));
+    return items.length ? `<optgroup label="${esc(c.label)}">${items.map(i => `<option value="${i.id}"${i.id === pick ? ' selected' : ''}>${esc(i.name)}</option>`).join('')}</optgroup>` : '';
+  }).join('');
+  return `<section class="ind-corr" aria-label="상관관계">
+    <h3>🔗 상관관계 <small>변화율 기준 · 상관 ≠ 인과</small></h3>
+    ${t.pos.length ? `<span class="lbl">같이 움직이는 지표</span><div class="corr-chips">${t.pos.map(x => chip(x, 'pos')).join('')}</div>` : ''}
+    ${t.neg.length ? `<span class="lbl">반대로 움직이는 지표</span><div class="corr-chips">${t.neg.map(x => chip(x, 'neg')).join('')}</div>` : ''}
+    ${!t.pos.length && !t.neg.length ? `<p class="corr-note">뚜렷하게 같이 움직이는 지표가 없습니다 (비교 가능 ${t.checked}개).</p>` : ''}
+    <label class="lbl" for="corrPick">직접 비교</label>
+    <select id="corrPick" data-for="${id}"><option value="">지표 선택</option>${opts}</select>
+    <div id="corrOut"></div>
+    <p class="corr-note">주간(월간 지표가 끼면 월간) 변화율로 계산 · 순위는 최근 1년(월간 3년) · 같이 움직였다고 원인·결과는 아님</p>
+  </section>`;
+}
+function renderCorrPair(id, other) {
+  const out = $('#corrOut'); if (!out) return;
+  const A = corrSeries(id), B = other && corrSeries(other);
+  if (!A || !B) { out.innerHTML = ''; return; }
+  const p = CORR.pair(A, B), nm = x => esc(IND[x].name);
+  const main = p.windows[1];
+  const lead = p.lead ? `<p class="corr-say">⏱ 시차: <b>${p.lead.lag > 0 ? `${nm(id)} → ${nm(other)}` : `${nm(other)} → ${nm(id)}`}</b> — 앞의 지표가 약 <b>${Math.abs(p.lead.lag)}${p.unit}</b> 먼저 움직이는 경향 (r ${fmtR(p.lead.r)}, 표본 ${p.lead.n})</p>` : '';
+  const ov = CORR.overlay(A, B, p.basis === 'M' ? 60 : 104);
+  let chart = '';
+  if (ov) {
+    const W = 320, H = 130, pad = 4, all = [...ov.a, ...ov.b], lo = Math.min(...all), hi = Math.max(...all), span = hi - lo || 1;
+    const pts = arr => arr.map((v, i) => `${(pad + i / (arr.length - 1) * (W - pad * 2)).toFixed(1)},${(pad + (1 - (v - lo) / span) * (H - pad * 2)).toFixed(1)}`).join(' ');
+    chart = `<div class="corr-chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="두 지표 겹친 차트">
+      <polyline points="${pts(ov.a)}" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linejoin="round"/>
+      <polyline points="${pts(ov.b)}" fill="none" stroke="#e8890c" stroke-width="1.8" stroke-linejoin="round"/></svg>
+      <div class="corr-legend"><span><i style="background:var(--accent)"></i>${nm(id)}</span><span><i style="background:#e8890c"></i>${nm(other)}</span><span>${esc(ov.keys[0])} ~ ${esc(ov.keys[ov.keys.length - 1])} · 시작=100</span></div></div>`;
+  }
+  out.innerHTML = `<div class="corr-win">${p.windows.map(w => `<div>${w.label}<b>${w.r == null ? '—' : fmtR(w.r)}</b>${w.r == null ? '데이터 부족' : `표본 ${w.n}`}</div>`).join('')}</div>
+    ${main.r != null ? `<p class="corr-say">최근 ${main.label}: ${CORR.strength(main.r)}${p.windows[0].r != null && Math.abs(p.windows[0].r - main.r) >= 0.3 ? ` — 최근 ${p.windows[0].label}은 ${fmtR(p.windows[0].r)}로 관계가 달라지는 중` : ''}</p>` : ''}
+    ${lead}${chart}`;
+}
+
 let detailState = { id: null, range: null };
 
 function openEdit(id) {
@@ -2390,6 +2464,7 @@ function openEdit(id) {
   const body = $('#editBody');
   body.innerHTML = `${head}${rangeHTML}
     ${noteHTML(a)}
+    ${a.isSample ? '' : corrSectionHTML(id)}
     <div class="thresholds">${thresholdText(ind, a)}</div>
     <details class="manual" ${a.cur && !a.isSample ? '' : 'open'}>
       <summary>직접 입력·수정</summary>
@@ -2419,6 +2494,14 @@ function openEdit(id) {
   const dlg = $('#editSheet');
   if (!dlg.open) dlg.showModal();
   if (rangeHTML) drawDetailChart(ind, asc, a.freq, a.levelLines);
+  const cp = $('#corrPick');
+  if (cp) {
+    renderCorrPair(id, cp.value);
+    cp.onchange = () => {
+      const m = Object.assign({}, DataStore.getSettings().corrPick || {}); m[id] = cp.value; DataStore.setSettings({ corrPick: m });
+      renderCorrPair(id, cp.value);
+    };
+  }
 }
 
 function drawDetailChart(ind, asc, freq, levelLines) {

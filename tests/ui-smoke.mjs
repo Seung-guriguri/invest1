@@ -18,7 +18,7 @@ import { COMPUTED } from '../scripts/fetch-data.mjs';
 import { loadConfig } from '../scripts/lib/config.mjs';
 
 const ROOT = new URL('..', import.meta.url).pathname;
-const FILES = ['index.html', 'data.js', 'notes.js', 'season.js', 'tankers.js', 'guides.js', 'share.js', 'ui-v2.css', 'ui-v2.js', 'manifest.json', 'sw.js', 'icons'];
+const FILES = ['index.html', 'data.js', 'notes.js', 'season.js', 'tankers.js', 'guides.js', 'corr.js', 'share.js', 'ui-v2.css', 'ui-v2.js', 'manifest.json', 'sw.js', 'icons'];
 
 /** 합성 데이터: 지표마다 주기에 맞는 결정적(같은 입력 → 같은 값) 시계열 */
 function fixture(cfg) {
@@ -92,6 +92,15 @@ async function main() {
     if (ui === 'v1' && scheme === 'light') {
       const bad = await page.evaluate(ids => { const out = []; for (const id of ids) { try { openEdit(id); document.querySelector('#editSheet').close(); } catch (e) { out.push(id + ': ' + e.message); } } return out; }, cfg.indicators.map(i => i.id));
       check(!bad.length, `모든 지표 상세 열기 (${cfg.indicators.length}개)${bad.length ? ' — ' + bad.slice(0, 3).join(' / ') : ''}`);
+      const co = await page.evaluate(() => {
+        openEdit('wti'); const sec = document.querySelector('#editSheet .ind-corr'); const sel = document.querySelector('#corrPick');
+        sel.value = 'brent'; sel.dispatchEvent(new Event('change'));
+        const r = { sec: !!sec, chips: sec.querySelectorAll('[data-edit]').length, win: document.querySelectorAll('#corrOut .corr-win div').length, svg: !!document.querySelector('#corrOut svg'), saved: (DataStore.getSettings().corrPick || {}).wti };
+        return r;
+      });
+      if (process.env.SHOT_DIR) { await page.evaluate(() => document.querySelector('#editSheet .ind-corr').scrollIntoView()); await page.screenshot({ path: `${process.env.SHOT_DIR}/corr-${ui}-${scheme}.png` }); }
+      await page.evaluate(() => document.querySelector('#editSheet').close());
+      check(co.sec && co.win === 3 && co.svg && co.saved === 'brent', `상관관계: 순위·직접 비교·차트·선택 기억 ${JSON.stringify(co)}`);
       const shared = await page.evaluate(() => ['wti', 'us_cpi', 'coal_pw_jpn', 'scfi'].map(id => { try { return Share.render(id).canvas.width; } catch (e) { return id + ':' + e.message; } }));
       check(shared.every(w => w === 1080), `공유 이미지 그리기 ${JSON.stringify(shared)}`);
       const rt = await page.evaluate(() => {

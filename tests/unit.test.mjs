@@ -140,3 +140,54 @@ test('AI 숫자 대조: 값·변화율·분포 위치와 맞는지, 날짜·연�
   assert.equal(g.matched, 5);
   assert.deepEqual(g.unmatched, ['9.99%']);
 });
+
+/* ---------- 상관관계 (corr.js) ---------- */
+const loadCorr = async () => {
+  const ctx = {}; vm.createContext(ctx);
+  vm.runInContext(await readFile(new URL('../corr.js', import.meta.url), 'utf8'), ctx);
+  return ctx.CORR;
+};
+/** 주간 합성 시계열: 수익률 배열 → 수준 (월요일 날짜) */
+const wkSeries = (id, rets, mode = 'pct', freq = 'W') => {
+  let v = 100; const t0 = Date.UTC(2024, 0, 1);   // 월요일
+  const hist = rets.map((r, i) => { v = mode === 'pct' ? v * (1 + r) : v + r; return { date: new Date(t0 + i * 7 * 86400000).toISOString().slice(0, 10), value: v }; });
+  return { id, mode, freq, hist };
+};
+const noise = n => { let s = 7; return Array.from({ length: n }, () => { s = (s * 16807) % 2147483647; return (s / 2147483647 - 0.5) * 0.04; }); };
+test('상관: 같은 변화 = +1, 반대 변화 = −1, 추세만 같은 무관한 두 지표는 낮음', async () => {
+  const C = await loadCorr(), r = noise(80);
+  const a = wkSeries('a', r), b = wkSeries('b', r.map(x => x * 2)), c = wkSeries('c', r.map(x => -x));
+  near(C.pair(a, b).windows[1].r, 1, 1e-9);
+  near(C.pair(a, c).windows[1].r, -1, 1e-9);
+  // 둘 다 꾸준히 오르지만 흔들림은 무관 → 수준 상관은 높아도 변화율 상관은 낮아야 함
+  const r2 = noise(160).slice(80);
+  const up1 = wkSeries('u1', r.map(x => x + 0.01)), up2 = wkSeries('u2', r2.map(x => x + 0.01));
+  assert.ok(Math.abs(C.pair(up1, up2).windows[1].r) < 0.4);
+});
+test('상관: 표본 부족이면 계산 안 함, 월간이 끼면 월간 기준', async () => {
+  const C = await loadCorr(), r = noise(80);
+  const p = C.pair(wkSeries('a', r.slice(0, 10)), wkSeries('b', r.slice(0, 10)));
+  assert.ok(p.windows.every(w => w.r == null));
+  assert.equal(C.pair(wkSeries('a', r), { ...wkSeries('m', r), freq: 'M' }).basis, 'M');
+  assert.equal(C.keyOf('2026-10-17', 'W'), '2026-10-12');
+  assert.equal(C.keyOf('2026-10-17', 'M'), '2026-10');
+});
+test('상관: 선행·후행 — A 가 3주 먼저 움직이면 lag +3', async () => {
+  const C = await loadCorr(), r = noise(90);
+  const a = wkSeries('a', r.slice(3));
+  // b 의 t 주 변화 = a 의 (t−3) 주 변화
+  const b2 = wkSeries('b', [0, 0, 0, ...r.slice(3, -3)]);
+  const p = C.pair(a, b2);
+  assert.ok(p.lead && p.lead.lag === 3 && p.lead.r > 0.9, JSON.stringify(p.lead));
+  const q = C.pair(b2, a);
+  assert.ok(q.lead && q.lead.lag === -3, JSON.stringify(q.lead));
+});
+test('상관: 순위와 겹친 차트', async () => {
+  const C = await loadCorr(), r = noise(80), r2 = noise(160).slice(80);
+  const list = [wkSeries('a', r), wkSeries('same', r), wkSeries('inv', r.map(x => -x)), wkSeries('other', r2), wkSeries('short', r.slice(0, 5))];
+  const t = C.top('a', list);
+  assert.equal(t.pos[0].id, 'same'); assert.equal(t.neg[0].id, 'inv');
+  assert.ok(!t.pos.concat(t.neg).some(x => x.id === 'short'));
+  const ov = C.overlay(list[0], list[1], 52);
+  assert.equal(ov.a.length, 52); near(ov.a[0], 100); near(ov.b[0], 100);
+});
