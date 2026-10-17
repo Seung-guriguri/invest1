@@ -71,7 +71,7 @@
         stocks: [['OIH', '유전 서비스 ETF', 'gd_oih'], ['SLB', 'SLB (슐럼버거)', 'gd_slb'], ['HAL', 'Halliburton', 'gd_hal'], ['BKR', 'Baker Hughes', 'gd_bkr']] },
       { id: 'off', no: '③', name: '해양 시추·서브시', job: '바다 밑 유전을 뚫는 시추선을 일당(데이레이트)으로 빌려주고 해저 생산설비를 깖. 계약이 1~3년 단위라 유가보다 6~12개월 늦게 움직이고, 브렌트가 오래 높게 유지돼야 심해 발주가 늘어남. 부채가 커서 주가 변동이 가장 큼', sens: '매우 높음 (늦은 시차)', lvl: 3,
         ind: ['brent', 'brent_wti'],
-        stocks: [['RIG', 'Transocean — 심해 시추선 최대, 부채 부담 큼', 'gd_rig'], ['VAL', 'Valaris — 심해·천해 시추', 'gd_val'], ['NE', 'Noble — 2024년 Diamond Offshore 합병', 'gd_ne'], ['SDRL', 'Seadrill — 브라질 등 심해 위주', 'gd_sdrl'], ['FTI', 'TechnipFMC — 해저 생산설비(서브시)', 'gd_fti'], ['TDW', 'Tidewater — 해양 지원선(OSV)', 'gd_tdw']] },
+        stocks: [['RIG', 'Transocean — 심해 시추선 최대, 부채 부담 큼', 'gd_rig'], ['VAL', 'Valaris — 심해·천해 시추', 'gd_val'], ['NE', 'Noble — 2024년 Diamond Offshore 합병', 'gd_ne'], ['SDRL', 'Seadrill — 브라질 등 심해 위주', 'gd_sdrl'], ['BORR', 'Borr Drilling — 천해 잭업 시추선 전문, 중동·멕시코 비중 큼', 'gd_borr'], ['FTI', 'TechnipFMC — 해저 생산설비(서브시)', 'gd_fti'], ['TDW', 'Tidewater — 해양 지원선(OSV)', 'gd_tdw']] },
       { id: 'mid', no: '④', name: '미드스트림 (수송·저장)', job: '파이프라인·저장 탱크·수출 터미널. 물량에 따른 통행료(수수료)로 벌어 유가 영향이 작고 배당 성격이 강함', sens: '낮음', lvl: 1,
         ind: ['cushing', 'crude_net_imports', 'natgas'],
         stocks: [['AMLP', '미드스트림 MLP ETF', 'gd_amlp'], ['EPD', 'Enterprise Products', 'gd_epd'], ['ET', 'Energy Transfer', 'gd_et'], ['KMI', 'Kinder Morgan', 'gd_kmi'], ['WMB', 'Williams', 'gd_wmb']] },

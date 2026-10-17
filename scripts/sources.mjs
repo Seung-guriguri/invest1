@@ -120,7 +120,7 @@ export const SOURCES = {
   // 석유 밸류체인: 업스트림 · 유전 서비스 · 미드스트림 · 정유 · 통합 메이저
   gd_xop: [{ yahoo: 'XOP', adj: true }], gd_cop: [{ yahoo: 'COP', adj: true }], gd_eog: [{ yahoo: 'EOG', adj: true }], gd_oxy: [{ yahoo: 'OXY', adj: true }],
   gd_rig: [{ yahoo: 'RIG', adj: true }], gd_val: [{ yahoo: 'VAL', adj: true }], gd_ne: [{ yahoo: 'NE', adj: true }],     // 해양 시추
-  gd_sdrl: [{ yahoo: 'SDRL', adj: true }], gd_fti: [{ yahoo: 'FTI', adj: true }], gd_tdw: [{ yahoo: 'TDW', adj: true }],  // 시추·서브시·지원선
+  gd_sdrl: [{ yahoo: 'SDRL', adj: true }], gd_borr: [{ yahoo: 'BORR', adj: true }], gd_fti: [{ yahoo: 'FTI', adj: true }], gd_tdw: [{ yahoo: 'TDW', adj: true }],  // 시추·서브시·지원선
   gd_oih: [{ yahoo: 'OIH', adj: true }], gd_slb: [{ yahoo: 'SLB', adj: true }], gd_hal: [{ yahoo: 'HAL', adj: true }], gd_bkr: [{ yahoo: 'BKR', adj: true }],
   gd_amlp: [{ yahoo: 'AMLP', adj: true }], gd_epd: [{ yahoo: 'EPD', adj: true }], gd_et: [{ yahoo: 'ET', adj: true }], gd_kmi: [{ yahoo: 'KMI', adj: true }], gd_wmb: [{ yahoo: 'WMB', adj: true }],
   gd_crak: [{ yahoo: 'CRAK', adj: true }], gd_vlo: [{ yahoo: 'VLO', adj: true }], gd_mpc: [{ yahoo: 'MPC', adj: true }], gd_psx: [{ yahoo: 'PSX', adj: true }],
