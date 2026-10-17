@@ -257,6 +257,19 @@
   .comment { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); font-size: 13.5px; }
   .season-note { margin-top: 4px; font-size: 12.5px; color: var(--text-2); }
   .empty { color: var(--text-2); font-size: 14px; }
+  /* 카드 정리: 설명 한 줄 · 값/변화/스파크 고정 배치 · 날짜 줄 한 줄 · 양호는 배지 없이 왼쪽 색띠로만 */
+  .card { padding: 11px 14px 12px; min-width: 0; overflow: hidden; }
+  .cards > * { min-width: 0; }
+  .card-title { font-size: 15px; }
+  .card-title small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+  .card .value-row { display: grid; grid-template-columns: auto 1fr auto; align-items: end; gap: 0 10px; margin: 6px 0 3px; }
+  .card .value-row .change { align-self: center; min-width: 0; }
+  .card .value-row .spark { margin: 0; }
+  .card .meta.one { flex-wrap: nowrap; white-space: nowrap; overflow: hidden; min-width: 0; }
+  .card .meta.one > span { flex: none; }
+  .card .meta.one > span:last-child { flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; }
+  .card .comment { margin-top: 7px; padding-top: 7px; }
+  @media (min-width: 720px) { .cards { grid-template-columns: 1fr 1fr; } .cards > :not(.card) { grid-column: 1 / -1; } }
   /* 데이터 없는 지표 묶음 · 경고/주의 모아보기 */
   .empty-group { background: var(--surface); border: 1px dashed var(--border); border-radius: var(--radius); padding: 10px 14px; }
   .empty-group > summary { cursor: pointer; font-size: 13.5px; color: var(--text-2); }
@@ -1902,6 +1915,14 @@ function sparkSVG(a) {
   return `<svg class="spark" viewBox="0 0 ${W} ${H}" aria-hidden="true"><path d="${d}"/><circle cx="${x(pts.length - 1).toFixed(1)}" cy="${y(last.value).toFixed(1)}" r="3"/></svg>`;
 }
 
+/** 카드용 짧은 기준일: 일간·주간은 올해면 10/10, 아니면 25/10/10 · 월간 2026.07 */
+function shortObsDate(date, freq) {
+  if (freq === 'M') return date.slice(0, 4) + '.' + date.slice(5, 7);
+  if (freq === 'Q') return fmtObsDate(date, freq);
+  const [y, m, d] = date.split('-');
+  return (y === String(new Date().getFullYear()) ? '' : y.slice(2) + '/') + Number(m) + '/' + Number(d);
+}
+
 /** 카드에 한 줄 해석을 보일지 (지금은 해석이 있으면 모두 표시) */
 function showComment(a) { return !!a.comment; }
 
@@ -1918,14 +1939,16 @@ function cardHTML(a) {
   // 카드는 간결하게: 기준일 + 1개월·위치 한 줄. 업데이트 시각·출처·계절 메모는 상세 화면에서
   const badges = [
     a.isSample ? '<span class="badge sample">샘플</span>' : '',
-    a.stale ? `<span class="badge stale" title="${esc(a.staleReason)}">오래된 데이터</span>` : ''
+    a.stale ? `<span class="badge stale" title="${esc(a.staleReason)}">오래됨</span>` : ''
   ].join('');
-  const metaParts = [a.isSample ? '기준일 샘플' : `기준일 ${fmtObsDate(a.cur.date, a.freq)}`];
+  const metaParts = [a.isSample ? '기준일 샘플' : `${shortObsDate(a.cur.date, a.freq)} 기준`];
   if (!a.isSample) metaParts.push(m1Text(a), a.season ? seasonText(a) : positionText(a));
+  // 양호(초록)는 왼쪽 색띠로만 표시하고 배지는 주의·경고·급등락일 때만
+  const pill = a.signal >= 1 ? `<span class="light ${s}"><span class="dot ${s}"></span>${lightLabel}</span>` : '';
   return `<button class="card ${s}${a.isSample ? ' sample' : ''}" data-edit="${ind.id}" type="button" aria-label="${esc(ind.name)} ${lightLabel}, 눌러서 차트와 상세 보기">
-    <div class="card-head"><div class="card-title">${title}</div><span class="light ${s}"><span class="dot ${s}"></span>${lightLabel}</span></div>
+    <div class="card-head"><div class="card-title">${title}</div>${pill}</div>
     <div class="value-row"><span class="value num">${fmt(a.value, ind.dp)}<span class="unit">${esc(ind.unit)}</span></span>${changeHTML(a)}${sparkSVG(a)}</div>
-    <div class="meta">${badges}${metaParts.filter(Boolean).map(t => `<span>${esc(t)}</span>`).join('<span aria-hidden="true">·</span>')}</div>
+    <div class="meta one">${badges}${metaParts.filter(Boolean).map(t => `<span>${esc(t)}</span>`).join('<span aria-hidden="true">·</span>')}</div>
     ${showComment(a) ? `<div class="comment">${esc(a.comment)}</div>` : ''}
   </button>`;
 }
