@@ -191,3 +191,41 @@ test('상관: 순위와 겹친 차트', async () => {
   const ov = C.overlay(list[0], list[1], 52);
   assert.equal(ov.a.length, 52); near(ov.a[0], 100); near(ov.b[0], 100);
 });
+test('관계 분석: 민감도(기울기)·이동 상관·반전', async () => {
+  const C = await loadCorr(), r = noise(120);
+  const a = wkSeries('a', r), b = wkSeries('b', r.map(x => x * 0.5));
+  near(C.beta(a, b).beta, 0.5, 1e-9);
+  // 앞 60주는 같은 방향, 뒤 60주는 반대 방향 → 현재 음수, 반전 시점 존재
+  const flipB = wkSeries('f', r.map((x, i) => (i < 60 ? x : -x)));
+  const ro = C.rolling(a, flipB);
+  assert.ok(ro.pts.length > 10 && ro.pts.at(-1).r < -0.9 && ro.pts[0].r > 0.9);
+  assert.ok(ro.flip && ro.flip.from > 0);
+});
+test('관계 분석: 사건 반응 — A 급등 다음 주 B 가 오르면 평균 플러스, 연속 사건은 한 번', async () => {
+  const C = await loadCorr(), r = noise(150);
+  const ra = r.slice(), rb = r.map(x => x * 0.1);
+  for (const i of [20, 50, 80, 110, 140]) { ra[i] = 0.2; rb[i + 1] = 0.05; }
+  ra[21] = 0.2;   // 연속 급등 → 한 번으로
+  const ev = C.events(wkSeries('a', ra), wkSeries('b', rb));
+  assert.equal(ev.up.n, 5);
+  assert.ok(ev.up.res[0].avg > 0.03 && ev.up.res[0].up >= 4, JSON.stringify(ev.up));
+  assert.ok(Math.abs(ev.base.res[0].avg) < 0.01);
+});
+test('관계 분석: 비율·차이와 기간 내 위치', async () => {
+  const C = await loadCorr(), r = noise(60);
+  const ra = C.ratio(wkSeries('a', r.map(x => x + 0.01)), wkSeries('b', r));
+  assert.equal(ra.kind, 'ratio'); assert.ok(ra.pctl > 90);   // A 가 꾸준히 더 오름 → 비율 최고권
+  const d = C.ratio(wkSeries('a', r, 'diff'), wkSeries('b', r.map(x => x - 200), 'diff'));
+  assert.equal(d.kind, 'diff');
+});
+test('관계 분석: 엇갈림 — 평소 같은 방향인데 최근 8주 반대로 크게 움직이면 감지', async () => {
+  const C = await loadCorr(), r = noise(80);
+  const rb = r.map((x, i) => (i >= 72 ? -x : x));
+  const ra = r.map((x, i) => (i >= 72 ? Math.abs(x) + 0.01 : x));   // 최근 A 는 계속 오르고 B 는 반대
+  const rb2 = ra.map((x, i) => (i >= 72 ? -x : x));
+  const d = C.divergence(wkSeries('a', ra), wkSeries('b', rb2), 1);
+  assert.ok(d && d.on && d.r1 > 0.5 && d.rr < 0, JSON.stringify(d));
+  assert.equal(C.divergence(wkSeries('a', ra), wkSeries('b', ra), 1).on, false);
+  assert.equal(C.divergence(wkSeries('a', ra), wkSeries('b', rb2), -1).on, false);   // 반대 짝 기대면 감지 안 함
+  void rb;
+});
