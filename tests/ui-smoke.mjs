@@ -112,8 +112,8 @@ async function main() {
       check(co.sec && co.win === 3 && co.svg && co.saved === 'brent', `상관관계: 순위·직접 비교·차트·선택 기억 ${JSON.stringify(co)}`);
       // 엇갈림 감지: 계산 함수를 잠시 바꿔 첫 감시 짝이 엇갈린 상황을 만들고 화면 연결 확인
       await page.evaluate(() => { window.__div = CORR.divergence; CORR.divergence = (A, B) => ({ on: A.id === 'wti' && B.id === 'etf_xle', r1: 0.8, rr: -0.3, n: 8, unit: '주', ca: 0.05, cb: -0.04, basis: 'W' }); setView('today'); render(); });
-      const dvl = await page.evaluate(() => ({ rows: document.querySelectorAll('#divList .div-row').length, count: document.querySelector('#divCount').textContent }));
-      check(dvl.rows === 14 && /14쌍 · 엇갈림 1/.test(dvl.count), `엇갈림 감시 현황 목록 ${JSON.stringify(dvl)}`);
+      const dvl = await page.evaluate(() => ({ rows: document.querySelectorAll('#divList .div-row').length, pairs: WATCH_PAIRS.length, count: document.querySelector('#divCount').textContent }));
+      check(dvl.rows === dvl.pairs && dvl.count === `${dvl.pairs}쌍 · 엇갈림 1`, `엇갈림 감시 현황 목록 ${JSON.stringify(dvl)}`);
       const dv1 = await page.evaluate(() => ({ items: [...document.querySelectorAll('#checklist .chk-link')].length, txt: /엇갈림/.test(document.querySelector('#checklist').innerText) }));
       await page.click('#checklist .chk-link');
       const dv2 = await page.evaluate(() => ({ open: document.querySelector('#editSheet').open, pick: document.querySelector('#corrPick').value, tab: document.querySelector('#corrOut [aria-pressed="true"]').dataset.corrtab, warn: [...document.querySelectorAll('#editSheet .ind-corr [data-edit]')].some(b => b.textContent.startsWith('⚠')) }));

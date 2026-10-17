@@ -79,7 +79,7 @@
 | `usdcny` | 위안/달러 환율 | 위안 | 실측 | Yahoo CNY=X → FRED DEXCHUS | pct |
 | `vix` | VIX |  | 실측 | Yahoo ^VIX → FRED VIXCLS | pct |
 
-## 에너지 (11)
+## 에너지 (12)
 
 | ID | 이름 | 단위 | 성격 | 출처 (1순위 → 대체) | 변화 판단 |
 |---|---|---|---|---|---|
@@ -91,6 +91,7 @@
 | `ttf` | 유럽 천연가스 (TTF) | €/MWh | 실측 | Yahoo TTF=F | pct |
 | `jkm` | 아시아 LNG (JKM) | $/MMBtu | 실측 | Yahoo JKM=F | pct |
 | `coal` | 석탄 | $/t | 실측 | FRED PCOALAUUSDM | pct |
+| `coking_amr` | 원료탄 (AMR) | $ | 실측 | Yahoo AMR | pct |
 | `gasoline` | 휘발유 | $/gal | 실측 | Yahoo RB=F → FRED DGASNYH | pct |
 | `diesel` | 디젤 | $/gal | 실측 | Yahoo HO=F → FRED DDFUELNYH | pct |
 | `crack321` | 3-2-1 크랙 스프레드 | $/bbl | 계산 | 계산: 2RB+HO−3CL | abs |

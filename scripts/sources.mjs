@@ -97,6 +97,7 @@ export const SOURCES = {
   gas_pw_chn: [{ ember: 'CHN', series: 'Gas' }],
   gas_pw_eu:  [{ ember: 'EU', series: 'Gas' }],
   coal:   [{ fred: 'PCOALAUUSDM' }],                       // IMF 호주(뉴캐슬) 석탄, 월간
+  coking_amr: [{ yahoo: 'AMR', adj: true }],                // Alpha Metallurgical Resources — 미국 원료탄(제철용) 생산 1위권, 원료탄 업황 대용
   gasoline: [{ yahoo: 'RB=F' }, { fred: 'DGASNYH' }],       // RBOB 휘발유 선물 (실패 시 뉴욕항 현물)
   diesel:   [{ yahoo: 'HO=F' }, { fred: 'DDFUELNYH' }],     // 초저유황 디젤(ULSD) 선물 (실패 시 뉴욕항 현물)
 

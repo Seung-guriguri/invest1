@@ -807,6 +807,8 @@ const CONFIG = {
       change: { yoy: true, dir: 'both', flat: 1.5, warn: 5, danger: 8 } },
     { id: 'coal', cat: 'energy', name: '석탄', sub: '호주 뉴캐슬, 월간', unit: '$/t', dp: 1, changeMode: 'pct', staleDays: 140, profile: 'coal',
       change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
+    { id: 'coking_amr', cat: 'energy', name: '원료탄 (AMR)', sub: 'Alpha Metallurgical 주가 — 제철용 원료탄 업황 대용 (원료탄 가격 아님)', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
+      change: { dir: 'both', flat: 0.4, danger: 5, moveOnly: true }, comments: { rise: '원료탄 업체 상승 → 원료탄 가격 강세 또는 철강 수요 기대', fall: '원료탄 업체 하락 → 원료탄 가격 약세 또는 철강 경기 둔화 걱정' } },
     { id: 'gasoline', cat: 'energy', name: '휘발유', sub: 'RBOB 선물 (RB=F)', unit: '$/gal', dp: 3, changeMode: 'pct', profile: 'gasoline',
       level: { dir: 'up', warn: 2.8, danger: 3.2 }, change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
     { id: 'diesel', cat: 'energy', name: '디젤', sub: '초저유황 경유 선물 (HO=F)', unit: '$/gal', dp: 3, changeMode: 'pct', profile: 'diesel',
@@ -2427,7 +2429,7 @@ const WATCH_PAIRS = [
   ['wti', 'etf_xle', 1], ['natgas', 'etf_ung', 1], ['copper', 'us10y', 1], ['gold', 'real10y', -1],
   ['dxy', 'usdkrw', 1], ['sp500', 'kospi', 1], ['usdkrw', 'kospi', -1], ['hy_spread', 'sp500', -1],
   ['us10y', 'mortgage', 1], ['bdry', 'iron_ore', 1], ['tanker_fro', 'etf_bwet', 1], ['brent', 'bei10y', 1],
-  ['dxy', 'gold', -1], ['copper', 'sp500', 1]
+  ['dxy', 'gold', -1], ['copper', 'sp500', 1], ['coking_amr', 'iron_ore', 1]
 ];
 /** 지금 엇갈린 감시 짝 (render 마다 계산, 상세 화면 ⚠ 표시에도 사용) */
 let DIVERGE = new Map();
