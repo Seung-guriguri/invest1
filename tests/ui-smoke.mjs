@@ -102,9 +102,9 @@ async function main() {
       const tabsOk = [];
       for (const tb of ['sum', 'roll', 'evt', 'ratio']) {
         await page.click(`#corrOut [data-corrtab="${tb}"]`);
-        const st = await page.evaluate(tb => ({ tb, on: document.querySelector(`#corrOut [data-corrtab="${tb}"]`).getAttribute('aria-pressed') === 'true', txt: document.querySelector('#corrOut').innerText.length, saved: DataStore.getSettings().corrTab, wide: document.querySelector('#editSheet').scrollWidth > document.querySelector('#editSheet').clientWidth + 1 }), tb);
-        tabsOk.push(st.on && st.txt > 40 && st.saved === tb && !st.wide ? tb : JSON.stringify(st));
-        if (process.env.SHOT_DIR) { await page.evaluate(() => document.querySelector('#corrPick').scrollIntoView()); await page.screenshot({ path: `${process.env.SHOT_DIR}/corr-${tb}-${ui}-${scheme}.png` }); }
+        const st = await page.evaluate(tb => ({ tb, on: document.querySelector(`#corrOut [data-corrtab="${tb}"]`).getAttribute('aria-pressed') === 'true', txt: document.querySelector('#corrOut').innerText.length, help: !!document.querySelector('#corrOut .corr-help') === (tb !== 'sum'), saved: DataStore.getSettings().corrTab, wide: document.querySelector('#editSheet').scrollWidth > document.querySelector('#editSheet').clientWidth + 1 }), tb);
+        tabsOk.push(st.on && st.txt > 40 && st.saved === tb && !st.wide && st.help ? tb : JSON.stringify(st));
+        if (process.env.SHOT_DIR) { await page.evaluate(() => { const h = document.querySelector('#corrOut .corr-help'); if (h) h.open = true; document.querySelector('#corrPick').scrollIntoView(); }); await page.screenshot({ path: `${process.env.SHOT_DIR}/corr-${tb}-${ui}-${scheme}.png` }); }
       }
       check(tabsOk.join() === 'sum,roll,evt,ratio', `관계 분석 탭 (요약·추이·사건 반응·비율) ${tabsOk.join(' | ')}`);
       await page.click('#corrOut [data-corrtab="sum"]');

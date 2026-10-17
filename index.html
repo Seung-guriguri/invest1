@@ -171,6 +171,9 @@
   .corr-tbl thead th { font-weight: 600; color: var(--text-2); font-size: 11.5px; border-top: 0; }
   .corr-tbl tbody th { text-align: left; white-space: nowrap; }
   .corr-tbl .muted { color: var(--text-2); text-align: left; }
+  .corr-help { margin: 6px 0 4px; background: var(--surface-2); border-radius: 10px; padding: 7px 10px; font-size: 12.5px; color: var(--text-2); }
+  .corr-help summary { cursor: pointer; font-weight: 600; color: var(--accent); font-size: 12.5px; }
+  .corr-help p { margin: 6px 0 0; line-height: 1.5; } .corr-help b { color: var(--text); }
   .tab-summary { font-size: 13px; color: var(--text-2); background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 8px 12px; margin-bottom: 10px; }
   .tab-summary b { color: var(--text); }
 
@@ -2466,6 +2469,21 @@ function divergenceChecks() {
     pair: [d.a, d.b]
   }));
 }
+/** 직접 비교 보기 설명 (접힘, 펼친 상태 기억) */
+const CORR_HELP = {
+  roll: `<p><b>무엇</b> — 두 지표의 상관이 시간에 따라 어떻게 바뀌었는지. 선의 각 점은 그 시점까지 <b>최근 1년</b>(월간 지표가 끼면 3년)의 주간 변화율로 잰 상관입니다.</p>
+    <p><b>읽는 법</b> — 위쪽(+1 쪽)은 같은 방향, 점선(0)은 서로 무관, 아래쪽(−1 쪽)은 반대 방향. 선이 점선을 가로지르면 관계가 뒤집힌 것입니다.</p>
+    <p><b>활용</b> — 지금 상관이 평소 범위 안인지, 최근 약해지는 중인지 확인. 예) 주식·채권 상관이 −에서 +로 바뀌면 채권의 분산 효과가 약해진 국면.</p>
+    <p><b>주의</b> — 1년 창이라 관계 변화가 몇 달 늦게 반영됩니다. 빠른 변화는 '요약'의 3개월 상관을 함께 보세요.</p>`,
+  evt: `<p><b>무엇</b> — A가 한 주(월간 지표면 한 달) 사이 <b>평소 변동폭의 2배</b> 넘게 오르거나 내린 '사건' 뒤에, B가 1주·4주(월간: 1·3개월) 동안 평균 얼마나 움직였는지.</p>
+    <p><b>읽는 법</b> — '급등 뒤 · 9번 · 4주 뒤 +2.1% · 7/9' = 과거 A 급등 9번 중 4주 뒤 B가 평균 +2.1%, 9번 중 7번 상승. 맨 아래 <b>'평소'</b> 줄(아무 때나 본 평균)과 차이가 클 때만 의미가 있습니다.</p>
+    <p><b>활용</b> — 오늘 A가 크게 움직였을 때 B가 과거에 어떻게 따라갔는지 참고.</p>
+    <p><b>주의</b> — 사례가 적으면(10번 미만) 우연일 수 있고, 과거 평균일 뿐 예측이 아닙니다. 며칠 연달아 생긴 급등은 한 번으로 셉니다.</p>`,
+  ratio: `<p><b>무엇</b> — A ÷ B 비율(0 이하가 될 수 있는 지표가 끼면 A − B 차이)의 추이와, 수집 기간 안에서 지금 값이 어느 위치인지(상위·하위 %).</p>
+    <p><b>읽는 법</b> — '상위 5%' = 기간 중 A가 B보다 가장 비싼(높은) 편. 선이 오르면 A가 B보다 강한 흐름.</p>
+    <p><b>활용 예</b> — 구리÷금(경기 기대 — 금리와 같이 움직이는 경향) · 금÷은 · 브렌트÷천연가스(원유 대비 가스 가격) · 코스피÷S&P500(한국 증시 상대 성과).</p>
+    <p><b>주의</b> — 극단 위치가 곧 되돌아온다는 뜻은 아닙니다(구조 변화일 수 있음). 위치는 수집 기간(일간 약 2년·월간 10년) 안에서만 비교합니다. 단위가 다른 지표의 차이(A − B)는 크기보다 방향만 보세요.</p>`
+};
 const CORR_TABS = [['sum', '요약'], ['roll', '추이'], ['evt', '사건 반응'], ['ratio', '비율']];
 /** 작은 선 차트 (여러 선, 선택: 0 기준선·고정 범위) */
 function miniLineSVG(lines, opt = {}) {
@@ -2549,7 +2567,8 @@ function renderCorrPair(id, other) {
         <div class="corr-legend"><span>${esc(ra.keys[0])} ~ ${esc(ra.keys[ra.keys.length - 1])}</span><span>최고 ${fmtSig(ra.max.v)} (${esc(ra.max.key)})</span><span>최저 ${fmtSig(ra.min.v)} (${esc(ra.min.key)})</span></div></div>`;
     }
   }
-  out.innerHTML = tabs + body;
+  out.innerHTML = tabs + (CORR_HELP[tab] ? `<details class="corr-help"${DataStore.getSettings().corrHelp ? ' open' : ''}><summary>ⓘ 이 보기는?</summary>${CORR_HELP[tab]}</details>` : '') + body;
+  const hp = out.querySelector('.corr-help'); if (hp) hp.ontoggle = () => DataStore.setSettings({ corrHelp: hp.open });
 }
 
 let detailState = { id: null, range: null };
