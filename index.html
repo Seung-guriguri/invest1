@@ -455,6 +455,7 @@
   <div class="sheet-inner">
     <div class="sheet-head">
       <h2 id="editTitle"></h2>
+      <button class="icon-btn" type="button" data-action="share-ind" aria-label="이 지표 공유" title="공유 (이미지 + 링크)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg></button>
       <button class="icon-btn" type="button" data-action="close-sheet" aria-label="닫기">✕</button>
     </div>
     <div id="editBody"></div>
@@ -468,6 +469,7 @@
 <script src="notes.js?v=__BUILD__"></script>
 <script src="season.js?v=__BUILD__"></script>
 <script src="tankers.js?v=__BUILD__"></script>
+<script src="share.js?v=__BUILD__"></script>
 <script src="guides.js?v=__BUILD__"></script>
 <script>
 'use strict';
@@ -2331,7 +2333,21 @@ function route() {
   const settings = location.hash === '#settings';
   $('#settingsView').hidden = !settings;
   $('#mainView').setAttribute('aria-hidden', String(settings));
-  if (settings) { syncSettingsFields(); $('#settingsView').scrollTop = 0; } else render();
+  if (settings) { syncSettingsFields(); $('#settingsView').scrollTop = 0; return; }
+  const linked = linkedIndicator();
+  if (linked && activeTab !== linked.cat) activeTab = linked.cat;   // 공유 링크: 그 지표의 탭으로
+  render();
+  openFromHash();
+}
+
+/** 공유 링크(…#ind=지표ID)로 들어오면 그 지표 상세를 바로 엶 */
+function linkedIndicator() {
+  const m = /^#ind=([\w-]+)/.exec(location.hash);
+  return m && IND[decodeURIComponent(m[1])] ? IND[decodeURIComponent(m[1])] : null;
+}
+function openFromHash() {
+  const ind = linkedIndicator();
+  if (ind) { detailState.range = null; openEdit(ind.id); }
 }
 
 let toastTimer;
@@ -2369,9 +2385,15 @@ document.addEventListener('click', e => {
     if (history.length > 1 && location.hash === '#settings') history.back(); else location.hash = '';
   } else if (t.dataset.action === 'close-sheet') {
     $('#editSheet').close();
+  } else if (t.dataset.action === 'share-ind') {
+    if (window.Share && detailState.id) Share.shareIndicator(detailState.id);
   }
 });
 $('#editSheet').addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.close(); });
+// 공유 링크로 연 상세를 닫으면 주소의 #ind= 를 지움 (새로고침 때 다시 열리지 않게)
+$('#editSheet').addEventListener('close', () => {
+  if (/^#ind=/.test(location.hash)) history.replaceState(null, '', location.pathname + location.search);
+});
 $('#checklist').addEventListener('change', e => {
   const items = loadChecks().filter(x => x !== e.target.dataset.check);
   if (e.target.checked) items.push(e.target.dataset.check);
@@ -2434,6 +2456,7 @@ reloadRemote(true).then(() => {
     DataStore.loadSample();
     if (location.hash !== '#settings') render();
   }
+  openFromHash();   // 최신 자동 데이터로 공유 링크 상세 다시 그림
   try { localStorage.setItem('macroDash.started', '1'); } catch (e) {}
 });
 
