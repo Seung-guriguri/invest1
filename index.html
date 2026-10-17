@@ -254,6 +254,17 @@
   .badge.sample { color: var(--sample); background: var(--sample-bg); border: 1px dashed var(--sample); }
   .badge.stale { color: var(--red); background: var(--red-bg); }
   .badge.auto { color: var(--text-2); background: var(--surface-2); }
+  .badge.q-late, .tg.q-late { color: #b35c00; background: rgba(255, 149, 0, .14); }
+  .badge.q-check, .tg.q-check { color: var(--sample); background: var(--sample-bg); }
+  .badge.q-proxy, .tg.q-proxy { color: var(--text-2); background: transparent; border: 1px solid var(--border); font-weight: 600; }
+  .q-ok { color: var(--green); } .q-late { color: #b35c00; } .q-stale { color: var(--red); } .q-missing { color: var(--grey); } .q-check { color: var(--sample); }
+  .quality-line b { font-weight: 700; }
+  .dq-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin: 8px 0; }
+  .dq-grid div { background: var(--surface-2); border-radius: 10px; padding: 6px 4px; text-align: center; font-size: 12px; color: var(--text-2); }
+  .dq-grid b { display: block; font-size: 17px; }
+  .dq-list { font-size: 13px; margin: 6px 0 0; }
+  .dq-list summary { cursor: pointer; }
+  .dq-list .chips { margin-top: 6px; }
   .comment { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); font-size: 13.5px; }
   .season-note { margin-top: 4px; font-size: 12.5px; color: var(--text-2); }
   .empty { color: var(--text-2); font-size: 14px; }
@@ -484,6 +495,12 @@
     </section>
 
     <section class="panel section">
+      <h2>데이터 품질</h2>
+      <p class="hint">값을 지우거나 고치지 않고 상태만 표시합니다. 지표별 출처·단위·성격은 <a href="https://github.com/Seung-guriguri/invest1/blob/main/docs/indicator-catalog.md" target="_blank" rel="noopener">지표 카탈로그</a>에 있습니다.</p>
+      <div id="dataQuality"></div>
+    </section>
+
+    <section class="panel section">
       <h2>값 직접 입력</h2>
       <p class="hint">자동 수집이 안 되는 지표(리튬 등)를 입력하거나 자동 값을 덮어쓸 때 사용합니다. 입력한 칸만 저장되고, 같은 기준일 값이 있으면 직접 입력이 우선합니다. 지표 카드를 누르면 개별 수정·삭제가 가능합니다.</p>
       <label class="field"><span>기준일 (모든 칸 공통)</span><input type="date" id="bulkDate"></label>
@@ -570,6 +587,7 @@
  *   ※ "직전 값"은 직전 관측치입니다. 자동 데이터는 일간 지표면 전 거래일, 월간 지표면 전월.
  *   profile    : COMMENTS 의 해설 묶음 이름. comments 로 지표별 문구 덮어쓰기 가능
  *   derived    : 자동 데이터가 없을 때 다른 두 지표의 차이로 계산 (a − b)
+ *   proxy      : true → 대용 지표 (직접 지표가 없어 주가·ETF·지역 설문 등으로 대신 봄). 카드에 '대용' 배지
  *   자동 수집 소스는 scripts/sources.mjs 에서 지정합니다 (지표 id 기준).
  * ===================================================================== */
 const CONFIG = {
@@ -675,11 +693,11 @@ const CONFIG = {
       level: { fixed: true, dir: 'down', warn: 2, danger: 0 }, change: { flat: 0.3 } },
     { id: 'umcsent', cat: 'growth', name: '미시간 소비자심리지수', unit: '', dp: 1, changeMode: 'abs', profile: 'sentiment',
       level: { dir: 'down', warn: 70, danger: 60 }, change: { flat: 1.5 } },
-    { id: 'pmi_philly', cat: 'growth', name: '필라델피아 연은 제조업지수', sub: 'PMI 대용 · 0 이상 확장', unit: '', dp: 1, changeMode: 'abs', profile: 'regionalPmi',
+    { id: 'pmi_philly', proxy: true, cat: 'growth', name: '필라델피아 연은 제조업지수', sub: 'PMI 대용 · 0 이상 확장', unit: '', dp: 1, changeMode: 'abs', profile: 'regionalPmi',
       level: { fixed: true, dir: 'down', warn: 0, danger: -15 }, change: { flat: 3 } },
-    { id: 'pmi_empire', cat: 'growth', name: '뉴욕 연은 제조업지수', sub: 'Empire State · PMI 대용 · 0 이상 확장', unit: '', dp: 1, changeMode: 'abs', profile: 'regionalPmi',
+    { id: 'pmi_empire', proxy: true, cat: 'growth', name: '뉴욕 연은 제조업지수', sub: 'Empire State · PMI 대용 · 0 이상 확장', unit: '', dp: 1, changeMode: 'abs', profile: 'regionalPmi',
       level: { fixed: true, dir: 'down', warn: 0, danger: -15 }, change: { flat: 3 } },
-    { id: 'pmi_dallas', cat: 'growth', name: '댈러스 연은 제조업지수', sub: '텍사스 · PMI 대용 · 0 이상 확장', unit: '', dp: 1, changeMode: 'abs', profile: 'regionalPmi',
+    { id: 'pmi_dallas', proxy: true, cat: 'growth', name: '댈러스 연은 제조업지수', sub: '텍사스 · PMI 대용 · 0 이상 확장', unit: '', dp: 1, changeMode: 'abs', profile: 'regionalPmi',
       level: { fixed: true, dir: 'down', warn: 0, danger: -15 }, change: { flat: 3 } },
     { id: 'cfnai', cat: 'growth', name: '시카고 연은 전미활동지수', sub: 'CFNAI 3개월 평균 · 0 = 평균 성장', unit: '', dp: 2, changeMode: 'abs', profile: 'cfnai',
       level: { fixed: true, dir: 'down', warn: -0.35, danger: -0.7 }, change: { flat: 0.05 } },
@@ -773,17 +791,17 @@ const CONFIG = {
       level: { dir: 'up', warn: 35, danger: 45 }, change: { dir: 'both', flat: 0.5, warn: 3, danger: 6 } },
 
     // ── 운임 ──
-    { id: 'bdry', cat: 'freight', name: '벌크선 운임', sub: 'BDRY ETF — BDI 대용, 지수 아님', unit: '$', dp: 2, changeMode: 'pct', profile: 'bulkFreight',
+    { id: 'bdry', proxy: true, cat: 'freight', name: '벌크선 운임', sub: 'BDRY ETF — BDI 대용, 지수 아님', unit: '$', dp: 2, changeMode: 'pct', profile: 'bulkFreight',
       change: { dir: 'both', flat: 1, danger: 5, moveOnly: true } },
     { id: 'scfi', cat: 'freight', name: '컨테이너 운임 SCFI', sub: '상하이 컨테이너 운임지수, 직접 입력 (매주 금요일 발표)', unit: '', dp: 1, changeMode: 'pct', profile: 'containerFreight',
       change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
     { id: 'freight_ppi', cat: 'freight', name: '미국 원양 화물운송 PPI', sub: '전년비, 월간', unit: '%', dp: 1, changeMode: 'pp', profile: 'freightPpi',
       level: { dir: 'up', warn: 10, danger: 20 }, change: { flat: 1 } },
-    { id: 'tanker_fro', cat: 'freight', name: 'VLCC 원유선 (FRO)', sub: 'Frontline 주가 — 초대형 원유운반선 운임 대용 (운임 지수 아님)', unit: '$', dp: 2, changeMode: 'pct', profile: 'shipping',
+    { id: 'tanker_fro', proxy: true, cat: 'freight', name: 'VLCC 원유선 (FRO)', sub: 'Frontline 주가 — 초대형 원유운반선 운임 대용 (운임 지수 아님)', unit: '$', dp: 2, changeMode: 'pct', profile: 'shipping',
       change: { dir: 'both', flat: 0.4, danger: 5, moveOnly: true }, comments: { rise: '원유선사 상승 → VLCC 운임 강세 또는 원유 물동량 증가 기대', fall: '원유선사 하락 → VLCC 운임 약세 또는 물동량 둔화 걱정' } },
-    { id: 'tanker_stng', cat: 'freight', name: '석유제품선 (STNG)', sub: 'Scorpio Tankers 주가 — 휘발유·디젤 운반선 운임 대용 (운임 지수 아님)', unit: '$', dp: 2, changeMode: 'pct', profile: 'shipping',
+    { id: 'tanker_stng', proxy: true, cat: 'freight', name: '석유제품선 (STNG)', sub: 'Scorpio Tankers 주가 — 휘발유·디젤 운반선 운임 대용 (운임 지수 아님)', unit: '$', dp: 2, changeMode: 'pct', profile: 'shipping',
       change: { dir: 'both', flat: 0.4, danger: 5, moveOnly: true }, comments: { rise: '제품선사 상승 → 휘발유·디젤 해상 수송 수요↑, 정유 마진 강세와 함께 보기', fall: '제품선사 하락 → 석유제품 물동량·운임 약세' } },
-    { id: 'lng_flng', cat: 'freight', name: 'LNG선 (FLNG)', sub: 'Flex LNG 주가 — LNG 운반선 업황 대용 (운임 지수 아님)', unit: '$', dp: 2, changeMode: 'pct', profile: 'shipping',
+    { id: 'lng_flng', proxy: true, cat: 'freight', name: 'LNG선 (FLNG)', sub: 'Flex LNG 주가 — LNG 운반선 업황 대용 (운임 지수 아님)', unit: '$', dp: 2, changeMode: 'pct', profile: 'shipping',
       change: { dir: 'both', flat: 0.4, danger: 5, moveOnly: true }, comments: { rise: 'LNG선사 상승 → LNG 물동량·용선료 강세 기대', fall: 'LNG선사 하락 → LNG선 공급 과잉 또는 LNG 교역 둔화 걱정' } },
     { id: 'lng_spread', cat: 'freight', name: 'LNG 수출 마진 (TTF−헨리허브)', sub: '유럽 가스값 − 미국 가스값, 자동 계산 — 클수록 LNG 수출·LNG선 수요↑', unit: '$/MMBtu', dp: 2, changeMode: 'abs', profile: 'lngSpread',
       level: { dir: 'up', warn: 10, danger: 14 }, change: { dir: 'both', flat: 0.2, warn: 1, danger: 2 } },
@@ -873,7 +891,7 @@ const CONFIG = {
       change: { dir: 'both', flat: 0.3, danger: 5, moveOnly: true }, comments: { rise: '원자재 종합 상승 → 물가 압력 확대 신호', fall: '원자재 종합 하락 → 수요 둔화 또는 물가 압력 완화' } },
     { id: 'etf_dba', cat: 'etf', name: 'DBA', sub: '농산물 종합 — 곡물·커피·설탕·가축', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
       change: { dir: 'both', flat: 0.3, danger: 5, moveOnly: true }, comments: { rise: '농산물 상승 → 식품 물가 상승 압력', fall: '농산물 하락 → 식품 원가 부담 완화' } },
-    { id: 'etf_bwet', cat: 'etf', name: 'BWET', sub: '유조선 운임 선물 (VLCC 중동→중국 TD3C·수에즈막스) — 원유 해상 운송비 대용', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
+    { id: 'etf_bwet', proxy: true, cat: 'etf', name: 'BWET', sub: '유조선 운임 선물 (VLCC 중동→중국 TD3C·수에즈막스) — 원유 해상 운송비 대용', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
       change: { dir: 'both', flat: 0.5, danger: 5, moveOnly: true }, comments: { rise: '유조선 운임 상승 → 원유 해상 수송 수요↑ 또는 항로 차질', fall: '유조선 운임 하락 → 원유 물동량 둔화' } },
     { id: 'etf_xli', cat: 'etf', name: 'XLI', sub: '미국 산업재 업종 — 제조업 경기', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
       change: { dir: 'both', flat: 0.3, danger: 5, moveOnly: true }, comments: { rise: '산업재 상승 → 제조업·설비투자 경기 기대', fall: '산업재 하락 → 제조업 경기 둔화 걱정' } },
@@ -1649,7 +1667,7 @@ function analyze(ind) {
   const meta = DataStore.getMeta(ind.id);
   const a = { ind, history, meta, cur, prevE, value: cur ? cur.value : null, prev: prevE ? prevE.value : null,
               lvl: null, cs: 0, signal: null, trend: null, diff: null, pct: null, stale: false, isSample: false };
-  if (!cur) { a.comment = ''; return a; }
+  if (!cur) { a.comment = ''; a.quality = { code: 'missing', reason: '값이 없음 (자동 소스가 없거나 아직 수집되지 않음)' }; return a; }
 
   a.isSample = cur.source === 'sample';
   a.freq = cur.source === 'auto' && meta ? meta.freq : null;
@@ -1735,8 +1753,49 @@ function analyze(ind) {
     }
     a.stale = !!a.staleReason;
   }
+  a.quality = qualityOf(ind, a);
   a.comment = pickComment(ind, a);
   return a;
+}
+
+/* ---------- 데이터 품질 상태 ----------
+ * 정상 · 지연(이번 수집 실패 → 이전 값 표시) · 오래됨(새 값이 주기보다 오래 없음) · 누락(값 없음) · 검증 필요(직전 대비 25% 넘는 급변)
+ * 원본 값은 지우거나 고치지 않고 상태만 붙임 */
+const QUALITY = {
+  ok: { label: '정상', cls: 'q-ok' }, late: { label: '지연', cls: 'q-late' }, stale: { label: '오래됨', cls: 'q-stale' },
+  missing: { label: '누락', cls: 'q-missing' }, check: { label: '검증 필요', cls: 'q-check' }
+};
+function qualityOf(ind, a) {
+  if (!a.cur) return { code: 'missing', reason: '값이 없음 (자동 소스가 없거나 아직 수집되지 않음)', flags: {} };
+  if (a.isSample) return { code: 'ok', reason: '', flags: {} };
+  const reasons = {}, flags = {};
+  const h = a.history;
+  if (a.freq === 'D' && h.length >= 2 && h[1].value && Math.sign(h[0].value) === Math.sign(h[1].value) && Math.abs(h[0].value / h[1].value - 1) > 0.25) {
+    flags.check = true; reasons.check = `직전 관측치 대비 ${fmtSigned((h[0].value / h[1].value - 1) * 100, 1)}% 급변 — 원자료 확인 필요 (값은 그대로 표시)`;
+  }
+  const err = a.cur.source === 'auto' && (DataStore.remoteInfo().errors || []).find(e => e.id === ind.id && e.keptPrevious);
+  if (err) { flags.late = true; reasons.late = `이번 수집 실패 → 이전 값 표시 (${err.message})`; }
+  if (a.stale) { flags.stale = true; reasons.stale = a.staleReason; }
+  // 대표 상태는 검증 필요 > 지연 > 오래됨 순 (여러 개면 사유를 모두 이어 씀)
+  const code = ['check', 'late', 'stale'].find(k => flags[k]) || 'ok';
+  return { code, reason: ['check', 'late', 'stale'].filter(k => flags[k]).map(k => reasons[k]).join(' · '), flags };
+}
+/** 지표 성격: 실측 · 대용 · 계산 · 직접 입력 */
+function kindOf(ind, a) {
+  if (ind.proxy) return '대용';
+  const src = a && a.meta && a.meta.source || '';
+  if (/^Calc:/.test(src) || (ind.derived && !(a && a.meta))) return '계산';
+  if (a && a.cur && a.cur.source !== 'auto') return '직접 입력';
+  return a && a.meta ? '실측' : '직접 입력';
+}
+/** 카드·목록용 품질 배지 (정상·오래됨은 기존 배지·색으로 표시하므로 지연·검증 필요만) */
+function qualityBadges(a, tagCls = 'badge') {
+  const out = [];
+  const f = (a.quality && a.quality.flags) || {};
+  if (f.late) out.push(`<span class="${tagCls} q-late" title="${esc(a.quality.reason)}">지연</span>`);
+  if (f.check) out.push(`<span class="${tagCls} q-check" title="${esc(a.quality.reason)}">검증 필요</span>`);
+  if (a.ind.proxy) out.push(`<span class="${tagCls} q-proxy" title="직접 지표가 없어 대신 보는 값">대용</span>`);
+  return out.join('');
 }
 
 /** "2년 중 상위 4%" 같은 위치 설명 */
@@ -2005,7 +2064,8 @@ function cardHTML(a) {
   // 카드는 간결하게: 기준일 + 1개월·위치 한 줄. 업데이트 시각·출처·계절 메모는 상세 화면에서
   const badges = [
     a.isSample ? '<span class="badge sample">샘플</span>' : '',
-    a.stale ? `<span class="badge stale" title="${esc(a.staleReason)}">오래됨</span>` : ''
+    a.stale ? `<span class="badge stale" title="${esc(a.staleReason)}">오래됨</span>` : '',
+    qualityBadges(a)
   ].join('');
   const metaParts = [a.isSample ? '기준일 샘플' : `${shortObsDate(a.cur.date, a.freq)} 기준`];
   if (!a.isSample) metaParts.push(m1Text(a), a.season ? seasonText(a) : positionText(a));
@@ -2367,6 +2427,7 @@ function openEdit(id) {
     </div>
     <div class="meta" style="margin-top:4px">${a.isSample ? '<span class="badge sample">샘플</span>' : ''}${a.stale ? '<span class="badge stale">오래된 데이터</span>' : ''}
       <span>${a.isSample ? '기준일 샘플' : `기준일 ${esc(fmtObsDate(a.cur.date, a.freq))} · 업데이트 ${esc(toLocalISO(a.cur.updatedAt))} · ${esc(sourceName(a))}${a.cur.source === 'auto' && a.meta ? ` (${esc(a.meta.source.split(':')[1] || '')})` : ''}`}</span></div>
+    <div class="meta quality-line" style="margin-top:4px"><span>데이터 상태 <b class="${QUALITY[a.quality.code].cls}">${QUALITY[a.quality.code].label}</b>${a.quality.reason ? ` — ${esc(a.quality.reason)}` : ''}</span><span>· 성격 <b>${kindOf(ind, a)}</b></span></div>
     ${periods ? `<div class="periods">${periods}</div>` : ''}
     <div class="comment" style="margin-top:8px">${esc(a.comment)}</div>
     ${seasonNoteHTML(id)}` : '<p class="hint">아직 값이 없습니다. 아래에서 직접 입력하세요.</p>';
@@ -2465,9 +2526,24 @@ function buildBulkForm() {
   }).join('');
 }
 
+function renderDataQuality() {
+  const all = CONFIG.indicators.map(ind => R[ind.id] || analyze(ind));
+  const by = code => all.filter(a => a.quality && a.quality.code === code);
+  const proxies = all.filter(a => a.ind.proxy);
+  const chips = list => `<div class="chips">${list.map(a => `<button type="button" data-edit="${a.ind.id}" title="${esc(a.quality.reason || '')}">${esc(a.ind.name)}</button>`).join('')}</div>`;
+  const group = (code, desc) => { const l = by(code); return l.length ? `<details class="dq-list"><summary><b class="${QUALITY[code].cls}">${QUALITY[code].label}</b> ${l.length}개 — ${desc}</summary>${chips(l)}</details>` : ''; };
+  $('#dataQuality').innerHTML = `<div class="dq-grid">${['ok', 'late', 'stale', 'check', 'missing'].map(c => `<div><b class="${QUALITY[c].cls}">${by(c).length}</b>${QUALITY[c].label}</div>`).join('')}</div>
+    ${group('late', '이번 수집에 실패해 이전 값을 보여 주는 중')}
+    ${group('stale', '주기보다 오래 새 값이 없음')}
+    ${group('check', '직전 대비 25% 넘게 급변 — 원자료 확인 필요')}
+    ${group('missing', '값 없음 (직접 입력 지표 포함)')}
+    ${proxies.length ? `<details class="dq-list"><summary><b>대용 지표</b> ${proxies.length}개 — 직접 지표가 없어 주가·ETF·지역 설문으로 대신 봄</summary>${chips(proxies)}</details>` : ''}`;
+}
+
 function syncSettingsFields() {
   $('#themeSelect').value = DataStore.getSettings().theme;
   renderRemoteStatus();
+  renderDataQuality();
   buildBulkForm();
 }
 

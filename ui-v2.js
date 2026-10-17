@@ -53,13 +53,13 @@
     }
     const tag = a.signal === 2 ? `<span class="tg r">${esc(a.moveLabel || '경고')}</span>`
       : a.signal === 1 ? '<span class="tg y">주의</span>' : '';
-    const stale = a.stale ? '<span class="tg g">오래됨</span>' : '';
+    const stale = (a.stale ? '<span class="tg g">오래됨</span>' : '') + qualityBadges(a, 'tg');
     const unit = ind.unit && ind.unit.length <= 4 ? `<small>${esc(ind.unit)}</small>` : '';
     const sub = ind.sub || '';
     const label = `${ind.name}, ${fmt(a.value, ind.dp)}${ind.unit || ''}, ${a.yoy ? '전년 동월 대비' : '직전 대비'} ${chgText(a)}${a.signal === 2 ? ', ' + (a.moveLabel || '경고') : a.signal === 1 ? ', 주의' : ''}`;
     return `<button class="row2${a.isSample ? ' sample' : ''}" data-edit="${ind.id}" type="button" aria-label="${esc(label)}">
       ${icon}
-      <span class="mid"><span class="nm">${esc(ind.name)}${tag}${stale}</span><span class="ds">${esc(sub)}</span></span>
+      <span class="mid"><span class="nm">${esc(ind.name)}${tag}</span>${stale ? `<span class="tgs">${stale}</span>` : ''}<span class="ds">${esc(sub)}</span></span>
       <span class="sp ${trendDir(a)}">${sparkSVG(a)}</span>
       <span class="rt"><span class="vl num">${fmt(a.value, ind.dp)}${unit}</span><span class="ch num ${dirOf(a)}" style="display:block">${chgText(a)}</span></span>
       ${showComment(a) ? `<span class="cm">${esc(a.comment)}</span>` : ''}

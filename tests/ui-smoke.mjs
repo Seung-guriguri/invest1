@@ -38,7 +38,9 @@ function fixture(cfg) {
     }
     series[id] = { source: SOURCES[id] ? 'Yahoo:TEST' : 'Calc:TEST', freq, fetchedAt: today.toISOString(), obs };
   });
-  return { generatedAt: today.toISOString(), series, errors: [] };
+  // 품질 상태 확인용: WTI 마지막 값 급변(+40%) → 검증 필요, 천연가스는 이번 수집 실패(이전 값 유지) → 지연
+  const w = series.wti.obs; w[w.length - 1][1] = Math.round(w[w.length - 2][1] * 1.4 * 1000) / 1000;
+  return { generatedAt: today.toISOString(), series, errors: [{ id: 'natgas', message: '테스트 실패', keptPrevious: true }] };
 }
 const AI = { generatedAt: new Date().toISOString(), model: 'test',
   briefing: { headline: '테스트 브리핑', story: '합성 데이터로 만든 테스트 문장입니다.', top3: ['하나', '둘', '셋'], points: ['수치'], korea: '한국', watch: ['확인'], counterpoint: '반대' },
@@ -100,6 +102,16 @@ async function main() {
         return { empty, scfi: DataStore.getManual('scfi').map(e => e.value), li: DataStore.getManual('lithium').map(e => e.value) };
       });
       check(rt.empty === 0 && rt.scfi.includes(1234.5) && rt.li.includes(9.9), `직접 입력 백업→복원 왕복 ${JSON.stringify(rt)}`);
+      const q = await page.evaluate(() => ({ wti: R.wti.quality.code, natgas: R.natgas.quality.code, us10y: R.us10y.quality.code, bdryProxy: !!IND.bdry.proxy, scfi: R.scfi.quality.code }));
+      check(q.wti === 'check' && q.natgas === 'late' && q.us10y === 'ok' && q.bdryProxy && q.scfi === 'missing', `품질 상태 판정 ${JSON.stringify(q)}`);
+      await page.evaluate(() => { setView('list'); listFilter = null; activeTab = 'energy'; render(); });
+      const badges = await page.evaluate(() => ({ check: !!document.querySelector('[data-edit="wti"] .q-check'), late: !!document.querySelector('[data-edit="natgas"] .q-late') }));
+      await page.evaluate(() => { activeTab = 'freight'; render(); });
+      badges.proxy = await page.evaluate(() => !!document.querySelector('[data-edit="bdry"] .q-proxy'));
+      check(badges.check && badges.late && badges.proxy, `카드 품질·대용 배지 ${JSON.stringify(badges)}`);
+      await page.evaluate(() => { location.hash = 'settings'; }); await page.waitForTimeout(300);
+      check(await page.evaluate(() => document.querySelectorAll('#dataQuality .dq-grid div').length === 5 && /지연/.test(document.querySelector('#dataQuality').innerText)), '설정의 데이터 품질 화면');
+      await page.evaluate(() => { history.replaceState(null, '', location.pathname); route(); });
       await page.evaluate(() => { setView('today'); render(); });
       const hasFilter = await page.$('[data-filter="2"]');
       if (hasFilter) { await hasFilter.click(); check(await page.evaluate(() => document.body.dataset.view === 'list' && !!document.querySelector('.filter-head')), '경고 모아보기'); }
