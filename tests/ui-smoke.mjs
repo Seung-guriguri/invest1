@@ -18,7 +18,7 @@ import { COMPUTED } from '../scripts/fetch-data.mjs';
 import { loadConfig } from '../scripts/lib/config.mjs';
 
 const ROOT = new URL('..', import.meta.url).pathname;
-const FILES = ['index.html', 'data.js', 'notes.js', 'season.js', 'tankers.js', 'guides.js', 'analysis.js', 'share.js', 'ui-v2.css', 'ui-v2.js', 'manifest.json', 'sw.js', 'icons'];
+const FILES = ['index.html', 'data.js', 'notes.js', 'season.js', 'tankers.js', 'guides.js', 'share.js', 'ui-v2.css', 'ui-v2.js', 'manifest.json', 'sw.js', 'icons'];
 
 /** 합성 데이터: 지표마다 주기에 맞는 결정적(같은 입력 → 같은 값) 시계열 */
 function fixture(cfg) {
@@ -78,23 +78,9 @@ async function main() {
     await page.goto(URL0); await page.waitForTimeout(1200);
     const tag = `${ui}/${scheme}`;
     check(await page.evaluate(() => document.body.dataset.view) === 'ai', `${tag}: 첫 화면 AI`);
-    for (const v of ['today', 'analysis', 'list', 'ai']) {
+    for (const v of ['today', 'list', 'ai']) {
       await page.evaluate(v => { setView(v); render(); }, v);
       check(await page.evaluate(v => document.body.dataset.view === v, v), `${tag}: ${v} 화면 전환`);
-    }
-    for (const m of ['crude', 'gas', 'ship']) {
-      await page.evaluate(m => { setView('analysis'); analysisMod = m; render(); }, m);
-      const an = await page.evaluate(() => ({ rows: document.querySelectorAll('#analysisView .an-row').length, rules: document.querySelectorAll('#analysisView .an-rule').length,
-        rels: document.querySelectorAll('#analysisView .an-rel').length, shown: !!document.querySelector('#analysisView').offsetHeight, wide: document.documentElement.scrollWidth > innerWidth }));
-      if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/an-${ui}-${scheme}-${m}.png`, fullPage: true });
-      check(an.shown && an.rows > 5 && an.rules >= 3 && an.rels >= 3 && !an.wide, `${tag}: 분석 ${m} ${JSON.stringify(an)}`);
-    }
-    if (ui === 'v1' && scheme === 'light') {
-      await page.evaluate(() => { analysisMod = 'crude'; render(); });
-      await page.click('#analysisView .an-row[data-edit="wti"]');
-      check(await page.evaluate(() => { const o = document.querySelector('#editSheet').open; document.querySelector('#editSheet').close(); return o; }), '분석 표에서 지표 상세 열림');
-      const st = await page.evaluate(() => document.querySelector('#analysisView').innerText);
-      check(/판단 보류/.test(st) && /텔레그램으로 보내지 않습니다/.test(st), '분석 경고 규칙: 품질 문제 지표는 판단 보류, 시험 운영 표시');
     }
     await page.evaluate(() => { setView('list'); });
     for (const c of cfg.categories) {
@@ -116,15 +102,7 @@ async function main() {
         return { empty, scfi: DataStore.getManual('scfi').map(e => e.value), li: DataStore.getManual('lithium').map(e => e.value) };
       });
       check(rt.empty === 0 && rt.scfi.includes(1234.5) && rt.li.includes(9.9), `직접 입력 백업→복원 왕복 ${JSON.stringify(rt)}`);
-      const q = await page.evaluate(() => ({ wti: R.wti.quality.code, natgas: R.natgas.quality.code, us10y: R.us10y.quality.code, bdryProxy: !!IND.bdry.proxy, scfi: R.scfi.quality.code }));
-      check(q.wti === 'check' && q.natgas === 'late' && q.us10y === 'ok' && q.bdryProxy && q.scfi === 'missing', `품질 상태 판정 ${JSON.stringify(q)}`);
-      await page.evaluate(() => { setView('list'); listFilter = null; activeTab = 'energy'; render(); });
-      const badges = await page.evaluate(() => ({ check: !!document.querySelector('[data-edit="wti"] .q-check'), late: !!document.querySelector('[data-edit="natgas"] .q-late') }));
-      await page.evaluate(() => { activeTab = 'freight'; render(); });
-      badges.proxy = await page.evaluate(() => !!document.querySelector('[data-edit="bdry"] .q-proxy'));
-      check(badges.check && badges.late && badges.proxy, `카드 품질·대용 배지 ${JSON.stringify(badges)}`);
       await page.evaluate(() => { location.hash = 'settings'; }); await page.waitForTimeout(300);
-      check(await page.evaluate(() => document.querySelectorAll('#dataQuality .dq-grid div').length === 5 && /지연/.test(document.querySelector('#dataQuality').innerText)), '설정의 데이터 품질 화면');
       await page.evaluate(() => { history.replaceState(null, '', location.pathname); route(); });
       await page.evaluate(() => { setView('today'); render(); });
       const hasFilter = await page.$('[data-filter="2"]');
@@ -132,10 +110,6 @@ async function main() {
       await page.goto(URL0 + '#ind=wti'); await page.waitForTimeout(1000);
       check(await page.evaluate(() => document.querySelector('#editSheet').open && activeTab === 'energy'), '공유 링크(#ind=wti)로 상세 열림');
     }
-    await page.evaluate(() => { setView('ai'); render(); });
-    const gr = await page.evaluate(() => ({ chips: document.querySelectorAll('#aiBrief .ai-refs [data-edit]').length, newer: !!document.querySelector('#aiBrief .ai-refs .newer'), chk: /숫자 확인: 본문 숫자 5개 중 4개/.test(document.querySelector('#aiBrief').innerText) }));
-    if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/ai-${ui}-${scheme}.png` });
-    check(gr.chips === 2 && gr.newer && gr.chk, `${tag}: AI 근거 지표·기준일·숫자 확인 ${JSON.stringify(gr)}`);
     check(!errs.length, `${tag}: 스크립트 오류 없음${errs.length ? ' — ' + errs.slice(0, 3).join(' / ') : ''}`);
     await ctx.close();
   }

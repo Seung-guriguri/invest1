@@ -162,12 +162,6 @@
   .ai-brief ul { margin: 6px 0 0; padding-left: 18px; font-size: 13.5px; }
   .ai-brief li { margin: 3px 0; }
   .ai-brief .row { font-size: 13.5px; margin: 8px 0 0; }
-  .ai-refs { margin: 4px 0 10px; font-size: 12.5px; color: var(--text-2); }
-  .ai-refs .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
-  .ai-refs .chips button { border: 1px solid var(--border); background: var(--surface-2); color: var(--text); border-radius: 999px; padding: 2px 9px; font: inherit; font-size: 12px; cursor: pointer; max-width: 100%; overflow-wrap: anywhere; text-align: left; }
-  .ai-refs .chips button small { color: var(--text-2); margin-left: 4px; }
-  .ai-refs .chips button.newer small { color: #b35c00; }
-  .ai-refs .gchk { margin-top: 4px; }
   .ai-brief .row b { font-size: 12px; color: var(--text-2); display: block; }
   .ai-secs { margin-top: 10px; border-top: 1px solid var(--border); }
   .ai-brief details.ai-column { margin-top: 10px; border: 1px solid var(--border); border-radius: 12px; padding: 4px 12px; }
@@ -260,62 +254,15 @@
   .badge.sample { color: var(--sample); background: var(--sample-bg); border: 1px dashed var(--sample); }
   .badge.stale { color: var(--red); background: var(--red-bg); }
   .badge.auto { color: var(--text-2); background: var(--surface-2); }
-  .badge.q-late, .tg.q-late { color: #b35c00; background: rgba(255, 149, 0, .14); }
-  .badge.q-check, .tg.q-check { color: var(--sample); background: var(--sample-bg); }
-  .badge.q-proxy, .tg.q-proxy { color: var(--text-2); background: transparent; border: 1px solid var(--border); font-weight: 600; }
-  .q-ok { color: var(--green); } .q-late { color: #b35c00; } .q-stale { color: var(--red); } .q-missing { color: var(--grey); } .q-check { color: var(--sample); }
-  .quality-line b { font-weight: 700; }
-  .dq-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin: 8px 0; }
-  .dq-grid div { background: var(--surface-2); border-radius: 10px; padding: 6px 4px; text-align: center; font-size: 12px; color: var(--text-2); }
-  .dq-grid b { display: block; font-size: 17px; }
-  .dq-list { font-size: 13px; margin: 6px 0 0; }
-  .dq-list summary { cursor: pointer; }
-  .dq-list .chips { margin-top: 6px; }
   .comment { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); font-size: 13.5px; }
   .season-note { margin-top: 4px; font-size: 12.5px; color: var(--text-2); }
   .empty { color: var(--text-2); font-size: 14px; }
   /* 화면 전환: body[data-view] 에 맞는 영역만 보임 */
-  body[data-view="today"] .v-list, body[data-view="today"] .v-ai, body[data-view="today"] .v-analysis,
-  body[data-view="list"] .v-today, body[data-view="list"] .v-ai, body[data-view="list"] .v-analysis,
-  body[data-view="analysis"] .v-today, body[data-view="analysis"] .v-list, body[data-view="analysis"] .v-ai,
-  body[data-view="ai"] .v-today, body[data-view="ai"] .v-list, body[data-view="ai"] .v-analysis { display: none !important; }
-  /* 분석 화면 */
-  .an-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
-  .an-tabs button { flex: 1; min-width: 0; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); border-radius: 10px; padding: 8px 2px; font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; line-height: 1.25; }
-  .an-tabs button[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
-  .an .panel + .panel { margin-top: 12px; }
-  .an h2 { font-size: 16px; margin: 0 0 8px; }
-  .an h2 small, .an h3 small { font-weight: 400; font-size: 12px; color: var(--text-2); }
-  .an h3 { font-size: 13.5px; margin: 12px 0 4px; color: var(--text-2); }
-  .an-obs { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-  .an-obs li { border-left: 3px solid var(--grey); padding: 2px 0 2px 9px; font-size: 14px; line-height: 1.5; }
-  .an-obs li.tight { border-color: var(--red); } .an-obs li.loose { border-color: var(--green); }
-  .an .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
-  .an .chips button { border: 1px solid var(--border); background: var(--surface-2); color: var(--text-2); border-radius: 999px; padding: 1px 8px; font: inherit; font-size: 11.5px; cursor: pointer; }
-  .an-row { display: block; width: 100%; text-align: left; border: 0; border-top: 1px solid var(--border); background: none; color: var(--text); font: inherit; padding: 8px 0; cursor: pointer; min-width: 0; }
-  .an-row:disabled { cursor: default; }
-  .an-row .l1 { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
-  .an-row .nm { font-size: 14px; font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
-  .an-row .vl { font-size: 14.5px; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .an-row .vl small { font-weight: 400; font-size: 11.5px; color: var(--text-2); margin-left: 2px; }
-  .an-row .l2 { display: flex; flex-wrap: wrap; gap: 2px 10px; margin-top: 2px; font-size: 12px; color: var(--text-2); }
-  .an-row .l2 .up { color: var(--red); } .an-row .l2 .dn { color: #1f6fd1; }
-  .an-row.none .vl { color: var(--grey); font-weight: 400; font-size: 13px; }
-  .an-kind { font-size: 11px; border: 1px solid var(--border); border-radius: 5px; padding: 0 5px; }
-  .an-rule { border-top: 1px solid var(--border); padding: 9px 0; font-size: 13.5px; }
-  .an-rule .hd { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14.5px; }
-  .an-pill { flex: none; font-size: 12px; font-weight: 700; border-radius: 999px; padding: 1px 9px; }
-  .an-pill.s2 { color: var(--red); background: var(--red-bg); } .an-pill.s1 { color: #9a6700; background: var(--yellow-bg); }
-  .an-pill.s0 { color: var(--green); background: var(--green-bg); } .an-pill.sn { color: var(--grey); background: var(--grey-bg); }
-  .an-rule dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; margin: 6px 0 0; }
-  .an-rule dt { color: var(--text-2); font-size: 12.5px; white-space: nowrap; } .an-rule dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
-  .an-rel { border-top: 1px solid var(--border); padding: 7px 0; font-size: 13.5px; }
-  .an-rel .lim { font-size: 12px; color: var(--text-2); }
-  .an-rel .r { font-weight: 700; }
-  .an-gaps { margin: 0; padding-left: 18px; font-size: 13.5px; color: var(--text-2); }
-  .an-shadow { font-size: 12px; color: var(--sample); background: var(--sample-bg); border-radius: 8px; padding: 6px 9px; margin: 0 0 6px; }
+  body[data-view="today"] .v-list, body[data-view="today"] .v-ai,
+  body[data-view="list"] .v-today, body[data-view="list"] .v-ai,
+  body[data-view="ai"] .v-today, body[data-view="ai"] .v-list { display: none !important; }
   .views { display: flex; gap: 6px; padding-top: 0; padding-bottom: 4px; }
-  .views button { flex: 1; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); border-radius: 12px; padding: 9px 2px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; min-width: 0; white-space: nowrap; }
+  .views button { flex: 1; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); border-radius: 12px; padding: 9px 4px; font: inherit; font-size: 14.5px; font-weight: 600; cursor: pointer; }
   .views button[aria-current="page"] { background: var(--text); color: var(--bg); border-color: var(--text); }
   .v-today + .v-today, .v-ai + .v-ai { margin-top: 12px; }
   .ai-mini .more { margin-top: 10px; border: 0; background: none; color: var(--accent); font: inherit; font-size: 14px; font-weight: 600; padding: 0; cursor: pointer; }
@@ -477,7 +424,6 @@
   <nav class="wrap views" id="viewNav" aria-label="화면">
     <button type="button" data-view="ai">✨ AI</button>
     <button type="button" data-view="today">📅 오늘</button>
-    <button type="button" data-view="analysis">🔎 분석</button>
     <button type="button" data-view="list">📊 지표</button>
   </nav>
 
@@ -517,9 +463,6 @@
     </div>
 
     <section class="cards v-list" id="cards" role="tabpanel" aria-live="polite"></section>
-
-    <!-- 분석: 원유·정제 / 천연가스·LNG / 해운 — 수급 표 · 핵심 관측 · 경고 규칙(시험) · 관계 카탈로그 -->
-    <section class="an v-analysis" id="analysisView" aria-label="산업별 분석"></section>
   </main>
 </div>
 
@@ -538,12 +481,6 @@
       <p class="hint">GitHub Actions가 정해진 시간마다 FRED·Yahoo Finance·한국은행에서 값을 받아 사이트와 함께 배포합니다. API 키는 GitHub 저장소 Secrets에만 있고 이 기기에는 저장되지 않습니다.</p>
       <div id="remoteStatus"></div>
       <div class="btn-row" style="margin-top:10px"><button class="btn" id="btnReloadRemote" type="button">다시 받기</button></div>
-    </section>
-
-    <section class="panel section">
-      <h2>데이터 품질</h2>
-      <p class="hint">값을 지우거나 고치지 않고 상태만 표시합니다. 지표별 출처·단위·성격은 <a href="https://github.com/Seung-guriguri/invest1/blob/main/docs/indicator-catalog.md" target="_blank" rel="noopener">지표 카탈로그</a>에 있습니다.</p>
-      <div id="dataQuality"></div>
     </section>
 
     <section class="panel section">
@@ -612,7 +549,6 @@
 <script src="tankers.js?v=__BUILD__"></script>
 <script src="share.js?v=__BUILD__"></script>
 <script src="guides.js?v=__BUILD__"></script>
-<script src="analysis.js?v=__BUILD__"></script>
 <script>
 'use strict';
 
@@ -634,7 +570,6 @@
  *   ※ "직전 값"은 직전 관측치입니다. 자동 데이터는 일간 지표면 전 거래일, 월간 지표면 전월.
  *   profile    : COMMENTS 의 해설 묶음 이름. comments 로 지표별 문구 덮어쓰기 가능
  *   derived    : 자동 데이터가 없을 때 다른 두 지표의 차이로 계산 (a − b)
- *   proxy      : true → 대용 지표 (직접 지표가 없어 주가·ETF·지역 설문 등으로 대신 봄). 카드에 '대용' 배지
  *   자동 수집 소스는 scripts/sources.mjs 에서 지정합니다 (지표 id 기준).
  * ===================================================================== */
 const CONFIG = {
@@ -740,11 +675,11 @@ const CONFIG = {
       level: { fixed: true, dir: 'down', warn: 2, danger: 0 }, change: { flat: 0.3 } },
     { id: 'umcsent', cat: 'growth', name: '미시간 소비자심리지수', unit: '', dp: 1, changeMode: 'abs', profile: 'sentiment',
       level: { dir: 'down', warn: 70, danger: 60 }, change: { flat: 1.5 } },
-    { id: 'pmi_philly', proxy: true, cat: 'growth', name: '필라델피아 연은 제조업지수', sub: 'PMI 대용 · 0 이상 확장', unit: '', dp: 1, changeMode: 'abs', profile: 'regionalPmi',
+    { id: 'pmi_philly', cat: 'growth', name: '필라델피아 연은 제조업지수', sub: 'PMI 대용 · 0 이상 확장', unit: '', dp: 1, changeMode: 'abs', profile: 'regionalPmi',
       level: { fixed: true, dir: 'down', warn: 0, danger: -15 }, change: { flat: 3 } },
-    { id: 'pmi_empire', proxy: true, cat: 'growth', name: '뉴욕 연은 제조업지수', sub: 'Empire State · PMI 대용 · 0 이상 확장', unit: '', dp: 1, changeMode: 'abs', profile: 'regionalPmi',
+    { id: 'pmi_empire', cat: 'growth', name: '뉴욕 연은 제조업지수', sub: 'Empire State · PMI 대용 · 0 이상 확장', unit: '', dp: 1, changeMode: 'abs', profile: 'regionalPmi',
       level: { fixed: true, dir: 'down', warn: 0, danger: -15 }, change: { flat: 3 } },
-    { id: 'pmi_dallas', proxy: true, cat: 'growth', name: '댈러스 연은 제조업지수', sub: '텍사스 · PMI 대용 · 0 이상 확장', unit: '', dp: 1, changeMode: 'abs', profile: 'regionalPmi',
+    { id: 'pmi_dallas', cat: 'growth', name: '댈러스 연은 제조업지수', sub: '텍사스 · PMI 대용 · 0 이상 확장', unit: '', dp: 1, changeMode: 'abs', profile: 'regionalPmi',
       level: { fixed: true, dir: 'down', warn: 0, danger: -15 }, change: { flat: 3 } },
     { id: 'cfnai', cat: 'growth', name: '시카고 연은 전미활동지수', sub: 'CFNAI 3개월 평균 · 0 = 평균 성장', unit: '', dp: 2, changeMode: 'abs', profile: 'cfnai',
       level: { fixed: true, dir: 'down', warn: -0.35, danger: -0.7 }, change: { flat: 0.05 } },
@@ -838,17 +773,17 @@ const CONFIG = {
       level: { dir: 'up', warn: 35, danger: 45 }, change: { dir: 'both', flat: 0.5, warn: 3, danger: 6 } },
 
     // ── 운임 ──
-    { id: 'bdry', proxy: true, cat: 'freight', name: '벌크선 운임', sub: 'BDRY ETF — BDI 대용, 지수 아님', unit: '$', dp: 2, changeMode: 'pct', profile: 'bulkFreight',
+    { id: 'bdry', cat: 'freight', name: '벌크선 운임', sub: 'BDRY ETF — BDI 대용, 지수 아님', unit: '$', dp: 2, changeMode: 'pct', profile: 'bulkFreight',
       change: { dir: 'both', flat: 1, danger: 5, moveOnly: true } },
     { id: 'scfi', cat: 'freight', name: '컨테이너 운임 SCFI', sub: '상하이 컨테이너 운임지수, 직접 입력 (매주 금요일 발표)', unit: '', dp: 1, changeMode: 'pct', profile: 'containerFreight',
       change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
     { id: 'freight_ppi', cat: 'freight', name: '미국 원양 화물운송 PPI', sub: '전년비, 월간', unit: '%', dp: 1, changeMode: 'pp', profile: 'freightPpi',
       level: { dir: 'up', warn: 10, danger: 20 }, change: { flat: 1 } },
-    { id: 'tanker_fro', proxy: true, cat: 'freight', name: 'VLCC 원유선 (FRO)', sub: 'Frontline 주가 — 초대형 원유운반선 운임 대용 (운임 지수 아님)', unit: '$', dp: 2, changeMode: 'pct', profile: 'shipping',
+    { id: 'tanker_fro', cat: 'freight', name: 'VLCC 원유선 (FRO)', sub: 'Frontline 주가 — 초대형 원유운반선 운임 대용 (운임 지수 아님)', unit: '$', dp: 2, changeMode: 'pct', profile: 'shipping',
       change: { dir: 'both', flat: 0.4, danger: 5, moveOnly: true }, comments: { rise: '원유선사 상승 → VLCC 운임 강세 또는 원유 물동량 증가 기대', fall: '원유선사 하락 → VLCC 운임 약세 또는 물동량 둔화 걱정' } },
-    { id: 'tanker_stng', proxy: true, cat: 'freight', name: '석유제품선 (STNG)', sub: 'Scorpio Tankers 주가 — 휘발유·디젤 운반선 운임 대용 (운임 지수 아님)', unit: '$', dp: 2, changeMode: 'pct', profile: 'shipping',
+    { id: 'tanker_stng', cat: 'freight', name: '석유제품선 (STNG)', sub: 'Scorpio Tankers 주가 — 휘발유·디젤 운반선 운임 대용 (운임 지수 아님)', unit: '$', dp: 2, changeMode: 'pct', profile: 'shipping',
       change: { dir: 'both', flat: 0.4, danger: 5, moveOnly: true }, comments: { rise: '제품선사 상승 → 휘발유·디젤 해상 수송 수요↑, 정유 마진 강세와 함께 보기', fall: '제품선사 하락 → 석유제품 물동량·운임 약세' } },
-    { id: 'lng_flng', proxy: true, cat: 'freight', name: 'LNG선 (FLNG)', sub: 'Flex LNG 주가 — LNG 운반선 업황 대용 (운임 지수 아님)', unit: '$', dp: 2, changeMode: 'pct', profile: 'shipping',
+    { id: 'lng_flng', cat: 'freight', name: 'LNG선 (FLNG)', sub: 'Flex LNG 주가 — LNG 운반선 업황 대용 (운임 지수 아님)', unit: '$', dp: 2, changeMode: 'pct', profile: 'shipping',
       change: { dir: 'both', flat: 0.4, danger: 5, moveOnly: true }, comments: { rise: 'LNG선사 상승 → LNG 물동량·용선료 강세 기대', fall: 'LNG선사 하락 → LNG선 공급 과잉 또는 LNG 교역 둔화 걱정' } },
     { id: 'lng_spread', cat: 'freight', name: 'LNG 수출 마진 (TTF−헨리허브)', sub: '유럽 가스값 − 미국 가스값, 자동 계산 — 클수록 LNG 수출·LNG선 수요↑', unit: '$/MMBtu', dp: 2, changeMode: 'abs', profile: 'lngSpread',
       level: { dir: 'up', warn: 10, danger: 14 }, change: { dir: 'both', flat: 0.2, warn: 1, danger: 2 } },
@@ -938,7 +873,7 @@ const CONFIG = {
       change: { dir: 'both', flat: 0.3, danger: 5, moveOnly: true }, comments: { rise: '원자재 종합 상승 → 물가 압력 확대 신호', fall: '원자재 종합 하락 → 수요 둔화 또는 물가 압력 완화' } },
     { id: 'etf_dba', cat: 'etf', name: 'DBA', sub: '농산물 종합 — 곡물·커피·설탕·가축', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
       change: { dir: 'both', flat: 0.3, danger: 5, moveOnly: true }, comments: { rise: '농산물 상승 → 식품 물가 상승 압력', fall: '농산물 하락 → 식품 원가 부담 완화' } },
-    { id: 'etf_bwet', proxy: true, cat: 'etf', name: 'BWET', sub: '유조선 운임 선물 (VLCC 중동→중국 TD3C·수에즈막스) — 원유 해상 운송비 대용', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
+    { id: 'etf_bwet', cat: 'etf', name: 'BWET', sub: '유조선 운임 선물 (VLCC 중동→중국 TD3C·수에즈막스) — 원유 해상 운송비 대용', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
       change: { dir: 'both', flat: 0.5, danger: 5, moveOnly: true }, comments: { rise: '유조선 운임 상승 → 원유 해상 수송 수요↑ 또는 항로 차질', fall: '유조선 운임 하락 → 원유 물동량 둔화' } },
     { id: 'etf_xli', cat: 'etf', name: 'XLI', sub: '미국 산업재 업종 — 제조업 경기', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
       change: { dir: 'both', flat: 0.3, danger: 5, moveOnly: true }, comments: { rise: '산업재 상승 → 제조업·설비투자 경기 기대', fall: '산업재 하락 → 제조업 경기 둔화 걱정' } },
@@ -1714,7 +1649,7 @@ function analyze(ind) {
   const meta = DataStore.getMeta(ind.id);
   const a = { ind, history, meta, cur, prevE, value: cur ? cur.value : null, prev: prevE ? prevE.value : null,
               lvl: null, cs: 0, signal: null, trend: null, diff: null, pct: null, stale: false, isSample: false };
-  if (!cur) { a.comment = ''; a.quality = { code: 'missing', reason: '값이 없음 (자동 소스가 없거나 아직 수집되지 않음)' }; return a; }
+  if (!cur) { a.comment = ''; return a; }
 
   a.isSample = cur.source === 'sample';
   a.freq = cur.source === 'auto' && meta ? meta.freq : null;
@@ -1800,49 +1735,8 @@ function analyze(ind) {
     }
     a.stale = !!a.staleReason;
   }
-  a.quality = qualityOf(ind, a);
   a.comment = pickComment(ind, a);
   return a;
-}
-
-/* ---------- 데이터 품질 상태 ----------
- * 정상 · 지연(이번 수집 실패 → 이전 값 표시) · 오래됨(새 값이 주기보다 오래 없음) · 누락(값 없음) · 검증 필요(직전 대비 25% 넘는 급변)
- * 원본 값은 지우거나 고치지 않고 상태만 붙임 */
-const QUALITY = {
-  ok: { label: '정상', cls: 'q-ok' }, late: { label: '지연', cls: 'q-late' }, stale: { label: '오래됨', cls: 'q-stale' },
-  missing: { label: '누락', cls: 'q-missing' }, check: { label: '검증 필요', cls: 'q-check' }
-};
-function qualityOf(ind, a) {
-  if (!a.cur) return { code: 'missing', reason: '값이 없음 (자동 소스가 없거나 아직 수집되지 않음)', flags: {} };
-  if (a.isSample) return { code: 'ok', reason: '', flags: {} };
-  const reasons = {}, flags = {};
-  const h = a.history;
-  if (a.freq === 'D' && h.length >= 2 && h[1].value && Math.sign(h[0].value) === Math.sign(h[1].value) && Math.abs(h[0].value / h[1].value - 1) > 0.25) {
-    flags.check = true; reasons.check = `직전 관측치 대비 ${fmtSigned((h[0].value / h[1].value - 1) * 100, 1)}% 급변 — 원자료 확인 필요 (값은 그대로 표시)`;
-  }
-  const err = a.cur.source === 'auto' && (DataStore.remoteInfo().errors || []).find(e => e.id === ind.id && e.keptPrevious);
-  if (err) { flags.late = true; reasons.late = `이번 수집 실패 → 이전 값 표시 (${err.message})`; }
-  if (a.stale) { flags.stale = true; reasons.stale = a.staleReason; }
-  // 대표 상태는 검증 필요 > 지연 > 오래됨 순 (여러 개면 사유를 모두 이어 씀)
-  const code = ['check', 'late', 'stale'].find(k => flags[k]) || 'ok';
-  return { code, reason: ['check', 'late', 'stale'].filter(k => flags[k]).map(k => reasons[k]).join(' · '), flags };
-}
-/** 지표 성격: 실측 · 대용 · 계산 · 직접 입력 */
-function kindOf(ind, a) {
-  if (ind.proxy) return '대용';
-  const src = a && a.meta && a.meta.source || '';
-  if (/^Calc:/.test(src) || (ind.derived && !(a && a.meta))) return '계산';
-  if (a && a.cur && a.cur.source !== 'auto') return '직접 입력';
-  return a && a.meta ? '실측' : '직접 입력';
-}
-/** 카드·목록용 품질 배지 (정상·오래됨은 기존 배지·색으로 표시하므로 지연·검증 필요만) */
-function qualityBadges(a, tagCls = 'badge') {
-  const out = [];
-  const f = (a.quality && a.quality.flags) || {};
-  if (f.late) out.push(`<span class="${tagCls} q-late" title="${esc(a.quality.reason)}">지연</span>`);
-  if (f.check) out.push(`<span class="${tagCls} q-check" title="${esc(a.quality.reason)}">검증 필요</span>`);
-  if (a.ind.proxy) out.push(`<span class="${tagCls} q-proxy" title="직접 지표가 없어 대신 보는 값">대용</span>`);
-  return out.join('');
 }
 
 /** "2년 중 상위 4%" 같은 위치 설명 */
@@ -1963,7 +1857,7 @@ const TAB_GROUPS = [
 const groupOf = cat => TAB_GROUPS.find(g => g.cats.includes(cat)) || TAB_GROUPS[0];
 const lastTabInGroup = {};
 function setView(v, opts = {}) {
-  view = ['today', 'list', 'ai', 'analysis'].includes(v) ? v : 'today';
+  view = ['today', 'list', 'ai'].includes(v) ? v : 'today';
   document.body.dataset.view = view;
   document.querySelectorAll('#viewNav [data-view]').forEach(b => b.setAttribute('aria-current', b.dataset.view === view ? 'page' : 'false'));
   document.dispatchEvent(new CustomEvent('viewchange', { detail: view }));
@@ -1993,7 +1887,6 @@ function render() {
 
   renderAlerts();
   renderAIBrief();
-  if (view === 'analysis') renderAnalysis();
   const watch = all.filter(a => a.signal >= 1).sort((x, y) => y.signal - x.signal);
   $('#watchTitle').textContent = watch.length ? `지금 주의·경고 지표 ${watch.length}개` : '지금 주의·경고 지표';
   $('#watchNow').innerHTML = watch.length ? watch.map(cardHTML).join('') : '<p class="all-good">모든 지표가 양호합니다.</p>';
@@ -2112,8 +2005,7 @@ function cardHTML(a) {
   // 카드는 간결하게: 기준일 + 1개월·위치 한 줄. 업데이트 시각·출처·계절 메모는 상세 화면에서
   const badges = [
     a.isSample ? '<span class="badge sample">샘플</span>' : '',
-    a.stale ? `<span class="badge stale" title="${esc(a.staleReason)}">오래됨</span>` : '',
-    qualityBadges(a)
+    a.stale ? `<span class="badge stale" title="${esc(a.staleReason)}">오래됨</span>` : ''
   ].join('');
   const metaParts = [a.isSample ? '기준일 샘플' : `${shortObsDate(a.cur.date, a.freq)} 기준`];
   if (!a.isSample) metaParts.push(m1Text(a), a.season ? seasonText(a) : positionText(a));
@@ -2164,69 +2056,6 @@ function columnHTML(c) {
     (c.refs && c.refs.length ? `<div class="col-refs"><b>참고 자료</b><ul>${c.refs.map(r => `<li>${esc(r.src)} | ${esc(r.name)} | ${esc(r.date || '')}${safeUrl(r.url) ? ` | <a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(decodeURIComponent(r.url).replace(/^https:\/\//, ''))}</a>` : ''}</li>`).join('')}</ul></div>` : '');
 }
 
-/* ---------- 분석 화면 (analysis.js) ---------- */
-let analysisMod = DataStore.getSettings().amod || 'crude';
-function renderAnalysis() {
-  const box = $('#analysisView');
-  if (!box || !window.ANALYSIS) return;
-  const A = window.ANALYSIS;
-  const mod = A.modules.find(m => m.id === analysisMod) || A.modules[0];
-  const res = A.runModule(mod, R), c = res.c;
-  const nm = id => id === '$jkm_ttf' ? '아시아−유럽 LNG 가격차 (JKM−TTF)' : (IND[id] ? IND[id].name : id);
-  const chips = ids => ids.length ? `<div class="chips">${ids.filter(id => IND[id]).map(id => `<button type="button" data-edit="${id}">${esc(IND[id].name)}</button>`).join('')}</div>` : '';
-  const pctPt = id => (IND[id] && IND[id].unit === '%');
-  const chg = (label, d, id) => {
-    if (!d) return '';
-    const x = pctPt(id) ? d.abs : d.pct; if (x == null || !Number.isFinite(x)) return '';
-    return `<span>${label} <b class="${x > 0 ? 'up' : x < 0 ? 'dn' : ''}">${fmtSigned(x, 1)}${pctPt(id) ? '%p' : '%'}</b></span>`;
-  };
-  const QL = { late: '지연', stale: '오래됨', missing: '누락', check: '검증 필요' };
-  const row = id => {
-    if (id === '$jkm_ttf') {
-      const s = c.jkmTtf(), p = c.jkmTtf(7), y = c.jkmTtf(365);
-      return `<button type="button" class="an-row${s ? '' : ' none'}" disabled>
-        <span class="l1"><span class="nm">${esc(nm(id))}</span><span class="vl">${s ? `${fmt(s.value, 2)}<small>$/MMBtu</small>` : '데이터 없음'}</span></span>
-        <span class="l2">${s ? `<span>${esc(s.date)}</span>${p ? `<span>1주 전 ${fmt(p.value, 2)}</span>` : ''}${y ? `<span>전년 ${fmt(y.value, 2)}</span>` : ''}<span class="an-kind">계산</span>` : '<span>JKM·TTF·유로/달러 중 값 없음</span>'}</span></button>`;
-    }
-    const a = R[id], ind = IND[id];
-    if (!a || !ind) return '';
-    if (!a.cur) return `<button type="button" class="an-row none" data-edit="${id}"><span class="l1"><span class="nm">${esc(ind.name)}</span><span class="vl">데이터 없음</span></span></button>`;
-    const q = a.quality && a.quality.code !== 'ok' ? `<span class="an-kind q-${a.quality.code}" title="${esc(a.quality.reason || '')}">${QL[a.quality.code] || a.quality.code}</span>` : '';
-    const pos = c.pos(id), sd = c.season(id);
-    return `<button type="button" class="an-row" data-edit="${id}">
-      <span class="l1"><span class="nm">${esc(ind.name)}</span><span class="vl">${fmt(a.value, ind.dp)}<small>${esc(ind.unit || '')}</small></span></span>
-      <span class="l2"><span>${esc(fmtObsDate(a.cur.date, a.freq))}</span>${chg('직전', c.wk(id), id)}${chg('전년', c.yoy(id), id)}${sd != null ? `<span>평년 <b class="${sd > 0 ? 'up' : sd < 0 ? 'dn' : ''}">${fmtSigned(sd, 1)}%</b></span>` : ''}${pos != null ? `<span>위치 ${Math.round(pos)}%</span>` : ''}<span class="an-kind">${esc(kindOf(ind, a))}</span>${q}</span></button>`;
-  };
-  const tabs = `<div class="an-tabs" role="group" aria-label="분석 산업">${A.modules.map(m => `<button type="button" data-amod="${m.id}" aria-pressed="${m.id === mod.id}">${m.icon} ${esc(m.title)}</button>`).join('')}</div>`;
-  const obs = res.observations.length
-    ? `<ul class="an-obs">${res.observations.map(o => `<li class="${o.tone}">${esc(o.text)}${chips(o.ids || [])}</li>`).join('')}</ul>`
-    : '<p class="empty">관측을 만들 데이터가 아직 없습니다.</p>';
-  const rules = res.rules.map(({ rule, state, note, counter }) => {
-    const st = A.ruleState[state];
-    return `<div class="an-rule"><div class="hd"><span class="an-pill ${st.cls}">${st.label}</span><span>${esc(rule.title)}</span></div>
-      <dl><dt>발생</dt><dd>${esc(rule.triggerText)}</dd><dt>해제</dt><dd>${esc(rule.clearText)}</dd>
-      ${note ? `<dt>보류 이유</dt><dd>${esc(note)}</dd>` : ''}
-      <dt>반대 증거</dt><dd>${counter.length ? counter.map(esc).join('<br>') : '지금 보이는 것 없음'}</dd>
-      <dt>근거</dt><dd>${chips(rule.evidence)}</dd></dl></div>`;
-  }).join('');
-  const relByType = Object.keys(A.relTypes).map(t => {
-    const list = res.relations.filter(r => r.type === t);
-    if (!list.length) return '';
-    return `<h3>${esc(A.relTypes[t].label)} <small>${esc(A.relTypes[t].note)}</small></h3>` + list.map(r => {
-      const ids = [...(r.from || []), ...(r.to || []), ...(r.pair || [])];
-      const corr = t === 'stat' ? (r.corr ? ` <span class="r">r = ${r.corr.r.toFixed(2)}</span> <small>(주간 변화율 ${r.corr.n}주)</small>` : ' <small>(데이터 부족 — 계산 안 함)</small>') : '';
-      return `<div class="an-rel">${esc(r.text)}${corr}${r.limit ? `<div class="lim">한계: ${esc(r.limit)}</div>` : ''}${chips([...new Set(ids)])}</div>`;
-    }).join('');
-  }).join('');
-  box.innerHTML = tabs + `
-    <section class="panel"><h2>핵심 관측 <small>코드가 계산한 값만 사용</small></h2>${obs}</section>
-    <section class="panel"><h2>수급 표 <small>누르면 상세 · 위치 = 최근 분포 백분위</small></h2>${mod.rows.map(([g, ids]) => `<h3>${esc(g)}</h3>${ids.map(row).join('')}`).join('')}</section>
-    <section class="panel"><h2>산업별 경고 규칙 <small>시험 운영</small></h2>
-      <p class="an-shadow">과거 데이터로 검증하기 전이라 화면에만 표시하고 텔레그램으로 보내지 않습니다. 근거 지표가 지연·오래됨·누락이면 ‘판단 보류’.</p>${rules}</section>
-    <section class="panel"><h2>관계 카탈로그</h2>${relByType}</section>
-    <section class="panel"><h2>데이터 한계·확보 필요</h2><ul class="an-gaps">${mod.gaps.map(g => `<li>${esc(g)}</li>`).join('')}</ul></section>`;
-}
-
 function renderAIBrief() {
   const el = $('#aiBrief'); const ai = DataStore.getAI();
   const mini = $('#aiMini');
@@ -2246,7 +2075,6 @@ function renderAIBrief() {
     ${b.headline ? `<h2>${esc(b.headline)}</h2>` : ''}
     ${b.top3 && b.top3.length ? `<div class="ai-top3"><b>✅ 오늘 꼭 볼 3가지</b><ol>${b.top3.map(x => `<li>${esc(x)}</li>`).join('')}</ol></div>` : ''}
     ${b.story ? `<p class="story">${esc(b.story)}</p>` : ''}
-    ${aiRefsHTML(b.refs)}${aiGroundHTML(b.grounding)}
     ${aiSectionsHTML(ai)}
     ${aiReportHTML(ai.report)}
     ${ai.column && ai.column.title ? `<details class="ai-column"><summary>📰 오늘의 칼럼 — ${esc(ai.column.title)}</summary>
@@ -2337,26 +2165,11 @@ function aiReportHTML(r) {
 }
 
 /** 분류별 AI 브리핑 (한 줄 제목 + 짧은 이야기, 눌러서 펼침) */
-/** AI 근거 지표 칩: 이름 · AI 가 본 기준일 (그 뒤 새 데이터가 들어왔으면 표시) */
-function aiRefsHTML(refs, label = '근거 지표 · 기준일') {
-  const list = (refs || []).filter(r => r && IND[r.id]);
-  if (!list.length) return '';
-  return `<div class="ai-refs"><b>${label}</b><div class="chips">${list.map(r => {
-    const a = R && R[r.id], now = a && a.cur ? a.cur.date : null, newer = now && r.date && now > r.date;
-    return `<button type="button" data-edit="${r.id}" class="${newer ? 'newer' : ''}" title="${newer ? `AI 작성 뒤 새 데이터 (${esc(now)})` : ''}">${esc(IND[r.id].name)}<small>${esc(r.date || '')}${newer ? ' → 새 값 있음' : ''}</small></button>`;
-  }).join('')}</div></div>`;
-}
-/** 본문 숫자 대조 결과 (코드 검증) */
-function aiGroundHTML(g) {
-  if (!g || !g.checked) return '';
-  const miss = g.checked - g.matched;
-  return `<div class="ai-refs gchk">숫자 확인: 본문 숫자 ${g.checked}개 중 ${g.matched}개가 수집 데이터 값과 일치${miss ? ` · ${miss}개는 데이터에서 바로 찾지 못함(${esc((g.unmatched || []).join(', '))}) — 계산·반올림 값일 수 있음` : ''}</div>`;
-}
 function aiSectionsHTML(ai) {
   const secs = ai.sections || {};
   const items = CONFIG.categories.filter(c => secs[c.id]).map(c => {
     const x = secs[c.id];
-    return `<details class="ai-sec"><summary><span class="ai-cat">${esc(c.label)}</span><span>${esc(x.headline || '')}</span></summary>${x.body ? `<p>${esc(x.body)}</p>` : ''}${aiRefsHTML(x.refs, '근거')}${reviewHTML(x)}</details>`;
+    return `<details class="ai-sec"><summary><span class="ai-cat">${esc(c.label)}</span><span>${esc(x.headline || '')}</span></summary>${x.body ? `<p>${esc(x.body)}</p>` : ''}${reviewHTML(x)}</details>`;
   });
   return items.length ? `<div class="ai-secs">${items.join('')}</div>` : '';
 }
@@ -2554,7 +2367,6 @@ function openEdit(id) {
     </div>
     <div class="meta" style="margin-top:4px">${a.isSample ? '<span class="badge sample">샘플</span>' : ''}${a.stale ? '<span class="badge stale">오래된 데이터</span>' : ''}
       <span>${a.isSample ? '기준일 샘플' : `기준일 ${esc(fmtObsDate(a.cur.date, a.freq))} · 업데이트 ${esc(toLocalISO(a.cur.updatedAt))} · ${esc(sourceName(a))}${a.cur.source === 'auto' && a.meta ? ` (${esc(a.meta.source.split(':')[1] || '')})` : ''}`}</span></div>
-    <div class="meta quality-line" style="margin-top:4px"><span>데이터 상태 <b class="${QUALITY[a.quality.code].cls}">${QUALITY[a.quality.code].label}</b>${a.quality.reason ? ` — ${esc(a.quality.reason)}` : ''}</span><span>· 성격 <b>${kindOf(ind, a)}</b></span></div>
     ${periods ? `<div class="periods">${periods}</div>` : ''}
     <div class="comment" style="margin-top:8px">${esc(a.comment)}</div>
     ${seasonNoteHTML(id)}` : '<p class="hint">아직 값이 없습니다. 아래에서 직접 입력하세요.</p>';
@@ -2653,24 +2465,9 @@ function buildBulkForm() {
   }).join('');
 }
 
-function renderDataQuality() {
-  const all = CONFIG.indicators.map(ind => R[ind.id] || analyze(ind));
-  const by = code => all.filter(a => a.quality && a.quality.code === code);
-  const proxies = all.filter(a => a.ind.proxy);
-  const chips = list => `<div class="chips">${list.map(a => `<button type="button" data-edit="${a.ind.id}" title="${esc(a.quality.reason || '')}">${esc(a.ind.name)}</button>`).join('')}</div>`;
-  const group = (code, desc) => { const l = by(code); return l.length ? `<details class="dq-list"><summary><b class="${QUALITY[code].cls}">${QUALITY[code].label}</b> ${l.length}개 — ${desc}</summary>${chips(l)}</details>` : ''; };
-  $('#dataQuality').innerHTML = `<div class="dq-grid">${['ok', 'late', 'stale', 'check', 'missing'].map(c => `<div><b class="${QUALITY[c].cls}">${by(c).length}</b>${QUALITY[c].label}</div>`).join('')}</div>
-    ${group('late', '이번 수집에 실패해 이전 값을 보여 주는 중')}
-    ${group('stale', '주기보다 오래 새 값이 없음')}
-    ${group('check', '직전 대비 25% 넘게 급변 — 원자료 확인 필요')}
-    ${group('missing', '값 없음 (직접 입력 지표 포함)')}
-    ${proxies.length ? `<details class="dq-list"><summary><b>대용 지표</b> ${proxies.length}개 — 직접 지표가 없어 주가·ETF·지역 설문으로 대신 봄</summary>${chips(proxies)}</details>` : ''}`;
-}
-
 function syncSettingsFields() {
   $('#themeSelect').value = DataStore.getSettings().theme;
   renderRemoteStatus();
-  renderDataQuality();
   buildBulkForm();
 }
 
@@ -2719,11 +2516,9 @@ async function reloadRemote(silent) {
 document.addEventListener('click', e => {
   const sm = $('#shareMenu');
   if (sm && !sm.hidden && !e.target.closest('#shareMenu,[data-action="share-ind"]')) sm.hidden = true;
-  const t = e.target.closest('[data-amod],[data-tab],[data-edit],[data-del],[data-action],[data-range],[data-filter],[data-group],[data-view]');
+  const t = e.target.closest('[data-tab],[data-edit],[data-del],[data-action],[data-range],[data-filter],[data-group],[data-view]');
   if (!t) return;
-  if (t.dataset.amod) {
-    analysisMod = t.dataset.amod; DataStore.setSettings({ amod: analysisMod }); renderAnalysis();
-  } else if (t.dataset.view) {
+  if (t.dataset.view) {
     viewTouched = true;
     if (t.dataset.view !== 'list') listFilter = null;
     setView(t.dataset.view); render();
