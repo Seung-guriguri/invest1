@@ -275,7 +275,8 @@
   .tabs.groups { margin-bottom: 8px; }
   .tabs-bar .tabs { flex-wrap: wrap; overflow: visible; margin: 0; padding: 0; }   /* 묶음·세부 탭 모두 한눈에 (가로 스크롤 없음) */
   .tabs-bar .tabs + .tabs { row-gap: 6px; }
-  .tabs-bar .tabs.groups { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  .tabs-bar .tabs.groups { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border); flex-wrap: nowrap; gap: 6px; }
+  .tabs-bar .tabs.groups .tab { flex: 1 1 auto; justify-content: center; padding-left: 8px; padding-right: 8px; white-space: nowrap; min-width: 0; }
   .tabs-bar .tabs:not(.groups) .tab { font-size: 13.5px; padding-top: 5px; padding-bottom: 5px; }
   .tabs.groups .tab { font-weight: 700; }
   .tabs:empty { display: none; }
@@ -283,13 +284,11 @@
   .card { padding: 11px 14px 12px; min-width: 0; overflow: hidden; }
   .cards > * { min-width: 0; }
   .card-title { font-size: 15px; }
-  .card-title small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+  .card-title small { margin-top: 1px; }
   .card .value-row { display: grid; grid-template-columns: auto 1fr auto; align-items: end; gap: 0 10px; margin: 6px 0 3px; }
   .card .value-row .change { align-self: center; min-width: 0; }
   .card .value-row .spark { margin: 0; }
-  .card .meta.one { flex-wrap: nowrap; white-space: nowrap; overflow: hidden; min-width: 0; }
-  .card .meta.one > span { flex: none; }
-  .card .meta.one > span:last-child { flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; }
+  .card .meta.one { row-gap: 2px; min-width: 0; }   /* 좁은 화면에서는 잘리지 않고 다음 줄로 */
   .card .comment { margin-top: 7px; padding-top: 7px; }
   @media (min-width: 720px) { .cards { grid-template-columns: 1fr 1fr; } .cards > :not(.card) { grid-column: 1 / -1; } }
   /* 데이터 없는 지표 묶음 · 경고/주의 모아보기 */
@@ -425,9 +424,9 @@
 
   <!-- 화면 전환 (v1: 위쪽 버튼 / v2: 아래 메뉴가 같은 역할) -->
   <nav class="wrap views" id="viewNav" aria-label="화면">
+    <button type="button" data-view="ai">✨ AI</button>
     <button type="button" data-view="today">📅 오늘</button>
     <button type="button" data-view="list">📊 지표</button>
-    <button type="button" data-view="ai">✨ AI</button>
   </nav>
 
   <main class="wrap">
@@ -1848,7 +1847,8 @@ function safeTest(rule, S) { try { return !!rule.test(S); } catch (e) { console.
 let R = {};
 let activeTab = DataStore.getSettings().tab;
 let listFilter = null;
-let view = 'today';      // 'today' 오늘 · 'list' 지표 · 'ai' AI
+let view = 'ai';         // 'ai' AI(첫 화면) · 'today' 오늘 · 'list' 지표
+let viewTouched = false; // 사용자가 화면을 직접 고른 뒤에는 자동 전환하지 않음
 /** 지표 탭 묶음 (한눈에 보이게 2단계: 묶음 → 세부 탭) */
 const TAB_GROUPS = [
   { id: 'macro', label: '거시', cats: ['rates', 'inflation', 'growth', 'market', 'fx'] },
@@ -1941,7 +1941,7 @@ function filterListHTML(all) {
 }
 function setFilter(f) {
   listFilter = listFilter === f ? null : f;
-  if (listFilter) setView('list');
+  if (listFilter) { viewTouched = true; setView('list'); }
   render();
 }
 
@@ -2521,6 +2521,7 @@ document.addEventListener('click', e => {
   const t = e.target.closest('[data-tab],[data-edit],[data-del],[data-action],[data-range],[data-filter],[data-group],[data-view]');
   if (!t) return;
   if (t.dataset.view) {
+    viewTouched = true;
     if (t.dataset.view !== 'list') listFilter = null;
     setView(t.dataset.view); render();
   } else if (t.dataset.group) {
@@ -2622,7 +2623,7 @@ window.addEventListener('hashchange', route);
 /* ---------- 시작 ---------- */
 $('#todayLabel').textContent = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
 applyTheme();
-setView('today', { keepScroll: true });
+setView(DataStore.getAI() ? 'ai' : 'today', { keepScroll: true });   // 첫 화면은 AI (브리핑이 없으면 오늘)
 route(); // 캐시된 자동 데이터로 먼저 표시
 reloadRemote(true).then(() => {
   // 자동 데이터도, 입력값도 없는 첫 실행이면 화면 예시용 샘플
@@ -2631,6 +2632,8 @@ reloadRemote(true).then(() => {
     if (location.hash !== '#settings') render();
   }
   openFromHash();   // 최신 자동 데이터로 공유 링크 상세 다시 그림
+  // 첫 화면 다시 정하기: 브리핑을 받았으면 AI, 없으면 오늘 (사용자가 이미 고른 화면·공유 링크는 그대로)
+  if (!viewTouched && !linkedIndicator()) { const want = DataStore.getAI() ? 'ai' : 'today'; if (view !== want) { setView(want); render(); } }
   try { localStorage.setItem('macroDash.started', '1'); } catch (e) {}
 });
 
