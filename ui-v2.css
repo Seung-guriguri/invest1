@@ -150,7 +150,7 @@
 .row2 .ic { width: 40px; height: 40px; border-radius: 50%; background: var(--surface-2); display: grid; place-items: center; font-size: 19px; line-height: 1; }
 .row2 .mid { min-width: 0; }
 .row2 .nm, .row2 .ds, .row2 .vl, .row2 .ch { display: block; }
-.row2 .nm { font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row2 .nm { font-size: 15.5px; font-weight: 600; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: keep-all; }   /* 이름은 잘리지 않게 두 줄까지 */
 .row2 .ds { font-size: 13px; color: var(--text-3); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row2 .rt { text-align: right; }
 .row2 .vl { font-size: 16px; font-weight: 600; white-space: nowrap; }
@@ -220,3 +220,11 @@
 .nav2 button.on { color: var(--text); font-weight: 600; }
 .nav2 svg { width: 24px; height: 24px; }
 @media (min-width: 481px) { .nav2 { border-left: 1px solid var(--border); border-right: 1px solid var(--border); } }
+
+/* 상단 '입력·설정' 버튼은 하단 메뉴 '설정'과 같아 숨김 (v2 전용) */
+[data-ui="v2"] #btnSettings { display: none; }
+/* 데이터 없는 지표 묶음 · 모아보기 (v2 목록형) */
+[data-ui="v2"] .empty-group { background: transparent; border: 0; border-top: 1px solid var(--border); border-radius: 0; padding: 12px 0 4px; margin-top: 4px; }
+[data-ui="v2"] .empty-group .empty-list { display: block; }
+[data-ui="v2"] .filter-head { background: transparent; border: 0; padding: 12px 0 4px; }
+[data-ui="v2"] .filter-cat { margin: 14px 0 0; color: var(--text-3); }
