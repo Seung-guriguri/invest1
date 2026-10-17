@@ -85,23 +85,23 @@
     .map(([k, t]) => `<button type="button" data-nav="${k}">${ICON[k]}<span>${t}</span></button>`).join('');
   document.body.appendChild(nav);
 
+  // 아래 메뉴 = 화면 전환 (index.html 의 setView: 오늘 · 지표 · AI)
   const goMain = () => { if (location.hash === '#settings') { history.pushState('', '', location.pathname + location.search); route(); } };
-  const scrollToEl = el => { if (el && !el.hidden) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 8, behavior: 'smooth' }); };
+  const NAV_VIEW = { home: 'today', list: 'list', ai: 'ai' };
+  const VIEW_NAV = { today: 'home', list: 'list', ai: 'ai' };
   function setOn(k) { nav.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.nav === k)); }
   nav.addEventListener('click', e => {
     const b = e.target.closest('[data-nav]'); if (!b) return;
     const k = b.dataset.nav;
     if (k === 'set') { location.hash = '#settings'; setOn(k); return; }
     goMain();
-    requestAnimationFrame(() => {
-      if (k === 'home') window.scrollTo({ top: 0, behavior: 'smooth' });
-      else if (k === 'list') scrollToEl(document.querySelector('.tabs-bar'));
-      else if (k === 'ai') { const ai = document.getElementById('aiBrief'); if (ai.hidden) toast('아직 AI 브리핑이 없습니다'); else scrollToEl(ai); }
-    });
+    if (k !== 'list') listFilter = null;
+    setView(NAV_VIEW[k]); render();
     setOn(k);
   });
-  const syncNav = () => setOn(location.hash === '#settings' ? 'set' : 'home');
+  const syncNav = () => setOn(location.hash === '#settings' ? 'set' : (VIEW_NAV[view] || 'home'));
   window.addEventListener('hashchange', syncNav);
+  document.addEventListener('viewchange', syncNav);
   syncNav();
 
   // 이미 그려진 첫 화면을 새 디자인으로 다시 그림
