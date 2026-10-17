@@ -7,6 +7,8 @@
   분류: rates 금리 · inflation 물가 · growth 경기 · market 시장·신용 · fx 환율 · energy 에너지 · freight 운임 · stocks 비축·재고 · metals 금속 · grains 곡물 · etf ETF
 - value, date, freq: 현재 값, 기준일, 주기 (D 일간 · W 주간 · M 월간 · Q 분기)
 - chg_prev: 직전 관측치 대비 변화
+- chg_1w: 약 1주 전 대비 변화 (일간 지표는 7일 전, 주간 지표는 직전 발표 대비, 월간·분기는 null)
+- released_7d: 최근 7일 안에 새 값이 나왔는지 (true 면 이번 주 발표·거래 반영)
 - chg_1m · chg_3m · chg_1y: 약 1개월 · 3개월 · 1년 전 대비 변화 (월간·분기 지표의 chg_1m 은 직전 발표 대비)
 - chg_unit: 위 변화의 단위. % 는 변화율, %p 는 금리·비율의 차이, 그 밖은 지표 단위의 차이
 - z_1m: 이번 1개월 변화가 평소 1개월 변화폭(표준편차)의 몇 배인지. 절대값 2 이상이면 이례적
@@ -15,6 +17,7 @@
 - chg_since_brief: 지난 브리핑 작성 시점 이후 변화 (단위는 chg_unit). null 이면 그 뒤 새 발표·거래가 없음
 - 값이 null 이면 계산할 수 없는 항목이니 언급하지 않습니다.
 
+{{edition}}
 [오늘 크게 움직인 순서 (해설 대상 지표)]
 {{targets}}
 

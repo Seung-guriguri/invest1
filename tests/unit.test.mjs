@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 import { COMPUTED, clean, guessFreq, trim, valueAsOf, round } from '../scripts/fetch-data.mjs';
-import { clean as aiClean, soften, cleanWatch, groundRefs, checkNumbers } from '../scripts/ai-insight.mjs';
+import { clean as aiClean, soften, cleanWatch, groundRefs, checkNumbers, stats as aiStats, weeklyBlock } from '../scripts/ai-insight.mjs';
 import { SOURCES } from '../scripts/sources.mjs';
 import { loadConfig } from '../scripts/lib/config.mjs';
 import { validateData } from '../scripts/validate-data.mjs';
@@ -228,4 +228,30 @@ test('관계 분석: 엇갈림 — 평소 같은 방향인데 최근 8주 반대
   assert.equal(C.divergence(wkSeries('a', ra), wkSeries('b', ra), 1).on, false);
   assert.equal(C.divergence(wkSeries('a', ra), wkSeries('b', rb2), -1).on, false);   // 반대 짝 기대면 감지 안 함
   void rb;
+});
+
+/* ---------- 일요일 주간판 ---------- */
+test('주간판: 1주 변화(일간 7일 전·주간 직전 발표·월간 없음)와 이번 주 발표 여부', () => {
+  const day = 86400000, now = Date.now(), iso = t => new Date(t).toISOString().slice(0, 10);
+  const dObs = Array.from({ length: 40 }, (_, i) => [iso(now - (39 - i) * day), 100 + i]);
+  const d = aiStats('wti', { freq: 'D', obs: dObs }, { name: 'WTI', cat: 'energy', unit: '$', dp: 2, mode: 'pct' });
+  near(d.chg_1w, (139 - 132) / 132 * 100, 0.01);
+  assert.equal(d.released_7d, true);
+  const mObs = Array.from({ length: 24 }, (_, i) => [iso(now - (23 - i) * 30 * day - 20 * day), 3 + i / 100]);
+  const m = aiStats('cpi', { freq: 'M', obs: mObs }, { name: 'CPI', cat: 'inflation', unit: '%', dp: 1, mode: 'pp' });
+  assert.equal(m.chg_1w, null); assert.equal(m.released_7d, false);
+});
+test('주간판 지시: 한 주 크게 움직인 지표 · 이번 주 발표 · 매일 브리핑 제목', () => {
+  const rows = [
+    { id: 'wti', name: 'WTI', value: 70, unit: '$', date: '2026-10-16', freq: 'D', chg_1w: -6, chg_1m: -3, z_1m: -1, chg_unit: '%', released_7d: true },
+    { id: 'us10y', name: '미국 10년물', value: 4.1, unit: '%', date: '2026-10-16', freq: 'D', chg_1w: 0.01, chg_1m: 0.2, z_1m: 1, chg_unit: '%p', released_7d: true },
+    { id: 'cpi', name: 'CPI', value: 3, unit: '%', date: '2026-10-15', freq: 'M', chg_1w: null, chg_prev: 0.1, chg_unit: '%p', released_7d: true }
+  ];
+  const prev = { generatedAt: '2026-10-16T22:30:00Z', briefing: { headline: '어제' }, briefHistory: [{ date: '2026-10-12', headline: '주초 제목', top3: ['a'] }, { date: '2026-10-11', headline: '지난 주간', weekly: true }] };
+  const t = weeklyBlock(prev, rows);
+  assert.ok(/일요일 주간판/.test(t));
+  assert.ok(t.indexOf('WTI: 1주 -6%') < t.indexOf('미국 10년물: 1주'), '평소 변동 대비 큰 순서');
+  assert.ok(/CPI: 3% \(2026-10-15/.test(t));
+  assert.ok(/주초 제목/.test(t) && !/지난 주간/.test(t), '지난 주간판 제목은 제외');
+  assert.ok(/어제/.test(weeklyBlock({ generatedAt: '2026-10-16T22:30:00Z', briefing: { headline: '어제' } }, rows)), '기록이 없으면 지난 브리핑 하나라도');
 });
