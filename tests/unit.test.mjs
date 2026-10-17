@@ -230,7 +230,7 @@ test('관계 분석: 엇갈림 — 평소 같은 방향인데 최근 8주 반대
   void rb;
 });
 
-/* ---------- 일요일 주간판 ---------- */
+/* ---------- 월요일 주간판 ---------- */
 test('주간판: 1주 변화(일간 7일 전·주간 직전 발표·월간 없음)와 이번 주 발표 여부', () => {
   const day = 86400000, now = Date.now(), iso = t => new Date(t).toISOString().slice(0, 10);
   const dObs = Array.from({ length: 40 }, (_, i) => [iso(now - (39 - i) * day), 100 + i]);
@@ -249,7 +249,7 @@ test('주간판 지시: 한 주 크게 움직인 지표 · 이번 주 발표 · 
   ];
   const prev = { generatedAt: '2026-10-16T22:30:00Z', briefing: { headline: '어제' }, briefHistory: [{ date: '2026-10-12', headline: '주초 제목', top3: ['a'] }, { date: '2026-10-11', headline: '지난 주간', weekly: true }] };
   const t = weeklyBlock(prev, rows);
-  assert.ok(/일요일 주간판/.test(t));
+  assert.ok(/월요일 주간판/.test(t));
   assert.ok(t.indexOf('WTI: 1주 -6%') < t.indexOf('미국 10년물: 1주'), '평소 변동 대비 큰 순서');
   assert.ok(/CPI: 3% \(2026-10-15/.test(t));
   assert.ok(/주초 제목/.test(t) && !/지난 주간/.test(t), '지난 주간판 제목은 제외');

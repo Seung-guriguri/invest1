@@ -2107,19 +2107,19 @@ function renderAIBrief() {
   $('#aiEmpty').hidden = !!ai;
   if (!ai) { el.hidden = true; mini.hidden = true; return; }
   const b = ai.briefing;
-  const wk = ai.edition === 'weekly';   // 일요일 주간판
-  mini.innerHTML = `<div class="ai-label">${wk ? '🗓 이번 주 AI 브리핑' : '오늘의 AI 브리핑'}</div>
+  const wk = ai.edition === 'weekly';   // 월요일 주간판 (지난주 정리)
+  mini.innerHTML = `<div class="ai-label">${wk ? '🗓 주간 AI 브리핑 · 지난주 정리' : '오늘의 AI 브리핑'}</div>
     ${b.headline ? `<h2>${esc(b.headline)}</h2>` : ''}
-    ${b.top3 && b.top3.length ? `<div class="ai-top3"><b>✅ ${wk ? '이번 주' : '오늘'} 꼭 볼 3가지</b><ol>${b.top3.map(x => `<li>${esc(x)}</li>`).join('')}</ol></div>` : ''}
+    ${b.top3 && b.top3.length ? `<div class="ai-top3"><b>✅ ${wk ? '지난주' : '오늘'} 꼭 볼 3가지</b><ol>${b.top3.map(x => `<li>${esc(x)}</li>`).join('')}</ol></div>` : ''}
     ${b.story ? `<p class="story">${esc(b.story)}</p>` : ''}
     <button type="button" class="more" data-view="ai">분류별 요약 · 리서치 리포트 · 칼럼 보기 ›</button>
     <p class="ai-meta">${esc(aiMetaText(ai))}</p>`;
   mini.hidden = false;
   const list = (title, arr) => arr && arr.length ? `<div class="row"><b>${title}</b><ul>${arr.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>` : '';
   const row = (title, txt) => txt ? `<div class="row"><b>${title}</b>${esc(txt)}</div>` : '';
-  el.innerHTML = `<div class="ai-label">${wk ? '🗓 이번 주 AI 브리핑' : '오늘의 AI 브리핑'}</div>
+  el.innerHTML = `<div class="ai-label">${wk ? '🗓 주간 AI 브리핑 · 지난주 정리' : '오늘의 AI 브리핑'}</div>
     ${b.headline ? `<h2>${esc(b.headline)}</h2>` : ''}
-    ${b.top3 && b.top3.length ? `<div class="ai-top3"><b>✅ ${wk ? '이번 주' : '오늘'} 꼭 볼 3가지</b><ol>${b.top3.map(x => `<li>${esc(x)}</li>`).join('')}</ol></div>` : ''}
+    ${b.top3 && b.top3.length ? `<div class="ai-top3"><b>✅ ${wk ? '지난주' : '오늘'} 꼭 볼 3가지</b><ol>${b.top3.map(x => `<li>${esc(x)}</li>`).join('')}</ol></div>` : ''}
     ${b.story ? `<p class="story">${esc(b.story)}</p>` : ''}
     ${aiSectionsHTML(ai)}
     ${aiReportHTML(ai.report)}
