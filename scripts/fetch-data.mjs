@@ -22,6 +22,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { SOURCES } from './sources.mjs';
+import { readSheet } from './lib/xlsx.mjs';
 
 const args = process.argv.slice(2);
 const arg = (name, def) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : def; };
@@ -385,9 +386,64 @@ async function fetchEmber(src) {
   return hit.map(r => [String(r.date).slice(0, 7) + '-01', Number(r.share_of_generation_pct)]);
 }
 
-const FETCHERS = { fred: fetchFred, yahoo: fetchYahoo, ecos: fetchEcos, eurostat: fetchEurostat, eia: fetchEia, eiaGrid: fetchEiaGrid, nrc: fetchNrc, ember: fetchEmber };
+/* ---------- World Bank 원자재 월간 가격표 (Pink Sheet, xlsx) — 비료 등 ----------
+ * 파일 주소가 해마다 바뀌어, 원자재 시장 페이지에서 'CMO-Historical-Data-Monthly.xlsx' 링크를 찾고 실패하면 알려진 주소를 시도.
+ * 'Monthly Prices' 시트: 머리 행에 품목 이름, 첫 열에 '1960M01' 형식 날짜. 한 번 받아 모든 지표가 같이 씀 */
+const WB_PAGE = 'https://www.worldbank.org/en/research/commodity-markets';
+const WB_KNOWN = [
+  'https://thedocs.worldbank.org/en/doc/18675f1d1639c7a34d463f59263ba0a2-0050012025/related/CMO-Historical-Data-Monthly.xlsx',
+  'https://thedocs.worldbank.org/en/doc/5d903e848db1d1b83e0ec8f744e55570-0350012021/related/CMO-Historical-Data-Monthly.xlsx'
+];
+let wbSheet = null;
+async function getBuffer(url) {
+  const res = await fetch(url, { headers: { 'user-agent': UA }, signal: AbortSignal.timeout(60000) });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return Buffer.from(await res.arrayBuffer());
+}
+async function loadWorldBank() {
+  const urls = [];
+  try {
+    const html = await (await fetch(WB_PAGE, { headers: { 'user-agent': UA }, signal: AbortSignal.timeout(30000) })).text();
+    for (const m of html.matchAll(/https?:\/\/thedocs\.worldbank\.org\/[^"'\s<>]*CMO-Historical-Data-Monthly\.xlsx/gi)) urls.push(m[0]);
+  } catch (e) { console.log(`  · World Bank 페이지 읽기 실패 (${e.message}) → 알려진 주소 시도`); }
+  const tried = [];
+  for (const url of [...new Set([...urls, ...WB_KNOWN])]) {
+    try {
+      const rows = readSheet(await getBuffer(url), /^monthly prices$/i);
+      console.log(`  · World Bank 월간 가격표: ${url.split('/').slice(-3, -1).join('/')} (${rows.length}행)`);
+      return rows;
+    } catch (e) { tried.push(`${url.slice(-60)} → ${e.message}`); }
+  }
+  throw new Error(`World Bank 가격표 받기 실패: ${tried.join(' / ')}`);
+}
+/** 가격표 행 배열에서 품목 열 하나 → [[YYYY-MM-01, 값]] */
+function parseWorldBank(rows, item) {
+  const re = new RegExp('^\\s*' + item.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+  let col = -1, head = -1;
+  for (let r = 0; r < Math.min(rows.length, 20) && col < 0; r++) {
+    const i = (rows[r] || []).findIndex(c => typeof c === 'string' && re.test(c));
+    if (i > 0) { col = i; head = r; }
+  }
+  if (col < 0) throw new Error(`품목 '${item}' 없음`);
+  const out = [];
+  for (const row of rows.slice(head + 1)) {
+    const m = /^(\d{4})M(\d{2})$/.exec(String((row || [])[0] || '').trim());
+    const v = row && row[col];
+    if (m && typeof v === 'number' && Number.isFinite(v)) out.push([`${m[1]}-${m[2]}-01`, v]);
+  }
+  if (!out.length) throw new Error(`품목 '${item}' 값 없음`);
+  return out;
+}
+async function fetchWorldBank(src) {
+  if (!wbSheet) wbSheet = loadWorldBank();
+  let rows;
+  try { rows = await wbSheet; } catch (e) { wbSheet = null; throw e; }
+  return parseWorldBank(rows, src.wb);
+}
+
+const FETCHERS = { fred: fetchFred, yahoo: fetchYahoo, ecos: fetchEcos, eurostat: fetchEurostat, eia: fetchEia, eiaGrid: fetchEiaGrid, nrc: fetchNrc, ember: fetchEmber, wb: fetchWorldBank };
 const sourceLabel = src => src.fred ? `FRED:${src.fred}` : src.yahoo ? `Yahoo:${src.yahoo}`
-  : src.eurostat ? `Eurostat:${src.eurostat}` : src.eia ? `EIA:${src.eia}` : src.eiaGrid ? `EIA-930:US48/${src.eiaGrid}` : src.nrc ? 'NRC:원자로 출력' : src.ember ? `Ember:${src.ember}/${src.series}` : `ECOS:${src.ecos}/${src.item}`;
+  : src.eurostat ? `Eurostat:${src.eurostat}` : src.eia ? `EIA:${src.eia}` : src.eiaGrid ? `EIA-930:US48/${src.eiaGrid}` : src.nrc ? 'NRC:원자로 출력' : src.ember ? `Ember:${src.ember}/${src.series}` : src.wb ? `WorldBank:${src.wb}` : `ECOS:${src.ecos}/${src.item}`;
 
 /** 지표 하나: 소스를 순서대로 시도 */
 async function collect(id, sources) {
@@ -507,7 +563,7 @@ async function main() {
 }
 
 // 테스트(tests/)에서 계산·정리 함수만 가져다 쓸 수 있게 내보냄. 직접 실행할 때만 수집 시작
-export { COMPUTED, clean, guessFreq, trim, valueAsOf, round };
+export { COMPUTED, clean, guessFreq, trim, valueAsOf, round, parseWorldBank };
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch(e => { console.error(e); process.exit(1); });
 }

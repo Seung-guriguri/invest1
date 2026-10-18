@@ -138,7 +138,7 @@ RESEARCH REPORT REQUEST: invest1 대시보드 기반 글로벌 매크로·원자
     "refs": ["briefing 에 쓴 숫자의 근거 지표 id 4~8개 (데이터의 id 그대로, 없는 id 를 만들지 않음)"]
   },
   "sections": [
-    { "cat": "rates | inflation | growth | market | fx | energy | power | freight | stocks | metals | grains | etf",
+    { "cat": "rates | inflation | growth | market | fx | energy | power | freight | stocks | metals | grains | fert | etf",
       "headline": "그 분류의 오늘 한 줄 제목 (20자 이내)",
       "body": "2~3문장, 130자 이내. 무엇이 움직였고 → 왜일 수 있고 → 어디로 이어지는지",
       "review": "지난 브리핑 점검 1문장, 80자 이내. '적중 — ' / '일부 적중 — ' / '빗나감 — ' / '판단 보류 — ' 으로 시작 (지난 브리핑 없으면 \"\")",
@@ -189,7 +189,7 @@ RESEARCH REPORT REQUEST: invest1 대시보드 기반 글로벌 매크로·원자
     }
   }
 }
-- sections 는 12개 분류를 위 순서대로 모두 씁니다. headline 은 휴대폰 한 줄(20자), body 는 휴대폰 다섯 줄(130자)을 넘기지 않습니다. 움직임이 작은 분류는 "큰 변화 없이 ~" 식으로 한두 문장만 씁니다.
+- sections 는 13개 분류를 위 순서대로 모두 씁니다. headline 은 휴대폰 한 줄(20자), body 는 휴대폰 다섯 줄(130자)을 넘기지 않습니다. 움직임이 작은 분류는 "큰 변화 없이 ~" 식으로 한두 문장만 씁니다.
 - indicators 는 사용자 메시지의 "해설 대상" 지표만, 그 순서대로 씁니다.
 - briefing·sections·indicators 는 쉬운 말로, report 는 리서치 수준의 정확한 용어로 쓰되(처음 나오는 용어는 짧게 풀기) 위 정확성·금지 원칙은 똑같이 지킵니다. report 의 위험자산 전망은 조건부("~라면 ~에 부담")로만 쓰고 매매 권유는 하지 않습니다.
 - JSON 안에 주석(//)은 쓰지 않습니다.

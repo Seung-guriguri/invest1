@@ -21,6 +21,7 @@ function srcLabel(s) {
   if (s.nrc) return 'NRC 원자로 출력';
   if (s.ember) return `Ember ${s.ember}/${s.series}`;
   if (s.eurostat) return `Eurostat ${s.eurostat}`;
+  if (s.wb) return `World Bank 월간 가격표 ${s.wb}`;
   return '?';
 }
 

@@ -5,7 +5,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
-import { COMPUTED, clean, guessFreq, trim, valueAsOf, round } from '../scripts/fetch-data.mjs';
+import { COMPUTED, clean, guessFreq, trim, valueAsOf, round, parseWorldBank } from '../scripts/fetch-data.mjs';
+import { readSheet } from '../scripts/lib/xlsx.mjs';
+import { deflateRawSync } from 'node:zlib';
 import { clean as aiClean, soften, cleanWatch, groundRefs, checkNumbers, stats as aiStats, weeklyBlock } from '../scripts/ai-insight.mjs';
 import { SOURCES } from '../scripts/sources.mjs';
 import { loadConfig } from '../scripts/lib/config.mjs';
@@ -254,4 +256,45 @@ test('주간판 지시: 한 주 크게 움직인 지표 · 이번 주 발표 · 
   assert.ok(/CPI: 3% \(2026-10-15/.test(t));
   assert.ok(/주초 제목/.test(t) && !/지난 주간/.test(t), '지난 주간판 제목은 제외');
   assert.ok(/어제/.test(weeklyBlock({ generatedAt: '2026-10-16T22:30:00Z', briefing: { headline: '어제' } }, rows)), '기록이 없으면 지난 브리핑 하나라도');
+});
+
+/* ---------- World Bank 월간 가격표 (xlsx) ---------- */
+/** 테스트용 최소 zip(xlsx) 만들기: { 이름: 내용 } — 저장·deflate 섞어서 */
+function makeZip(files) {
+  const locals = [], centrals = []; let off = 0;
+  Object.entries(files).forEach(([name, text], i) => {
+    const data = Buffer.from(text, 'utf8'), method = i % 2 ? 8 : 0, body = method ? deflateRawSync(data) : data, nm = Buffer.from(name);
+    const lh = Buffer.alloc(30); lh.writeUInt32LE(0x04034b50, 0); lh.writeUInt16LE(method, 8); lh.writeUInt32LE(body.length, 18); lh.writeUInt32LE(data.length, 22); lh.writeUInt16LE(nm.length, 26);
+    const ch = Buffer.alloc(46); ch.writeUInt32LE(0x02014b50, 0); ch.writeUInt16LE(method, 10); ch.writeUInt32LE(body.length, 20); ch.writeUInt32LE(data.length, 24); ch.writeUInt16LE(nm.length, 28); ch.writeUInt32LE(off, 42);
+    locals.push(lh, nm, body); centrals.push(ch, nm); off += 30 + nm.length + body.length;
+  });
+  const cd = Buffer.concat(centrals), end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0); end.writeUInt16LE(Object.keys(files).length, 8); end.writeUInt16LE(Object.keys(files).length, 10); end.writeUInt32LE(cd.length, 12); end.writeUInt32LE(off, 16);
+  return Buffer.concat([...locals, cd, end]);
+}
+const pinkSheet = () => makeZip({
+  'xl/workbook.xml': '<workbook><sheets><sheet name="AFOSHEET" sheetId="1" r:id="rId1"/><sheet name="Monthly Prices" sheetId="2" r:id="rId2"/></sheets></workbook>',
+  'xl/_rels/workbook.xml.rels': '<Relationships><Relationship Id="rId1" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Target="worksheets/sheet2.xml"/></Relationships>',
+  'xl/sharedStrings.xml': '<sst><si><t>World Bank Commodity Price Data</t></si><si><t xml:space="preserve">Urea </t></si><si><t>DAP</t></si><si><r><t>Potassium </t></r><r><t>chloride **</t></r></si><si><t>1960M01</t></si><si><t>2026M08</t></si><si><t>2026M09</t></si><si><t>&#8230;</t></si></sst>',
+  'xl/worksheets/sheet1.xml': '<worksheet><sheetData><row r="1"><c r="A1"><v>9</v></c></row></sheetData></worksheet>',
+  'xl/worksheets/sheet2.xml': '<worksheet><sheetData><row r="1"><c r="A1" t="s"><v>0</v></c></row>' +
+    '<row r="5"><c r="B5" t="s"><v>1</v></c><c r="C5" t="s"><v>2</v></c><c r="E5" t="s"><v>3</v></c></row>' +
+    '<row r="6"><c r="B6" t="inlineStr"><is><t>($/mt)</t></is></c></row>' +
+    '<row r="7"><c r="A7" t="s"><v>4</v></c><c r="B7" t="s"><v>7</v></c><c r="C7"><v>40.5</v></c></row>' +
+    '<row r="8"><c r="A8" t="s"><v>5</v></c><c r="B8"><v>410.25</v></c><c r="C8"><v>640</v></c><c r="E8"><v>355.5</v></c></row>' +
+    '<row r="9"><c r="A9" t="s"><v>6</v></c><c r="B9"><v>420</v></c><c r="C9"/><c r="E9"><v>360</v></c></row></sheetData></worksheet>'
+});
+test('xlsx 읽기: 시트 이름으로 찾기, 공유 문자열·서식 문자열·빈 칸·열 위치', () => {
+  const rows = readSheet(pinkSheet(), /^monthly prices$/i);
+  assert.equal(rows[1][1], 'Urea '); assert.equal(rows[1][4], 'Potassium chloride **');
+  assert.equal(rows[4][2], 640); assert.equal(rows[4][3], null);
+  assert.throws(() => readSheet(pinkSheet(), /^없는 시트$/), /시트 없음/);
+  assert.throws(() => readSheet(Buffer.from('not a zip'), /x/), /zip/);
+});
+test('World Bank 가격표 → 월간 관측치 (품목 머리글 앞부분 일치, 숫자 아닌 값·빈 칸 제외)', () => {
+  const rows = readSheet(pinkSheet(), /^monthly prices$/i);
+  assert.deepEqual(parseWorldBank(rows, 'Urea'), [['2026-08-01', 410.25], ['2026-09-01', 420]]);
+  assert.deepEqual(parseWorldBank(rows, 'DAP'), [['1960-01-01', 40.5], ['2026-08-01', 640]]);
+  assert.deepEqual(parseWorldBank(rows, 'Potassium chloride'), [['2026-08-01', 355.5], ['2026-09-01', 360]]);
+  assert.throws(() => parseWorldBank(rows, 'Phosphate rock'), /없음/);
 });

@@ -165,6 +165,17 @@
 | `corn` | 옥수수 | $/t | 실측 | Yahoo ZC=F → FRED PMAIZMTUSDM | pct |
 | `soybean` | 대두 | $/t | 실측 | Yahoo ZS=F → FRED PSOYBUSDM | pct |
 
+## 비료 (6)
+
+| ID | 이름 | 단위 | 성격 | 출처 (1순위 → 대체) | 변화 판단 |
+|---|---|---|---|---|---|
+| `fert_urea` | 요소 | $/t | 실측 | World Bank 월간 가격표 Urea | pct |
+| `fert_dap` | DAP (인산이암모늄) | $/t | 실측 | World Bank 월간 가격표 DAP | pct |
+| `fert_potash` | 염화칼륨 (칼륨 비료) | $/t | 실측 | World Bank 월간 가격표 Potassium chloride | pct |
+| `fert_phosrock` | 인광석 | $/t | 실측 | World Bank 월간 가격표 Phosphate rock | pct |
+| `fert_mos` | 인산·칼륨 비료 (MOS) | $ | 실측 | Yahoo MOS | pct |
+| `fert_cf` | 질소 비료 (CF) | $ | 실측 | Yahoo CF | pct |
+
 ## ETF (21)
 
 | ID | 이름 | 단위 | 성격 | 출처 (1순위 → 대체) | 변화 판단 |

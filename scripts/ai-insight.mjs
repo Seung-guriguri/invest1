@@ -246,7 +246,7 @@ async function autoModels() {
   return [...new Set([...flash.slice(0, 1), 'gemini-flash-latest', ...lite.slice(0, 1), 'gemini-flash-lite-latest'])];
 }
 
-const CAT_LABEL = { rates: '금리', inflation: '물가', growth: '경기', market: '시장·신용', fx: '환율', energy: '에너지', power: '전력', freight: '운임', stocks: '비축·재고', metals: '금속', grains: '곡물', etf: 'ETF' };
+const CAT_LABEL = { rates: '금리', inflation: '물가', growth: '경기', market: '시장·신용', fx: '환율', energy: '에너지', power: '전력', freight: '운임', stocks: '비축·재고', metals: '금속', grains: '곡물', fert: '비료', etf: 'ETF' };
 
 /** 새 브리핑을 텔레그램으로 (4096자 제한 안에서) */
 /** 공유 채널에 같은 내용을 한 번 더 보냄 (설정했고 개인 채팅과 다를 때만) */
@@ -309,6 +309,7 @@ function sourceRef(id, row, meta) {
   else if (s && s.eia) { src = '미국 에너지정보청(EIA)'; url = s.eia.startsWith('NG.') ? 'https://ir.eia.gov/ngs/ngs.html' : 'https://www.eia.gov/petroleum/supply/weekly/'; }
   else if (s && s.eurostat) { src = 'Eurostat'; url = 'https://ec.europa.eu/eurostat/databrowser/'; }
   else if (s && s.yahoo) { src = 'Yahoo Finance'; url = `https://finance.yahoo.com/quote/${encodeURIComponent(s.yahoo)}`; }
+  else if (s && s.wb) { src = 'World Bank 원자재 월간 가격(Pink Sheet)'; url = 'https://www.worldbank.org/en/research/commodity-markets'; }
   else src = '이 앱 계산값(여러 지표 조합)';
   return { id, src, name, date: row.date, url };
 }
@@ -515,7 +516,7 @@ async function sendWatchlistTelegram(w, universe, kst) {
   await shareCopy((body + '\n\n' + shareNote).slice(0, 4090), '관심 종목·ETF');
 }
 
-const CATS = ['rates', 'inflation', 'growth', 'market', 'fx', 'energy', 'power', 'freight', 'stocks', 'metals', 'grains', 'etf'];
+const CATS = ['rates', 'inflation', 'growth', 'market', 'fx', 'energy', 'power', 'freight', 'stocks', 'metals', 'grains', 'fert', 'etf'];
 
 /* 리서치 리포트 (prompts/ai-system.md 5장 구조의 압축판) */
 const STR = { type: 'STRING' }, STRS = { type: 'ARRAY', items: STR };

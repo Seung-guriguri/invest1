@@ -9,7 +9,7 @@
   ① 단위 테스트            node --test tests/unit.test.mjs        실패 → 배포 중단(기존 사이트 유지)
   ② 이전 배포본 받기        previous.json · ai-previous.json · alerts-previous.json
   ③ 지표 수집              scripts/fetch-data.mjs  → _site/data/latest.json
-                           소스: FRED · Yahoo · 한국은행 ECOS · EIA(+EIA-930) · NRC · Ember · Eurostat
+                           소스: FRED · Yahoo · 한국은행 ECOS · EIA(+EIA-930) · NRC · Ember · Eurostat · World Bank(xlsx, scripts/lib/xlsx.mjs)
                            실패 지표는 이전 값 유지, 대체 소스가 더 오래되면 이전 값 유지, 계산 지표(COMPUTED) 생성
   ④ 데이터 구조 검증        scripts/validate-data.mjs              구조 오류 → 배포 중단 / 급변·오래됨은 기록만
   ⑤ 긴급 경고              scripts/alerts.mjs     → alerts.json, 텔레그램

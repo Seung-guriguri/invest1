@@ -650,6 +650,7 @@ const CONFIG = {
     { id: 'stocks',    label: '비축·재고' },
     { id: 'metals',    label: '금속' },
     { id: 'grains',    label: '곡물' },
+    { id: 'fert',      label: '비료' },
     { id: 'etf',       label: 'ETF' }
   ],
 
@@ -859,6 +860,18 @@ const CONFIG = {
       change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
 
     // ── 비축·재고 ──
+    { id: 'fert_urea', cat: 'fert', name: '요소', sub: '질소 비료, 월간 (World Bank) — 원가의 대부분이 천연가스', unit: '$/t', dp: 1, changeMode: 'pct', staleDays: 80, profile: 'fert',
+      change: { dir: 'both', flat: 1, warn: 8, danger: 15 } },
+    { id: 'fert_dap', cat: 'fert', name: 'DAP (인산이암모늄)', sub: '인산 비료, 월간 (World Bank) — 인광석·황·암모니아로 만듦', unit: '$/t', dp: 1, changeMode: 'pct', staleDays: 80, profile: 'fert',
+      change: { dir: 'both', flat: 1, warn: 8, danger: 15 } },
+    { id: 'fert_potash', cat: 'fert', name: '염화칼륨 (칼륨 비료)', sub: '월간 (World Bank) — 캐나다·러시아·벨라루스 공급', unit: '$/t', dp: 1, changeMode: 'pct', staleDays: 80, profile: 'fert',
+      change: { dir: 'both', flat: 1, warn: 8, danger: 15 } },
+    { id: 'fert_phosrock', cat: 'fert', name: '인광석', sub: '인산 비료 원료, 모로코 FOB 월간 (World Bank)', unit: '$/t', dp: 1, changeMode: 'pct', staleDays: 80, profile: 'fert',
+      change: { dir: 'both', flat: 1, warn: 8, danger: 15 } },
+    { id: 'fert_mos', cat: 'fert', name: '인산·칼륨 비료 (MOS)', sub: 'Mosaic 주가 — 인산·칼륨 비료 업황 대용 (가격 아님)', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
+      change: { dir: 'both', flat: 0.4, danger: 5, moveOnly: true }, comments: { rise: '인산·칼륨 비료 기업 상승 → 비료 가격 강세 또는 곡물 경기 기대', fall: '인산·칼륨 비료 기업 하락 → 비료 가격 약세 또는 농가 수요 둔화 걱정' } },
+    { id: 'fert_cf', cat: 'fert', name: '질소 비료 (CF)', sub: 'CF Industries 주가 — 요소·암모니아 업황 대용 (가격 아님)', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
+      change: { dir: 'both', flat: 0.4, danger: 5, moveOnly: true }, comments: { rise: '질소 비료 기업 상승 → 요소 가격 강세(유럽 가스값 상승 등) 기대', fall: '질소 비료 기업 하락 → 요소 가격 약세 또는 미국 가스 원가 상승 걱정' } },
     { id: 'us_spr', cat: 'stocks', name: '미국 전략비축유(SPR)', sub: '주간 (EIA)', unit: '백만 bbl', dp: 1, changeMode: 'pct', profile: 'spr',
       level: { dir: 'down', warn: 400, danger: 350 }, change: { dir: 'both', flat: 0.05, warn: 1, danger: 2 } },
     { id: 'us_crude', cat: 'stocks', name: '미국 상업 원유 재고', sub: 'SPR 제외, 주간 (EIA)', unit: '백만 bbl', dp: 1, changeMode: 'pct', profile: 'stocks',
@@ -1430,6 +1443,13 @@ const COMMENTS = {
   etf: {
     flat: '{name} 보합 → 기초 시장 방향성 없음'
   },
+  fert: {
+    surge: '{name} 급등 → 농가 비료 원가 급증, 곡물 재배 축소·곡물값 상승 압력',
+    rise: '{name} 상승 → 비료 원가 부담↑, 다음 시즌 곡물 원가에 반영',
+    fall: '{name} 하락 → 비료 원가 부담↓, 농가 수익성 개선',
+    plunge: '{name} 급락 → 비료 수요 둔화 또는 공급 과잉',
+    flat: '{name} 보합 → 비료 원가 변화 작음'
+  },
   grain: {
     surge: '{name} 급등 → 식품 원가·물가 압력, 날씨·수출 뉴스 확인',
     rise: '{name} 상승 → 식품 원가 부담↑',
@@ -1894,7 +1914,7 @@ let viewTouched = false; // 사용자가 화면을 직접 고른 뒤에는 자�
 /** 지표 탭 묶음 (한눈에 보이게 2단계: 묶음 → 세부 탭) */
 const TAB_GROUPS = [
   { id: 'macro', label: '거시', cats: ['rates', 'inflation', 'growth', 'market', 'fx'] },
-  { id: 'res', label: '에너지·자원', cats: ['energy', 'power', 'stocks', 'metals', 'grains'] },
+  { id: 'res', label: '에너지·자원', cats: ['energy', 'power', 'stocks', 'metals', 'grains', 'fert'] },
   { id: 'ship', label: '해운', cats: ['freight'] },
   { id: 'etf', label: 'ETF', cats: ['etf'] }
 ];
@@ -2430,7 +2450,7 @@ const WATCH_PAIRS = [
   ['wti', 'etf_xle', 1], ['natgas', 'etf_ung', 1], ['copper', 'us10y', 1], ['gold', 'real10y', -1],
   ['dxy', 'usdkrw', 1], ['sp500', 'kospi', 1], ['usdkrw', 'kospi', -1], ['hy_spread', 'sp500', -1],
   ['us10y', 'mortgage', 1], ['bdry', 'iron_ore', 1], ['tanker_fro', 'etf_bwet', 1], ['brent', 'bei10y', 1],
-  ['dxy', 'gold', -1], ['copper', 'sp500', 1], ['coking_amr', 'iron_ore', 1]
+  ['dxy', 'gold', -1], ['copper', 'sp500', 1], ['coking_amr', 'iron_ore', 1], ['fert_cf', 'ttf', 1], ['fert_mos', 'corn', 1]
 ];
 /** 지금 엇갈린 감시 짝 (render 마다 계산, 상세 화면 ⚠ 표시에도 사용) */
 let DIVERGE = new Map();
