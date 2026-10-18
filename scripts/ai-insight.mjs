@@ -14,7 +14,7 @@
  *                     (GitHub 예약 실행이 몇 시간 늦게 도는 경우 중복 발송 방지. 수동 실행은 항상 새로 생성)
  *
  * 프롬프트는 prompts/ai-system.md (역할·규칙), prompts/ai-user.md (데이터 틀),
- * 일요일(한국시간) 실행 또는 AI_WEEKLY=true 이면 '주간판' — 지난 한 주 정리 + 다음 주 볼 것 (브리핑·리포트·칼럼·관심 종목 모두)
+ * 월요일(한국시간) 실행 또는 AI_WEEKLY=true 이면 '주간판' — 지난주(월~금) 정리 + 이번 주 볼 것 (브리핑·리포트·칼럼·관심 종목 모두)
  * prompts/ai-column.md (오늘의 칼럼 — 섹션별 헤드라인 + 3~5줄의 짧은 칼럼, 추가 호출 1회),
  * prompts/ai-watchlist.md (관심 종목·ETF — 텔레그램 전용, 앱·ai.json 에는 저장하지 않음, 추가 호출 1회) 에서 읽습니다.
  * 실패해도 작업 전체를 실패시키지 않고 이전 해설을 유지합니다.
@@ -35,9 +35,9 @@ const KEY = (process.env.GEMINI_API_KEY || '').trim();
 const MODEL = (process.env.GEMINI_MODEL || '').trim();
 const RUN = String(process.env.AI_RUN || '').toLowerCase() === 'true';
 const SCHEDULED = String(process.env.AI_SCHEDULED || '').toLowerCase() === 'true';
-// 주간판: 일요일(한국시간) 실행 또는 AI_WEEKLY=true — 지난 한 주를 정리하고 다음 주를 내다보는 브리핑
-const WEEKLY = String(process.env.AI_WEEKLY || '').toLowerCase() === 'true' || new Date(Date.now() + 9 * 3600000).getUTCDay() === 0;
-const ED = WEEKLY ? { brief: '이번 주 AI 브리핑', top: '이번 주 꼭 볼 3가지', col: '주간 칼럼', icon: '🗓' } : { brief: '오늘의 AI 브리핑', top: '오늘 꼭 볼 3가지', col: '오늘의 칼럼', icon: '🌅' };
+// 주간판: 월요일(한국시간) 아침 실행 또는 AI_WEEKLY=true — 지난주(월~금)를 정리하고 이번 주를 내다보는 브리핑
+const WEEKLY = String(process.env.AI_WEEKLY || '').toLowerCase() === 'true' || new Date(Date.now() + 9 * 3600000).getUTCDay() === 1;
+const ED = WEEKLY ? { brief: '주간 AI 브리핑 (지난주 정리)', top: '지난주 꼭 볼 3가지', col: '주간 칼럼', icon: '🗓' } : { brief: '오늘의 AI 브리핑', top: '오늘 꼭 볼 3가지', col: '오늘의 칼럼', icon: '🌅' };
 const WATCH_DIR = (process.env.WATCH_DIR || '').trim();   // 성적표용 기록 폴더 (배포하지 않는 private/)
 const TG_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
 const TG_CHAT = (process.env.TELEGRAM_CHAT_ID || '').trim();
@@ -108,7 +108,7 @@ function stats(id, s, m, prevAt = null) {
   const chgOver = (days, mBack, qBack) => s.freq === 'M' ? change(m.mode, back(mBack), last[1])
     : s.freq === 'Q' ? change(m.mode, back(qBack), last[1]) : change(m.mode, valueBefore(obs, n - 1, days), last[1]);
   const chg3m = chgOver(91, 3, 1), chg1y = chgOver(365, 12, 4);
-  // 1주 변화 (주간판용): 일간 = 7일 전 대비, 주간 = 직전 발표 대비, 월간·분기 = 없음(대신 이번 주 발표 여부)
+  // 1주 변화 (주간판용): 일간 = 7일 전 대비, 주간 = 직전 발표 대비, 월간·분기 = 없음(대신 최근 7일 발표 여부)
   const chg1w = s.freq === 'W' ? change(m.mode, prev[1], last[1]) : s.freq === 'M' || s.freq === 'Q' ? null : change(m.mode, valueBefore(obs, n - 1, 7), last[1]);
   const released7d = (Date.now() - Date.parse(last[0])) / DAY <= 8;
   // 평소 1개월 변화폭 (표준편차) 대비 배수
@@ -181,20 +181,20 @@ function weeklyBlock(prevAI, rows) {
   if (!hist.length && prevAI && prevAI.briefing && prevAI.briefing.headline) hist.push({ date: new Date(Date.parse(prevAI.generatedAt) + 9 * 3600000).toISOString().slice(0, 10), headline: prevAI.briefing.headline, top3: prevAI.briefing.top3 || [] });
   const days = hist.slice(-6).map(x => `- ${x.date}: ${x.headline}${x.top3 && x.top3.length ? ` / ${x.top3.join(' · ')}` : ''}`);
   return `
-[이번은 일요일 주간판입니다 — 아래 지시가 다른 지시보다 우선]
-- 하루 움직임이 아니라 지난 한 주(월~금)의 흐름을 다룹니다. 숫자는 chg_1w(1주 변화)를 중심으로 쓰고, 필요하면 chg_1m 으로 맥락을 더합니다.
-- headline: 이번 주를 한 줄로. top3: 이번 주 가장 중요한 변화 3가지. story: 한 주의 줄거리(주초 → 주말 무엇이 바뀌었는지).
-- points: 주간 변화 수치. korea: 이번 주 흐름이 한국 투자자에게 이어지는 경로. watch: 다음 주에 확인할 데이터·발표 일정.
-- sections: 각 분류의 '이번 주' 이야기. review 는 이번 주 매일 브리핑의 판단이 한 주 동안 맞았는지 점검.
+[이번은 월요일 주간판입니다 — 아래 지시가 다른 지시보다 우선]
+- 하루(금요일) 움직임이 아니라 지난주(월~금) 전체의 흐름을 다룹니다. 숫자는 chg_1w(1주 변화)를 중심으로 쓰고, 필요하면 chg_1m 으로 맥락을 더합니다.
+- headline: 지난주를 한 줄로. top3: 지난주 가장 중요한 변화 3가지. story: 한 주의 줄거리(주초 → 주말 무엇이 바뀌었는지).
+- points: 주간 변화 수치. korea: 지난주 흐름이 한국 투자자에게 이어지는 경로. watch: 이번 주에 확인할 데이터·발표 일정.
+- sections: 각 분류의 '지난주' 이야기. review 는 지난주 매일 브리핑의 판단이 한 주 동안 맞았는지 점검.
 - report 도 한 주 단위로 국면·시나리오를 정리합니다.
 
-[이번 주 가장 크게 움직인 지표 (평소 변동폭 대비 1주 변화 순)]
+[지난주 가장 크게 움직인 지표 (평소 변동폭 대비 1주 변화 순)]
 ${movers.join('\n') || '없음'}
 
-[이번 주 새로 발표된 주간·월간 지표]
+[지난주 새로 발표된 주간·월간 지표]
 ${released.join('\n') || '없음'}
 
-[이번 주 매일 브리핑 제목 — 주장은 사실 근거가 아니며, 한 주 데이터로 점검할 대상]
+[지난주 매일 브리핑 제목 — 주장은 사실 근거가 아니며, 한 주 데이터로 점검할 대상]
 ${days.join('\n') || '없음'}
 `;
 }
@@ -316,7 +316,7 @@ function sourceRef(id, row, meta) {
 async function generateColumn(models, first, material) {
   const system = await readFile(new URL('../prompts/ai-column.md', import.meta.url), 'utf8');
   const recent = (material.recentTitles || []).length ? material.recentTitles.map(x => `- ${x.date} ${x.title}`).join('\n') : '(없음)';
-  const user = `기준 시각: ${material.kst}\n\n[최근 칼럼 제목] (같은 주제·각도 반복 피하기)\n${recent}\n\n[오늘의 브리핑]\n${JSON.stringify(material.briefing)}\n\n[분류별 요약]\n${JSON.stringify(material.sections)}\n\n[지표 해설]\n${JSON.stringify(material.indicators)}${material.report ? `\n\n[리서치 리포트 — 국면·인사이트·상충 신호·시나리오]\n${JSON.stringify({ regime: material.report.regime, insights: material.report.insights, conflicts: material.report.conflicts, scenarios: material.report.scenarios })}` : ''}\n\n[주요 지표 숫자] (id 는 refs 에 쓰는 지표 ID, date 는 그 값의 기준일, position 은 최근 기간 안의 위치 0~100)\n${material.rows.map(r => JSON.stringify(r)).join('\n')}\n\n${WEEKLY ? '오늘은 일요일 주간판입니다. 하루 움직임이 아니라 지난 한 주 전체의 흐름(브리핑의 이번 주 정리)을 주제로, 다음 주에 무엇을 보면 되는지까지 이어지는 주간 칼럼을 쓰세요.' : '위 재료로 오늘의 칼럼을 쓰세요.'}`;
+  const user = `기준 시각: ${material.kst}\n\n[최근 칼럼 제목] (같은 주제·각도 반복 피하기)\n${recent}\n\n[오늘의 브리핑]\n${JSON.stringify(material.briefing)}\n\n[분류별 요약]\n${JSON.stringify(material.sections)}\n\n[지표 해설]\n${JSON.stringify(material.indicators)}${material.report ? `\n\n[리서치 리포트 — 국면·인사이트·상충 신호·시나리오]\n${JSON.stringify({ regime: material.report.regime, insights: material.report.insights, conflicts: material.report.conflicts, scenarios: material.report.scenarios })}` : ''}\n\n[주요 지표 숫자] (id 는 refs 에 쓰는 지표 ID, date 는 그 값의 기준일, position 은 최근 기간 안의 위치 0~100)\n${material.rows.map(r => JSON.stringify(r)).join('\n')}\n\n${WEEKLY ? '오늘은 월요일 주간판입니다. 하루 움직임이 아니라 지난주 전체의 흐름(브리핑의 지난주 정리)을 주제로, 이번 주에 무엇을 보면 되는지까지 이어지는 주간 칼럼을 쓰세요.' : '위 재료로 오늘의 칼럼을 쓰세요.'}`;
   const body = schema => ({
     systemInstruction: { parts: [{ text: system }] },
     contents: [{ role: 'user', parts: [{ text: user }] }],
@@ -448,7 +448,7 @@ function cleanWatch(x, max) {
 }
 async function generateWatchlist(models, first, material, universe) {
   const system = await readFile(new URL('../prompts/ai-watchlist.md', import.meta.url), 'utf8');
-  const user = `기준 시각: ${material.kst}${WEEKLY ? '\n\n(일요일 주간판 — 지난 한 주 흐름을 바탕으로 다음 주에 살펴볼 후보로 고를 것)' : ''}\n\n[${WEEKLY ? '이번 주 브리핑' : '오늘의 브리핑'}]\n${JSON.stringify(material.briefing)}\n\n[분류별 요약]\n${JSON.stringify(material.sections)}` +
+  const user = `기준 시각: ${material.kst}${WEEKLY ? '\n\n(월요일 주간판 — 지난주 흐름을 바탕으로 이번 주에 살펴볼 후보로 고를 것)' : ''}\n\n[${WEEKLY ? '주간 브리핑 (지난주 정리)' : '오늘의 브리핑'}]\n${JSON.stringify(material.briefing)}\n\n[분류별 요약]\n${JSON.stringify(material.sections)}` +
     `${material.report ? `\n\n[리서치 리포트]\n${JSON.stringify({ regime: material.report.regime, insights: material.report.insights, scenarios: material.report.scenarios })}` : ''}` +
     `${material.column ? `\n\n[칼럼 제목] ${material.column.title}` : ''}` +
     `\n\n[주요 지표 숫자]\n${material.rows.map(r => JSON.stringify(r)).join('\n')}` +
@@ -755,7 +755,7 @@ async function main() {
     .replace('{{edition}}', WEEKLY ? weeklyBlock(prevAI, rows) : '')
     .replace('{{previous}}', prevBlock || '없음 (지난 브리핑 없음 — sections 의 review 는 빈 문자열로)')
     .replace('{{data}}', rows.map(r => JSON.stringify(r)).join('\n'));
-  if (WEEKLY) console.log('  일요일 주간판: 지난 한 주 정리 + 다음 주 볼 것');
+  if (WEEKLY) console.log('  월요일 주간판: 지난주 정리 + 이번 주 볼 것');
   console.log(`AI 인사이트: 지표 ${rows.length}개, 해설 대상 ${targets.length}개, 프롬프트 약 ${Math.round((system.length + user.length) / 1000)}천 자`);
 
   const body = schema => ({
