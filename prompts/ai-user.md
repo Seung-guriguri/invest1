@@ -4,7 +4,7 @@
 
 [필드 설명 — 글에는 필드 이름을 쓰지 말 것]
 - id, name, cat, unit: 지표 식별자, 이름(괄호 안은 설명), 분류, 단위
-  분류: rates 금리 · inflation 물가 · growth 경기 · market 시장·신용 · fx 환율 · energy 에너지 · freight 운임 · stocks 비축·재고 · metals 금속 · grains 곡물 · etf ETF
+  분류: rates 금리 · inflation 물가 · growth 경기 · market 시장·신용 · fx 환율 · energy 에너지 · power 전력 · freight 운임 · stocks 비축·재고 · metals 금속 · grains 곡물 · fert 비료 · etf ETF
 - value, date, freq: 현재 값, 기준일, 주기 (D 일간 · W 주간 · M 월간 · Q 분기)
 - chg_prev: 직전 관측치 대비 변화
 - chg_1w: 약 1주 전 대비 변화 (일간 지표는 7일 전, 주간 지표는 직전 발표 대비, 월간·분기는 null)
@@ -32,7 +32,7 @@
 
 요청:
 1) 오늘의 브리핑(briefing)을 이야기처럼 작성하세요.
-2) 12개 분류(sections)마다 한 줄 제목과 짧은 이야기, 그리고 지난 브리핑 점검(review)을 작성하세요.
+2) 13개 분류(sections)마다 한 줄 제목과 짧은 이야기, 그리고 지난 브리핑 점검(review)을 작성하세요.
 3) 해설 대상 지표(indicators)마다, 위 순서대로 짧은 이야기를 작성하세요.
 4) 시스템 지시의 리서치 방법론(다중 지표 융합·국면 분류·상충 신호·시나리오)으로 분석한 결과를 리서치 리포트(report)로 작성하세요.
 형식은 시스템 지시의 JSON을 따르세요.

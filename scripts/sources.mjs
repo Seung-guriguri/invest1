@@ -97,7 +97,14 @@ export const SOURCES = {
   gas_pw_chn: [{ ember: 'CHN', series: 'Gas' }],
   gas_pw_eu:  [{ ember: 'EU', series: 'Gas' }],
   coal:   [{ fred: 'PCOALAUUSDM' }],                       // IMF 호주(뉴캐슬) 석탄, 월간
-  coking_amr: [{ yahoo: 'AMR', adj: true }],                // Alpha Metallurgical Resources — 미국 원료탄(제철용) 생산 1위권, 원료탄 업황 대용
+  coking_amr: [{ yahoo: 'AMR', adj: true }],
+  // 비료 — World Bank 원자재 월간 가격표(Pink Sheet, $/t) · 비료 기업 주가(일간, 업황 대용)
+  fert_urea:     [{ wb: 'Urea' }],                          // 요소 (질소 비료, 중동 등 FOB)
+  fert_dap:      [{ wb: 'DAP' }],                           // 인산이암모늄 (인산 비료, 미국 걸프 FOB)
+  fert_potash:   [{ wb: 'Potassium chloride' }],            // 염화칼륨 (칼륨 비료)
+  fert_phosrock: [{ wb: 'Phosphate rock' }],                // 인광석 (모로코 FOB) — 인산 비료 원료
+  fert_mos:      [{ yahoo: 'MOS', adj: true }],             // Mosaic — 인산·칼륨 비료
+  fert_cf:       [{ yahoo: 'CF', adj: true }],              // CF Industries — 질소(요소·암모니아) 비료                // Alpha Metallurgical Resources — 미국 원료탄(제철용) 생산 1위권, 원료탄 업황 대용
   gasoline: [{ yahoo: 'RB=F' }, { fred: 'DGASNYH' }],       // RBOB 휘발유 선물 (실패 시 뉴욕항 현물)
   diesel:   [{ yahoo: 'HO=F' }, { fred: 'DDFUELNYH' }],     // 초저유황 디젤(ULSD) 선물 (실패 시 뉴욕항 현물)
 

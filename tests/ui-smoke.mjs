@@ -88,6 +88,7 @@ async function main() {
       const n = await page.evaluate(() => document.querySelectorAll('#cards [data-edit]').length);
       if (!n) check(false, `${tag}: ${c.label} 탭 카드 없음`);
     }
+    if (process.env.SHOT_DIR) { await page.evaluate(() => { listFilter = null; activeTab = 'fert'; render(); scrollTo(0, 0); }); await page.screenshot({ path: `${process.env.SHOT_DIR}/fert-${ui}-${scheme}.png`, fullPage: true }); }
     check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${tag}: 360px 가로 넘침 없음`);
     if (ui === 'v1' && scheme === 'light') {
       const bad = await page.evaluate(ids => { const out = []; for (const id of ids) { try { openEdit(id); document.querySelector('#editSheet').close(); } catch (e) { out.push(id + ': ' + e.message); } } return out; }, cfg.indicators.map(i => i.id));
