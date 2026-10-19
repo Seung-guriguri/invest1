@@ -419,6 +419,7 @@
   .chart .th.warn { stroke: var(--yellow); } .chart .th.danger { stroke: var(--red); }
   .chart .th-label { font-size: 10.5px; font-weight: 600; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
   .chart .th-label.warn { fill: var(--yellow); } .chart .th-label.danger { fill: var(--red); }
+  .chart .th.ref { stroke: var(--text-2); stroke-dasharray: 4 3; } .chart .th-label.ref { fill: var(--text-2); }
   .chart .cross { stroke: var(--text-2); stroke-width: 1; }
   .chart-tip {
     position: absolute; top: 0; pointer-events: none; background: var(--text); color: var(--bg);
@@ -808,6 +809,8 @@ const CONFIG = {
       change: { yoy: true, dir: 'both', flat: 1.5, warn: 5, danger: 8 } },
     { id: 'coal', cat: 'energy', name: '석탄', sub: '호주 뉴캐슬, 월간', unit: '$/t', dp: 1, changeMode: 'pct', staleDays: 140, profile: 'coal',
       change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
+    { id: 'coal_jkm', cat: 'energy', name: '석탄÷가스 상대가격', sub: '뉴캐슬 석탄($/t) ÷ JKM($/MMBtu), 월간 — 7 아래면 석탄이 쌈(석탄 발전 유리), 16 위면 가스가 쌈', unit: '배', dp: 2, changeMode: 'pct', staleDays: 140, profile: 'coalGas',
+      refLines: [{ v: 7, label: '석탄 쌈 ↓' }, { v: 16, label: '가스 쌈 ↑' }], change: { dir: 'both', flat: 2, warn: 15, danger: 30 } },
     { id: 'coking_amr', cat: 'energy', name: '원료탄 (AMR)', sub: 'Alpha Metallurgical 주가 — 제철용 원료탄 업황 대용 (원료탄 가격 아님)', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
       change: { dir: 'both', flat: 0.4, danger: 5, moveOnly: true }, comments: { rise: '원료탄 업체 상승 → 원료탄 가격 강세 또는 철강 수요 기대', fall: '원료탄 업체 하락 → 원료탄 가격 약세 또는 철강 경기 둔화 걱정' } },
     { id: 'gasoline', cat: 'energy', name: '휘발유', sub: 'RBOB 선물 (RB=F)', unit: '$/gal', dp: 3, changeMode: 'pct', profile: 'gasoline',
@@ -1180,6 +1183,11 @@ const COMMENTS = {
     rise: '천연가스 상승 → 난방·발전 비용 부담↑',
     fall: '천연가스 하락 → 난방·발전 비용 부담↓',
     flat: '천연가스 보합 → 계절 수요 변화 대기'
+  },
+  coalGas: {
+    rise: '석탄÷가스 비율 상승 → 석탄이 상대적으로 비싸짐, 발전사는 가스 쪽으로',
+    fall: '석탄÷가스 비율 하락 → 석탄이 상대적으로 싸짐, 석탄 발전 유리 (LNG 수요에는 부담)',
+    flat: '석탄÷가스 비율 보합 → 연료 선택 변화 작음'
   },
   coal: {
     rise: '석탄 상승 → 발전 원가·전기요금 부담↑',
@@ -2295,9 +2303,10 @@ function drawChart(host, pts, ind, freq, levelLines) {
   const span0 = hi - lo || Math.abs(hi) * 0.05 || 1;
   // 범위 근처의 임계선만 표시 (너무 멀면 차트가 납작해지므로 생략)
   const ths = [];
-  (levelLines || []).forEach(({ k, v }) => {
-    const label = k === 'warn' ? '주의' : '경고';
-    if (v != null && v >= lo - span0 * 0.6 && v <= hi + span0 * 0.6) { ths.push({ k, v, label }); lo = Math.min(lo, v); hi = Math.max(hi, v); }
+  // 기준선(refLines): 신호와 무관한 해석용 구간 경계 (예: 석탄÷JKM 7·16)
+  [...(levelLines || []), ...(ind.refLines || []).map(r => ({ k: 'ref', v: r.v, label: r.label }))].forEach(({ k, v, label: lb }) => {
+    const label = lb || (k === 'warn' ? '주의' : '경고');
+    if (v != null && (k === 'ref' || (v >= lo - span0 * 0.6 && v <= hi + span0 * 0.6))) { ths.push({ k, v, label }); lo = Math.min(lo, v); hi = Math.max(hi, v); }
   });
   if (hi === lo) { hi += span0 / 2; lo -= span0 / 2; }
   const step = niceStep(hi - lo, 4);
@@ -2321,7 +2330,7 @@ function drawChart(host, pts, ind, freq, levelLines) {
     const t = el('text', { class: 'tick', x: X(xs[i]), y: H - 4, 'text-anchor': anchor }, svg); t.textContent = dl(pts[i].date);
   });
   // 두 임계선이 가까우면 아래쪽 선의 라벨은 선 아래에 붙여 겹치지 않게
-  const close = ths.length === 2 && Math.abs(Y(ths[0].v) - Y(ths[1].v)) < 14;
+  const close = ths.length === 2 && Math.abs(Y(ths[0].v) - Y(ths[1].v)) < 14;   // (기준선 포함 3개 이상이면 위쪽 배치)
   const lowerY = Math.max(...ths.map(t => Y(t.v)));
   ths.forEach(t => {
     el('line', { class: `th ${t.k}`, x1: padL, x2: W - padR, y1: Y(t.v), y2: Y(t.v) }, svg);

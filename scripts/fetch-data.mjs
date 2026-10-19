@@ -55,7 +55,10 @@ const COMPUTED = {
   brent_wti:      { inputs: ['brent', 'wti'], label: 'Calc:브렌트−WTI', calc: (b, w) => b - w },
   gold_silver:    { inputs: ['gold', 'silver'], label: 'Calc:금÷은', calc: (g, s) => g / s },
   hy_ig:          { inputs: ['hy_spread', 'ig_spread'], label: 'Calc:HY−IG', calc: (hy, ig) => hy - ig },
-  us_crude_total: { inputs: ['us_crude', 'us_spr'], label: 'Calc:상업+SPR', calc: (c, spr) => c + spr }
+  us_crude_total: { inputs: ['us_crude', 'us_spr'], label: 'Calc:상업+SPR', calc: (c, spr) => c + spr },
+  // 석탄÷가스 상대가격 = 뉴캐슬 석탄($/t, IMF 월평균) ÷ JKM($/MMBtu, 월말 선물) — 같은 달끼리 (byMonth)
+  //   7 아래면 석탄이 가스보다 싸서 아시아 발전사가 석탄을 더 때기 쉬움, 16 위면 가스가 상대적으로 쌈
+  coal_jkm:       { inputs: ['coal', 'aux_jkm_m'], label: 'Calc:뉴캐슬석탄÷JKM', byMonth: true, calc: (c, j) => c / j }
 };
 
 /** 날짜 오름차순 obs 에서 date 이전(같은 날 포함) 가장 최근 값 */
@@ -132,7 +135,8 @@ async function fetchFred(src) {
 
 /* ---------- Yahoo Finance (비공식) ---------- */
 async function fetchYahoo(src) {
-  const path = `/v8/finance/chart/${encodeURIComponent(src.yahoo)}?range=2y&interval=1d&includePrePost=false&events=div%2Csplit`;
+  // range·interval: 기본은 2년 일봉, 계산용 보조 시계열은 10년 월봉 등으로 따로 받을 수 있음
+  const path = `/v8/finance/chart/${encodeURIComponent(src.yahoo)}?range=${src.range || '2y'}&interval=${src.interval || '1d'}&includePrePost=false&events=div%2Csplit`;
   let j;
   try { j = await getJSON('https://query1.finance.yahoo.com' + path); }
   catch (e) { j = await getJSON('https://query2.finance.yahoo.com' + path); }
@@ -529,7 +533,12 @@ async function main() {
       const parts = def.inputs.map(k => series[k]);
       if (parts.some(x => !x)) throw new Error(`재료 지표 없음 (${def.inputs.filter(k => !series[k]).join(', ')})`);
       let obs;
-      if (def.asof) {
+      if (def.byMonth) {
+        // 월 단위로 짝짓기 (월간 지표의 날짜가 1일·말일 등으로 달라도)
+        const months = parts.map(x => new Map(x.obs.map(([d, v]) => [d.slice(0, 7), v])));
+        obs = parts[0].obs.filter(([d]) => months.every(m => m.has(d.slice(0, 7))))
+          .map(([d]) => [d, round(def.calc(...months.map(m => m.get(d.slice(0, 7)))))]).filter(o => Number.isFinite(o[1]));
+      } else if (def.asof) {
         obs = parts[0].obs.map(([d, v]) => {
           const rest = parts.slice(1).map(x => valueAsOf(x.obs, d));
           return rest.some(r => r == null) ? null : [d, round(def.calc(v, ...rest))];

@@ -121,6 +121,8 @@ async function main() {
       await page.evaluate(() => { document.querySelector('#editSheet').close(); CORR.divergence = window.__div; render(); });
       if (process.env.SHOT_DIR) { await page.evaluate(() => { CORR.divergence = () => ({ on: true, r1: 0.8, rr: -0.3, n: 8, unit: '주', ca: 0.05, cb: -0.04, basis: 'W' }); render(); document.querySelector('#divWrap').open = true; document.querySelector('#divWrap').scrollIntoView(); }); await page.screenshot({ path: `${process.env.SHOT_DIR}/diverge-${ui}-${scheme}.png` }); await page.evaluate(() => { CORR.divergence = window.__div; render(); }); }
       check(dv1.items === 1 && dv1.txt && dv2.open && dv2.pick === 'etf_xle' && dv2.tab === 'roll', `엇갈림 감지 → 오늘 볼 것 → 비교 열기 ${JSON.stringify({ ...dv1, ...dv2 })}`);
+      if (process.env.SHOT_DIR) { await page.evaluate(() => { openEdit('coal_jkm'); }); await page.waitForTimeout(200); await page.screenshot({ path: `${process.env.SHOT_DIR}/coaljkm-${ui}-${scheme}.png` }); await page.evaluate(() => document.querySelector('#editSheet').close()); }
+      check(await page.evaluate(() => { openEdit('coal_jkm'); const ok = [...document.querySelectorAll('#chartHost .th-label.ref')].length === 2; document.querySelector('#editSheet').close(); return ok; }), '석탄÷가스 상대가격: 7·16 기준선 표시');
       const shared = await page.evaluate(() => ['wti', 'us_cpi', 'coal_pw_jpn', 'scfi'].map(id => { try { return Share.render(id).canvas.width; } catch (e) { return id + ':' + e.message; } }));
       check(shared.every(w => w === 1080), `공유 이미지 그리기 ${JSON.stringify(shared)}`);
       const rt = await page.evaluate(() => {

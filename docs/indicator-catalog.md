@@ -79,7 +79,7 @@
 | `usdcny` | 위안/달러 환율 | 위안 | 실측 | Yahoo CNY=X → FRED DEXCHUS | pct |
 | `vix` | VIX |  | 실측 | Yahoo ^VIX → FRED VIXCLS | pct |
 
-## 에너지 (12)
+## 에너지 (13)
 
 | ID | 이름 | 단위 | 성격 | 출처 (1순위 → 대체) | 변화 판단 |
 |---|---|---|---|---|---|
@@ -91,6 +91,7 @@
 | `ttf` | 유럽 천연가스 (TTF) | €/MWh | 실측 | Yahoo TTF=F | pct |
 | `jkm` | 아시아 LNG (JKM) | $/MMBtu | 실측 | Yahoo JKM=F | pct |
 | `coal` | 석탄 | $/t | 실측 | FRED PCOALAUUSDM | pct |
+| `coal_jkm` | 석탄÷가스 상대가격 | 배 | 계산 | 계산: 뉴캐슬석탄÷JKM | pct |
 | `coking_amr` | 원료탄 (AMR) | $ | 실측 | Yahoo AMR | pct |
 | `gasoline` | 휘발유 | $/gal | 실측 | Yahoo RB=F → FRED DGASNYH | pct |
 | `diesel` | 디젤 | $/gal | 실측 | Yahoo HO=F → FRED DDFUELNYH | pct |
@@ -202,8 +203,8 @@
 | `etf_ewy` | EWY | $ | 실측 | Yahoo EWY | pct |
 | `etf_eem` | EEM | $ | 실측 | Yahoo EEM | pct |
 
-## 가이드 전용 시세 (39)
+## 가이드 전용 시세 (40)
 
 카드로 보이지 않고 가이드(유조선·벌크선·석유 밸류체인)의 미니 시세와 관심 종목 후보에만 쓰는 주가입니다.
 
-`tk_dht` (Yahoo DHT) · `tk_tnk` (Yahoo TNK) · `tk_nat` (Yahoo NAT) · `tk_eco` (Yahoo ECO) · `tk_hafn` (Yahoo HAFN) · `tk_trmd` (Yahoo TRMD) · `tk_insw` (Yahoo INSW) · `gd_sblk` (Yahoo SBLK) · `gd_gnk` (Yahoo GNK) · `gd_sb` (Yahoo SB) · `gd_ship` (Yahoo SHIP) · `gd_dsx` (Yahoo DSX) · `gd_panl` (Yahoo PANL) · `gd_xop` (Yahoo XOP) · `gd_cop` (Yahoo COP) · `gd_eog` (Yahoo EOG) · `gd_oxy` (Yahoo OXY) · `gd_rig` (Yahoo RIG) · `gd_val` (Yahoo VAL) · `gd_ne` (Yahoo NE) · `gd_sdrl` (Yahoo SDRL) · `gd_borr` (Yahoo BORR) · `gd_fti` (Yahoo FTI) · `gd_tdw` (Yahoo TDW) · `gd_oih` (Yahoo OIH) · `gd_slb` (Yahoo SLB) · `gd_hal` (Yahoo HAL) · `gd_bkr` (Yahoo BKR) · `gd_amlp` (Yahoo AMLP) · `gd_epd` (Yahoo EPD) · `gd_et` (Yahoo ET) · `gd_kmi` (Yahoo KMI) · `gd_wmb` (Yahoo WMB) · `gd_crak` (Yahoo CRAK) · `gd_vlo` (Yahoo VLO) · `gd_mpc` (Yahoo MPC) · `gd_psx` (Yahoo PSX) · `gd_xom` (Yahoo XOM) · `gd_cvx` (Yahoo CVX)
+`aux_jkm_m` (Yahoo JKM=F) · `tk_dht` (Yahoo DHT) · `tk_tnk` (Yahoo TNK) · `tk_nat` (Yahoo NAT) · `tk_eco` (Yahoo ECO) · `tk_hafn` (Yahoo HAFN) · `tk_trmd` (Yahoo TRMD) · `tk_insw` (Yahoo INSW) · `gd_sblk` (Yahoo SBLK) · `gd_gnk` (Yahoo GNK) · `gd_sb` (Yahoo SB) · `gd_ship` (Yahoo SHIP) · `gd_dsx` (Yahoo DSX) · `gd_panl` (Yahoo PANL) · `gd_xop` (Yahoo XOP) · `gd_cop` (Yahoo COP) · `gd_eog` (Yahoo EOG) · `gd_oxy` (Yahoo OXY) · `gd_rig` (Yahoo RIG) · `gd_val` (Yahoo VAL) · `gd_ne` (Yahoo NE) · `gd_sdrl` (Yahoo SDRL) · `gd_borr` (Yahoo BORR) · `gd_fti` (Yahoo FTI) · `gd_tdw` (Yahoo TDW) · `gd_oih` (Yahoo OIH) · `gd_slb` (Yahoo SLB) · `gd_hal` (Yahoo HAL) · `gd_bkr` (Yahoo BKR) · `gd_amlp` (Yahoo AMLP) · `gd_epd` (Yahoo EPD) · `gd_et` (Yahoo ET) · `gd_kmi` (Yahoo KMI) · `gd_wmb` (Yahoo WMB) · `gd_crak` (Yahoo CRAK) · `gd_vlo` (Yahoo VLO) · `gd_mpc` (Yahoo MPC) · `gd_psx` (Yahoo PSX) · `gd_xom` (Yahoo XOM) · `gd_cvx` (Yahoo CVX)
