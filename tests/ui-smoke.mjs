@@ -44,6 +44,7 @@ function fixture(cfg) {
 }
 const AI = { generatedAt: new Date().toISOString(), model: 'test',
   briefing: { headline: '테스트 브리핑', story: '합성 데이터로 만든 테스트 문장입니다.', top3: ['하나', '둘', '셋'], points: ['수치'], korea: '한국', watch: ['확인'], counterpoint: '반대', refs: [{ id: 'wti', date: '2020-01-01' }, { id: 'us10y', date: '2020-01-01' }, { id: 'nope', date: '2020-01-01' }], grounding: { checked: 5, matched: 4, unmatched: ['9.9%'] } },
+  energy: { headline: '가스發 석탄 전환', oil: '원유 한 줄', gas: '가스 한 줄', coal: '석탄 한 줄', link: '연결 한 줄', counter: '반대 한 줄' },
   sections: { rates: { headline: '금리 제목', body: '금리 본문', review: '' } }, indicators: { wti: '테스트 해설' } };
 
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png' };
@@ -148,14 +149,15 @@ async function main() {
         await page.evaluate(() => { const d = document.querySelector('#editSheet'); if (d.open) d.close(); if (location.hash) history.replaceState(null, '', location.pathname); });
         await page.evaluate(setup);
         const el = await page.$(sel); if (!el) { jumps.push(label + ': 없음'); return; }
-        await page.evaluate(() => { document.body.style.paddingBottom = '2000px'; });
-        await el.scrollIntoViewIfNeeded(); await page.evaluate(() => window.scrollBy(0, 300)); await page.waitForTimeout(80);
+        // 위아래 여백을 넣고 요소를 화면 가운데에 두어 (스크롤 위치는 충분히 아래, 요소는 보이는 상태) 클릭 전후를 비교
+        await page.evaluate(() => { document.body.style.paddingTop = '600px'; document.body.style.paddingBottom = '2000px'; });
+        await el.evaluate(e => e.scrollIntoView({ block: 'center' })); await page.waitForTimeout(80);
         const y1 = await page.evaluate(() => scrollY);
         await el.click(); await page.waitForTimeout(250);
         const y2 = await page.evaluate(() => scrollY);
         if (await page.evaluate(() => document.querySelector('#editSheet').open)) { await page.keyboard.press('Escape'); await page.waitForTimeout(250); }
         const y3 = await page.evaluate(() => scrollY);
-        await page.evaluate(() => { document.body.style.paddingBottom = ''; });
+        await page.evaluate(() => { document.body.style.paddingTop = ''; document.body.style.paddingBottom = ''; });
         if (y1 < 100 || Math.abs(y2 - y1) > 60 || Math.abs(y3 - y1) > 60) jumps.push(`${label} ${y1}→${y2}→${y3}`);
       };
       await probe('세부 탭', () => { setView('list'); listFilter = null; activeTab = 'rates'; render(); }, '#tabs [data-tab="inflation"]');
@@ -166,6 +168,10 @@ async function main() {
       await probe('제목 글자', () => { setView('today'); render(); }, '#watchTitle');
       check(!jumps.length, `${tag}: 눌러도 맨 위로 튀지 않음${jumps.length ? ' — ' + jumps.join(' / ') : ''}`);
     }
+    if (process.env.SHOT_DIR) { await page.evaluate(() => { setView('list'); listFilter = null; activeTab = 'energy'; render(); }); await page.screenshot({ path: `${process.env.SHOT_DIR}/energy3-${ui}-${scheme}.png` }); }
+    const en = await page.evaluate(() => { setView('ai'); render(); const a = !!document.querySelector('#aiBrief .ai-energy') && document.querySelectorAll('#aiBrief .ai-energy .en-row').length === 5;
+      setView('list'); listFilter = null; activeTab = 'energy'; render(); const b = !!document.querySelector('#cards .tab-ai .ai-energy'); return { a, b }; });
+    check(en.a && en.b, `${tag}: 에너지 3축 표시 (AI 화면·에너지 탭) ${JSON.stringify(en)}`);
     check(!errs.length, `${tag}: 스크립트 오류 없음${errs.length ? ' — ' + errs.slice(0, 3).join(' / ') : ''}`);
     await ctx.close();
   }

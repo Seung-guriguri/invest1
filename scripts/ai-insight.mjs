@@ -198,6 +198,63 @@ ${released.join('\n') || '없음'}
 ${days.join('\n') || '없음'}
 `;
 }
+/* ---------- 에너지 3축: 원유·가스·석탄 현황 + 인과 연결 신호 (코드가 판정, AI 는 이 안에서만 연결을 고름) ---------- */
+/** 연결마다 [지지]·[반대]·[해당 없음] — 숫자는 모두 데이터에서. 주간판이면 '최근 변화'를 1주 기준으로 */
+function energyLinks(rows) {
+  const R = Object.fromEntries(rows.map(r => [r.id, r]));
+  const chg = r => (r ? (WEEKLY && r.chg_1w != null ? r.chg_1w : r.chg_1m) : null);
+  const span = WEEKLY ? '1주' : '1개월';
+  const f = (v, u) => (v == null || !Number.isFinite(v) ? '—' : `${v > 0 ? '+' : ''}${Math.round(v * 10) / 10}${u || ''}`);
+  const mv = id => { const r = R[id]; return r ? `${r.name.split(' (')[0]} ${r.value}${r.unit || ''} (${r.date}, ${span} ${f(chg(r), r.chg_unit)})` : null; };
+  const snap = {
+    oil: [mv('wti'), mv('brent'), R.us_crude && R.us_crude.season_dev != null ? `미국 원유 재고 평년 대비 ${f(R.us_crude.season_dev, '%')}` : null, mv('crack321')].filter(Boolean),
+    gas: [mv('natgas'), mv('ttf'), mv('jkm'), R.ng_storage && R.ng_storage.season_dev != null ? `미국 가스 저장량 평년 대비 ${f(R.ng_storage.season_dev, '%')}` : null, mv('lng_spread')].filter(Boolean),
+    coal: [mv('coal'), mv('coal_jkm'), mv('coking_amr'), mv('etf_coal')].filter(Boolean)
+  };
+  const links = [];
+  const add = (no, name, state, why) => links.push(`${no} ${name} [${state}] ${why}`);
+  // ① 유가 → 아시아 LNG 장기계약가 (유가연동, 3~6개월 후행)
+  const b3 = R.brent && R.brent.chg_3m;
+  if (b3 != null) add('①', '유가→LNG 계약가', Math.abs(b3) >= 10 ? '지지' : '해당 없음', `브렌트 3개월 ${f(b3, '%')} — 10% 넘게 움직이면 3~6개월 뒤 유가연동 LNG 계약가에 같은 방향 압력`);
+  // ② 가스 → 석탄 전환 (석탄÷JKM 7 아래 석탄 유리 / 16 위 가스 유리)
+  const cj = R.coal_jkm, jp = R.coal_pw_jpn, kr = R.coal_pw_kor;
+  if (cj) {
+    const zone = cj.value < 7 ? '석탄이 가스보다 쌈(7 아래)' : cj.value > 16 ? '가스가 상대적으로 쌈(16 위)' : '중립 구간(7~16)';
+    const used = [jp, kr].filter(r => r && r.chg_1y != null).map(r => `${r.name.split(' (')[0]} 전년 대비 ${f(r.chg_1y, '%p')}`);
+    const shift = [jp, kr].filter(r => r && r.chg_1y != null);
+    const against = cj.value < 7 && shift.length && shift.every(r => r.chg_1y <= 0) ? ' · 반대: 실제 석탄 발전 비중은 늘지 않음(전환 미확인)' : '';
+    add('②', '가스→석탄 전환', cj.value < 7 || cj.value > 16 ? (against ? '지지·반대 공존' : '지지') : '해당 없음',
+      `석탄÷JKM ${cj.value} (${cj.date} 기준, ${zone})${used.length ? ' · ' + used.join(' · ') : ''}${against}`);
+  }
+  // ③ 유럽 vs 아시아 LNG 쟁탈 (JKM − TTF 달러 환산)
+  if (R.jkm && R.ttf && R.eurusd) {
+    const d = R.jkm.value - R.ttf.value * R.eurusd.value / 3.412;
+    add('③', '유럽 vs 아시아 LNG', Math.abs(d) >= 1 ? '지지' : '해당 없음', `JKM−TTF ${f(d, '$/MMBtu')} — ${d > 0 ? '아시아가 비쌈 → LNG 화물이 아시아로' : '유럽이 비쌈 → 화물이 유럽으로'}`);
+  }
+  // ④ 미국 가스 → LNG 수출 유인
+  if (R.lng_spread) add('④', '미국 가스→LNG 수출', R.lng_spread.value >= 5 ? '지지' : '해당 없음',
+    `LNG 수출 마진(TTF−HH) ${R.lng_spread.value}$/MMBtu${R.ng_storage && R.ng_storage.season_dev != null ? ` · 미국 저장량 평년 대비 ${f(R.ng_storage.season_dev, '%')}` : ''}`);
+  // ⑤ 미국 내 가스↔석탄 발전 전환
+  if (R.power_gas && R.power_coal && R.natgas) {
+    const g = chg(R.power_gas), c = chg(R.power_coal), hh = chg(R.natgas);
+    const sw = g != null && c != null && Math.sign(g) !== Math.sign(c) && Math.abs(g) + Math.abs(c) >= 2;
+    add('⑤', '미국 가스↔석탄 발전', sw ? '지지' : '해당 없음', `가스 발전 비중 ${span} ${f(g, '%p')} · 석탄 ${f(c, '%p')} · 헨리허브 ${f(hh, '%')}`);
+  }
+  // ⑥ 공통 요인 (셋이 같은 방향 → 개별 수급보다 달러·경기·지정학)
+  const tri = [R.brent || R.wti, R.jkm || R.natgas, R.coking_amr || R.etf_coal].map(chg);
+  if (tri.every(v => v != null)) {
+    const same = tri.every(v => v > 2) || tri.every(v => v < -2);
+    add('⑥', '공통 요인', same ? '지지' : '해당 없음', `원유 ${f(tri[0], '%')} · 가스 ${f(tri[1], '%')} · 석탄(대용) ${f(tri[2], '%')}${R.dxy ? ` · 달러인덱스 ${f(chg(R.dxy), '%')}` : ''} (${span})`);
+  }
+  // ⑦ 원전 공백 → 가스 발전 수요
+  if (R.nuclear_util) add('⑦', '원전 공백→가스 수요', R.nuclear_util.value < 85 ? '지지' : '해당 없음', `미국 원전 가동률 ${R.nuclear_util.value}%${R.power_gas ? ` · 가스 발전 비중 ${R.power_gas.value}%` : ''}`);
+  return { snap, links };
+}
+function energyBlock(rows) {
+  const { snap, links } = energyLinks(rows);
+  const sec = (t, xs) => `${t}\n${xs.length ? xs.map(x => '- ' + x).join('\n') : '- 데이터 없음'}`;
+  return [sec('원유', snap.oil), sec('가스', snap.gas), sec('석탄', snap.coal), sec('연결 신호 ([지지]인 것만 연결로 쓸 수 있음)', links)].join('\n\n');
+}
 function pickTargets(rows, max = 15) {
   const score = r => Math.max(
     r.z_1m != null ? Math.abs(r.z_1m) : 0,
@@ -261,7 +318,7 @@ async function shareCopy(text, label) {
   } catch (e) { console.log(`  공유 채널 ${label} 전송 실패: ${e.message}`); }
 }
 
-async function sendBriefingTelegram(b, sections, kst) {
+async function sendBriefingTelegram(b, sections, kst, energy = {}) {
   if (!TG_TOKEN || !TG_CHAT) { console.log('  (텔레그램 미설정 — 브리핑 전송 건너뜀)'); return; }
   const lines = [`${ED.icon} ${ED.brief} · ${kst}`, '', `📌 ${b.headline || ''}`];
   if (b.top3 && b.top3.length) lines.push('', `✅ ${ED.top}`, ...b.top3.map((x, i) => `${i + 1}. ${x}`));
@@ -270,7 +327,17 @@ async function sendBriefingTelegram(b, sections, kst) {
   if (b.korea) lines.push('', `🇰🇷 ${b.korea}`);
   if (b.watch && b.watch.length) lines.push('', `👀 확인할 것: ${b.watch.join(' · ')}`);
   if (b.counterpoint) lines.push('', `↔ 반대로 보면: ${b.counterpoint}`);
-  const secs = CATS.filter(c => sections[c] && sections[c].headline).map(c => `• ${CAT_LABEL[c]} — ${sections[c].headline}`);
+  // 에너지 3축 블록 (있으면 분류별 한 줄의 에너지는 생략해 중복 방지)
+  const hasEnergy = !!(energy && (energy.oil || energy.gas || energy.coal));
+  if (hasEnergy) {
+    lines.push('', `⚡ 에너지${energy.headline ? ' — ' + energy.headline : ''}`);
+    if (energy.oil) lines.push(`🛢 원유: ${energy.oil}`);
+    if (energy.gas) lines.push(`🔥 가스: ${energy.gas}`);
+    if (energy.coal) lines.push(`⛏ 석탄: ${energy.coal}`);
+    if (energy.link) lines.push(`🔗 연결: ${energy.link}`);
+    if (energy.counter) lines.push(`   반대 신호: ${energy.counter}`);
+  }
+  const secs = CATS.filter(c => sections[c] && sections[c].headline && !(hasEnergy && c === 'energy')).map(c => `• ${CAT_LABEL[c]} — ${sections[c].headline}`);
   if (secs.length) lines.push('', '분류별 한 줄', ...secs);
   const revs = CATS.filter(c => sections[c] && sections[c].review).map(c => `• ${CAT_LABEL[c]} — ${sections[c].review}`);
   if (revs.length) lines.push('', '↩ 지난 브리핑 점검', ...revs);
@@ -677,7 +744,12 @@ const SCHEMA = {
       type: 'ARRAY',
       items: { type: 'OBJECT', properties: { id: { type: 'STRING' }, comment: { type: 'STRING' } }, required: ['id', 'comment'] }
     },
-    report: REPORT_SCHEMA
+    report: REPORT_SCHEMA,
+    energy: {
+      type: 'OBJECT',
+      properties: { headline: { type: 'STRING' }, oil: { type: 'STRING' }, gas: { type: 'STRING' }, coal: { type: 'STRING' }, link: { type: 'STRING' }, counter: { type: 'STRING' }, refs: { type: 'ARRAY', items: { type: 'STRING' } } },
+      required: ['headline', 'oil', 'gas', 'coal', 'link']
+    }
   },
   required: ['briefing', 'sections', 'indicators', 'report']
 };
@@ -754,6 +826,7 @@ async function main() {
     .replace('{{targets}}', targets.map(id => targetLine(rows.find(r => r.id === id))).join('\n') || '없음')
     .replace('{{season}}', seasonNotes().join('\n') || '없음')
     .replace('{{edition}}', WEEKLY ? weeklyBlock(prevAI, rows) : '')
+    .replace('{{energy}}', energyBlock(rows))
     .replace('{{previous}}', prevBlock || '없음 (지난 브리핑 없음 — sections 의 review 는 빈 문자열로)')
     .replace('{{data}}', rows.map(r => JSON.stringify(r)).join('\n'));
   if (WEEKLY) console.log('  월요일 주간판: 지난주 정리 + 이번 주 볼 것');
@@ -831,6 +904,15 @@ async function main() {
     const refs = groundRefs(it.refs, catRows.length ? catRows : rows, [headline, body], 3);
     if (headline || body) sections[it.cat] = { headline, body, ...(review ? { review } : {}), ...(refs.length ? { refs } : {}) };
   }
+  // 에너지 3축 (원유·가스·석탄 + 연결) — 없으면 생략
+  const en = parsed.energy || {};
+  const energy = { headline: clean(en.headline, 40), oil: clean(en.oil, 170), gas: clean(en.gas, 170), coal: clean(en.coal, 170), link: clean(en.link, 230), counter: clean(en.counter, 170) };
+  if (energy.oil || energy.gas || energy.coal) {
+    const eTexts = [energy.oil, energy.gas, energy.coal, energy.link, energy.counter];
+    energy.refs = groundRefs(en.refs, rows, eTexts, 8);
+    energy.grounding = checkNumbers(eTexts, rows);
+    console.log(`  에너지 3축: 근거 ${energy.refs.length}개 · 숫자 ${energy.grounding.checked}개 중 일치 ${energy.grounding.matched}개`);
+  } else { Object.keys(energy).forEach(k => delete energy[k]); console.log('  에너지 3축: 없음'); }
   const indicators = {};
   for (const it of parsed.indicators || []) {
     const c = it && meta[it.id] ? clean(it.comment, 320) : null;
@@ -843,7 +925,7 @@ async function main() {
   // 브리핑을 먼저 보내고, 이어서 칼럼 생성 (칼럼이 실패해도 브리핑은 그대로)
   const report = cleanReport(parsed.report);
   console.log(report ? `  리서치 리포트: 핵심 결론 ${report.summary.length} · 인사이트 ${report.insights.length} · 상충 ${report.conflicts.length} · 시나리오 ${report.scenarios.length}` : '  리서치 리포트: 없음');
-  await sendBriefingTelegram(briefing, sections, kst);
+  await sendBriefingTelegram(briefing, sections, kst, energy);
   if (report) {
     await sendTelegramLong(reportShortText(report), '리서치 리포트 요약');
     if (TG_SHARE && TG_SHARE !== TG_CHAT) await sendTelegramLong(reportShortText(report), '리서치 리포트 요약', TG_SHARE);
@@ -892,7 +974,7 @@ async function main() {
   // asOf: 이번 브리핑이 본 지표별 마지막 기준일 → 다음 브리핑의 '지난 브리핑 이후 새 데이터' 판단에 사용
   const asOf = Object.fromEntries(rows.map(r => [r.id, r.date]));
   const briefHistory = [...((prevAI && prevAI.briefHistory) || []).filter(x => x && x.date !== kstToday), { date: kstToday, headline: briefing.headline, top3: briefing.top3, ...(WEEKLY ? { weekly: true } : {}) }].slice(-8);
-  const out = { generatedAt: new Date().toISOString(), model: used, ...(WEEKLY ? { edition: 'weekly' } : {}), briefing, sections, indicators: ordered, targets, ...(report ? { report } : {}), ...(column ? { column } : {}), columnHistory: column ? [...columnHistory, { date: kstToday, title: column.title }].slice(-7) : columnHistory, briefHistory, asOf };
+  const out = { generatedAt: new Date().toISOString(), model: used, ...(WEEKLY ? { edition: 'weekly' } : {}), briefing, sections, ...(energy.oil || energy.gas || energy.coal ? { energy } : {}), indicators: ordered, targets, ...(report ? { report } : {}), ...(column ? { column } : {}), columnHistory: column ? [...columnHistory, { date: kstToday, title: column.title }].slice(-7) : columnHistory, briefHistory, asOf };
   await mkdir(dirname(OUT), { recursive: true });
   await writeFile(OUT, JSON.stringify(out));
   const u = resp.usageMetadata || {};
@@ -919,7 +1001,7 @@ async function main() {
 }
 
 // 테스트에서 문장 다듬기 함수만 가져다 쓸 수 있게 내보냄. 직접 실행할 때만 생성 시작
-export { clean, cleanWatch, soften, BANNED, groundRefs, checkNumbers, stats, weeklyBlock };
+export { clean, cleanWatch, soften, BANNED, groundRefs, checkNumbers, stats, weeklyBlock, energyLinks };
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch(e => keepPrevious(`오류: ${e.message}`, { fail: true })).then(() => process.exit(0));
 }
