@@ -1,15 +1,21 @@
-#  Yahoo 티커 시험 (수동 실행 전용) — 어떤 종목이 받아지는지 로그로만 확인, 배포·데이터와 무관
-name: Yahoo 티커 시험
+#  데이터 출처 시험 (수동 실행 전용) — Yahoo 티커 · 웹페이지·파일 · EIA API 경로가 받아지는지 로그로만 확인, 배포·데이터와 무관
+name: 데이터 출처 시험
 
 on:
   workflow_dispatch:
     inputs:
       queries:
         description: '검색어 (쉼표로 구분)'
-        default: 'newcastle coal,coal futures,ICE newcastle'
+        default: ''
       symbols:
         description: '직접 시험할 티커 (쉼표로 구분)'
-        default: 'NCF=F,MTF=F,LQ=F'
+        default: ''
+      urls:
+        description: '시험할 웹페이지·파일 주소 (쉼표로 구분)'
+        default: ''
+      eia:
+        description: 'EIA API v2 경로 (쉼표로 구분, 예: coal)'
+        default: ''
 
 permissions:
   contents: read
@@ -23,7 +29,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - name: 시험
+      - name: Yahoo 티커 시험
+        if: inputs.queries != '' || inputs.symbols != ''
         env:
           QUERIES: ${{ inputs.queries }}
           SYMBOLS: ${{ inputs.symbols }}
@@ -32,3 +39,16 @@ jobs:
           IFS=',' read -ra QS <<< "$QUERIES"
           for q in "${QS[@]}"; do args+=(--query "$(echo "$q" | xargs)"); done
           node scripts/probe-yahoo.mjs "${args[@]}" --symbols "$SYMBOLS"
+      - name: 웹페이지·파일·EIA API 시험
+        if: inputs.urls != '' || inputs.eia != ''
+        env:
+          URLS: ${{ inputs.urls }}
+          EIA_ROUTES: ${{ inputs.eia }}
+          EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
+        run: |
+          args=()
+          IFS=',' read -ra US <<< "$URLS"
+          for u in "${US[@]}"; do u="$(echo "$u" | xargs)"; [ -n "$u" ] && args+=(--url "$u"); done
+          IFS=',' read -ra ES <<< "$EIA_ROUTES"
+          for e in "${ES[@]}"; do e="$(echo "$e" | xargs)"; [ -n "$e" ] && args+=(--eia "$e"); done
+          node scripts/probe-url.mjs "${args[@]}"
