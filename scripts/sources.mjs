@@ -98,6 +98,8 @@ export const SOURCES = {
   gas_pw_eu:  [{ ember: 'EU', series: 'Gas' }],
   coal:   [{ fred: 'PCOALAUUSDM' }],                       // IMF 호주(뉴캐슬) 석탄, 월간
   coking_amr: [{ yahoo: 'AMR', adj: true }],
+  // 계산용 보조 시계열 (카드 없음, aux_): JKM 월봉 10년 — 석탄÷JKM 상대가격의 긴 이력용
+  aux_jkm_m: [{ yahoo: 'JKM=F', range: '10y', interval: '1mo' }],
   // 비료 — World Bank 원자재 월간 가격표(Pink Sheet, $/t) · 비료 기업 주가(일간, 업황 대용)
   fert_urea:     [{ wb: 'Urea' }],                          // 요소 (질소 비료, 중동 등 FOB)
   fert_dap:      [{ wb: 'DAP' }],                           // 인산이암모늄 (인산 비료, 미국 걸프 FOB)

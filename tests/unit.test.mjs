@@ -24,6 +24,11 @@ test('3-2-1 크랙 스프레드 = (휘발유×42×2 + 디젤×42 − WTI×3) ÷ 
 test('LNG 수출 마진 = TTF(€/MWh)×유로/달러÷3.412 − 헨리허브', () => {
   near(COMPUTED.lng_spread.calc(34.12, 1.0, 3), 7);
 });
+test('석탄÷가스 상대가격 = 뉴캐슬 석탄($/t) ÷ JKM($/MMBtu), 같은 달끼리', () => {
+  near(COMPUTED.coal_jkm.calc(140, 28), 5);
+  assert.equal(COMPUTED.coal_jkm.byMonth, true);
+  assert.deepEqual(COMPUTED.coal_jkm.inputs, ['coal', 'aux_jkm_m']);
+});
 test('단순 계산 지표', () => {
   near(COMPUTED.brent_wti.calc(85, 80), 5);
   near(COMPUTED.gold_silver.calc(4000, 50), 80);
@@ -86,10 +91,10 @@ test('지표 정의: id 중복 없음, 분류·단위·소수자리·판단 방�
     if (i.derived) assert.ok(seen.has(i.derived.a) || cfg.indicators.some(x => x.id === i.derived.a), `${i.id}: derived 재료 없음`);
   }
 });
-test('수집 소스: 카드 지표가 아닌 소스는 가이드용(gd_·tk_ 등)만', async () => {
+test('수집 소스: 카드 지표가 아닌 소스는 가이드용(gd_·tk_)·계산용 보조(aux_)만', async () => {
   const cfg = await loadConfig();
   const ids = new Set(cfg.indicators.map(i => i.id));
-  const orphan = Object.keys(SOURCES).filter(id => !ids.has(id) && !/^(gd_|tk_)/.test(id));
+  const orphan = Object.keys(SOURCES).filter(id => !ids.has(id) && !/^(gd_|tk_|aux_)/.test(id));
   assert.deepEqual(orphan, []);
   for (const id of Object.keys(COMPUTED)) assert.ok(ids.has(id), `계산 지표 ${id} 가 CONFIG 에 없음`);
 });
