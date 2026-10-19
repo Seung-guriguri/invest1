@@ -41,7 +41,7 @@ const ED = WEEKLY ? { brief: '주간 AI 브리핑 (지난주 정리)', top: '지
 const WATCH_DIR = (process.env.WATCH_DIR || '').trim();   // 성적표용 기록 폴더 (배포하지 않는 private/)
 const TG_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
 const TG_CHAT = (process.env.TELEGRAM_CHAT_ID || '').trim();
-// (선택) 공유 채널·그룹 — 브리핑·리포트 요약·칼럼만 같이 보냄 (관심 종목·성적표·실패 알림은 개인 채팅에만)
+// (선택) 공유 채널·그룹 — 브리핑·리포트 요약·칼럼·관심 종목도 같이 보냄 (성적표는 track.mjs 에서, 실패 알림은 개인 채팅에만)
 const TG_SHARE = (process.env.TELEGRAM_SHARE_CHAT_ID || '').trim();
 const SITE_URL = (process.env.SITE_URL || '').trim();
 const API = 'https://generativelanguage.googleapis.com/v1beta';

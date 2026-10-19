@@ -4,7 +4,7 @@
 #  - 저장소 Settings → Pages → Source 를 "GitHub Actions" 로 설정해야 합니다.
 #  - API 키: Settings → Secrets and variables → Actions → FRED_API_KEY, ECOS_API_KEY, EIA_API_KEY, EMBER_API_KEY, GEMINI_API_KEY
 #    (선택) TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID — 긴급 경고를 텔레그램으로 받기
-#    (선택) TELEGRAM_SHARE_CHAT_ID — 공유 채널·그룹 (브리핑·리포트 요약·칼럼만 함께 전송)
+#    (선택) TELEGRAM_SHARE_CHAT_ID — 공유 채널·그룹 (브리핑·리포트 요약·칼럼·관심 종목·성적표 함께 전송, 실패 알림은 개인 채팅만)
 #  - AI 인사이트(Gemini)는 평일 아침 07:23 실행에서만 하루 1회 생성, 나머지 실행은 아침 해설을 그대로 유지
 #    월요일 07:23 에는 주간판(지난주 월~금 정리 + 이번 주 볼 것)을 생성
 name: 데이터 수집 및 배포
@@ -113,6 +113,7 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_SHARE_CHAT_ID: ${{ secrets.TELEGRAM_SHARE_CHAT_ID }}
         run: node scripts/track.mjs --dir private
 
       - name: 성적표 기록 저장
