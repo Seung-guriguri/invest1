@@ -29,6 +29,10 @@ on:
         description: '텔레그램 연결 테스트 메시지 보내기 (개인 채팅 + 공유 채널, AI 호출 없음)'
         type: boolean
         default: false
+      personal_only:
+        description: '텔레그램을 개인 채팅에만 보내기 (공유 채널·단체방에는 보내지 않음 — 시험·재생성용)'
+        type: boolean
+        default: false
       weekly:
         description: 'AI 를 주간판(지난주 정리)으로 생성 — ai 와 함께 체크 (월요일은 자동)'
         type: boolean
@@ -84,7 +88,7 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          TELEGRAM_SHARE_CHAT_ID: ${{ secrets.TELEGRAM_SHARE_CHAT_ID }}
+          TELEGRAM_SHARE_CHAT_ID: ${{ !(github.event_name == 'workflow_dispatch' && inputs.personal_only) && secrets.TELEGRAM_SHARE_CHAT_ID || '' }}
           TELEGRAM_TEST: ${{ github.event_name == 'workflow_dispatch' && inputs.telegram_test }}
         run: node scripts/alerts.mjs --data _site/data/latest.json --out _site/data/alerts.json --previous alerts-previous.json --ai ai-previous.json
 
@@ -101,7 +105,7 @@ jobs:
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          TELEGRAM_SHARE_CHAT_ID: ${{ secrets.TELEGRAM_SHARE_CHAT_ID }}
+          TELEGRAM_SHARE_CHAT_ID: ${{ !(github.event_name == 'workflow_dispatch' && inputs.personal_only) && secrets.TELEGRAM_SHARE_CHAT_ID || '' }}
           SITE_URL: ${{ steps.pages.outputs.base_url }}
           AI_RUN: ${{ (github.event_name == 'schedule' && (github.event.schedule == '23 22 * * 0-4' || github.event.schedule == '23 0 * * 1-5')) || (github.event_name == 'workflow_dispatch' && inputs.ai) }}
           AI_WEEKLY: ${{ github.event_name == 'workflow_dispatch' && inputs.weekly }}
@@ -113,7 +117,7 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          TELEGRAM_SHARE_CHAT_ID: ${{ secrets.TELEGRAM_SHARE_CHAT_ID }}
+          TELEGRAM_SHARE_CHAT_ID: ${{ !(github.event_name == 'workflow_dispatch' && inputs.personal_only) && secrets.TELEGRAM_SHARE_CHAT_ID || '' }}
         run: node scripts/track.mjs --dir private
 
       - name: 성적표 기록 저장
