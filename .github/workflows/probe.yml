@@ -1,0 +1,34 @@
+#  Yahoo 티커 시험 (수동 실행 전용) — 어떤 종목이 받아지는지 로그로만 확인, 배포·데이터와 무관
+name: Yahoo 티커 시험
+
+on:
+  workflow_dispatch:
+    inputs:
+      queries:
+        description: '검색어 (쉼표로 구분)'
+        default: 'newcastle coal,coal futures,ICE newcastle'
+      symbols:
+        description: '직접 시험할 티커 (쉼표로 구분)'
+        default: 'NCF=F,MTF=F,LQ=F'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: 시험
+        env:
+          QUERIES: ${{ inputs.queries }}
+          SYMBOLS: ${{ inputs.symbols }}
+        run: |
+          args=()
+          IFS=',' read -ra QS <<< "$QUERIES"
+          for q in "${QS[@]}"; do args+=(--query "$(echo "$q" | xargs)"); done
+          node scripts/probe-yahoo.mjs "${args[@]}" --symbols "$SYMBOLS"
