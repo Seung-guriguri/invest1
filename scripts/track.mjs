@@ -11,7 +11,7 @@
  *     · 지난 브리핑 점검 판정(적중·일부 적중·빗나감·판단 보류) 개수
  * - private/ 는 사이트로 배포하지 않고 GitHub Actions 캐시에만 보관합니다 (공개 사이트·로그에 티커를 남기지 않음).
  *
- * 환경 변수: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, SCORE_FORCE('true' 면 요일과 관계없이 성적표 전송 — 시험용)
+ * 환경 변수: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, (선택) TELEGRAM_SHARE_CHAT_ID — 공유 채널에도 같은 성적표, SCORE_FORCE('true' 면 요일과 관계없이 성적표 전송 — 시험용)
  * ===================================================================== */
 import { readFile, writeFile, mkdir, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -22,14 +22,15 @@ const arg = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] :
 const DIR = arg('--dir', 'private');
 const TG_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
 const TG_CHAT = (process.env.TELEGRAM_CHAT_ID || '').trim();
+const TG_SHARE = (process.env.TELEGRAM_SHARE_CHAT_ID || '').trim();   // 관심 종목을 공유 채널로 보내므로 그 결과(성적표)도 함께
 const FORCE = String(process.env.SCORE_FORCE || '').toLowerCase() === 'true';
 const kstNow = () => new Date(Date.now() + 9 * 3600000);
 const readJSON = async (f, d) => { try { return JSON.parse(await readFile(f, 'utf8')); } catch { return d; } };
 
-async function sendTelegram(text) {
+async function sendTelegram(text, chat = TG_CHAT) {
   const res = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ chat_id: TG_CHAT, text, disable_web_page_preview: true }), signal: AbortSignal.timeout(20000)
+    body: JSON.stringify({ chat_id: chat, text, disable_web_page_preview: true }), signal: AbortSignal.timeout(20000)
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
 }
@@ -101,6 +102,14 @@ async function main() {
   L.push('※ 짧은 기간·적은 표본이라 우연의 영향이 큽니다. 매주 쌓이는 흐름으로 참고하세요.');
   try {
     await sendTelegram(L.join('\n')); console.log(`성적표: 텔레그램 전송 (1주 평가 ${w1.length}건 · 4주 평가 ${w4.length}건)`);
+    // 공유 채널: 여러 사람이 보므로 투자 권유가 아님을 더 분명히 (개인 채팅과 같은 곳이면 보내지 않음)
+    // 개인 채팅 전송이 성공한 뒤에만 → 실패해 다음 실행에서 다시 보낼 때 채널에 중복되지 않게
+    if (TG_SHARE && TG_SHARE !== TG_CHAT) {
+      try {
+        await sendTelegram(L.join('\n') + '\n※ AI가 매크로 지표만 보고 고른 후보의 사후 기록이며, 매수·매도·보유를 권하지 않습니다.', TG_SHARE);
+        console.log('성적표: 공유 채널 전송');
+      } catch (e) { console.log(`성적표 공유 채널 전송 실패: ${e.message}`); }
+    }
     log.lastScore = todayKst; await writeFile(logFile, JSON.stringify(log));
   }
   catch (e) { console.log(`성적표 전송 실패: ${e.message}`); }
