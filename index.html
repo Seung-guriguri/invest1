@@ -199,6 +199,10 @@
   .ai-brief ul { margin: 6px 0 0; padding-left: 18px; font-size: 13.5px; }
   .ai-brief li { margin: 3px 0; }
   .ai-brief .row { font-size: 13.5px; margin: 8px 0 0; }
+  .ai-energy { display: grid; gap: 6px; margin: 6px 0 4px; font-size: 13.5px; line-height: 1.5; }
+  .ai-energy .en-row { display: grid; grid-template-columns: 4.6em 1fr; gap: 6px; }
+  .ai-energy .en-row b { font-size: 12.5px; color: var(--text-2); white-space: nowrap; }
+  .ai-energy .en-counter span { color: var(--text-2); }
   .ai-brief .row b { font-size: 12px; color: var(--text-2); display: block; }
   .ai-secs { margin-top: 10px; border-top: 1px solid var(--border); }
   .ai-brief details.ai-column { margin-top: 10px; border: 1px solid var(--border); border-radius: 12px; padding: 4px 12px; }
@@ -2239,17 +2243,27 @@ function aiReportHTML(r) {
 }
 
 /** 분류별 AI 브리핑 (한 줄 제목 + 짧은 이야기, 눌러서 펼침) */
+/** 에너지 3축 (원유·가스·석탄 + 연결) — AI 브리핑의 energy 필드 */
+function energyHTML(e) {
+  if (!e || !(e.oil || e.gas || e.coal)) return '';
+  const row = (icon, t, v) => v ? `<div class="en-row"><b>${icon} ${t}</b><span>${esc(v)}</span></div>` : '';
+  return `<div class="ai-energy">${row('🛢', '원유', e.oil)}${row('🔥', '가스', e.gas)}${row('⛏', '석탄', e.coal)}${row('🔗', '연결', e.link)}${e.counter ? `<div class="en-row en-counter"><b>↔ 반대</b><span>${esc(e.counter)}</span></div>` : ''}</div>`;
+}
 function aiSectionsHTML(ai) {
   const secs = ai.sections || {};
-  const items = CONFIG.categories.filter(c => secs[c.id]).map(c => {
-    const x = secs[c.id];
-    return `<details class="ai-sec"><summary><span class="ai-cat">${esc(c.label)}</span><span>${esc(x.headline || '')}</span></summary>${x.body ? `<p>${esc(x.body)}</p>` : ''}${reviewHTML(x)}</details>`;
+  const items = CONFIG.categories.filter(c => secs[c.id] || (c.id === 'energy' && ai.energy)).map(c => {
+    const x = secs[c.id] || {};
+    const en = c.id === 'energy' ? energyHTML(ai.energy) : '';
+    return `<details class="ai-sec"><summary><span class="ai-cat">${esc(c.label)}</span><span>${esc((c.id === 'energy' && ai.energy && ai.energy.headline) || x.headline || '')}</span></summary>${en}${x.body && !en ? `<p>${esc(x.body)}</p>` : ''}${reviewHTML(x)}</details>`;
   });
   return items.length ? `<div class="ai-secs">${items.join('')}</div>` : '';
 }
 /** 탭 맨 위: 이 분류의 AI 브리핑 */
 function tabAIHTML(cat) {
   const ai = DataStore.getAI(); const x = ai && ai.sections && ai.sections[cat];
+  if (cat === 'energy' && ai && ai.energy && (ai.energy.oil || ai.energy.gas || ai.energy.coal)) {
+    return `<div class="tab-ai"><span class="ai-label">AI 브리핑 · 에너지 3축</span>${ai.energy.headline ? `<b>${esc(ai.energy.headline)}</b>` : ''}${energyHTML(ai.energy)}${reviewHTML(x)}<div class="ai-meta">${esc(aiMetaText(ai))}</div></div>`;
+  }
   if (!x) return '';
   return `<div class="tab-ai"><span class="ai-label">AI 브리핑</span>${x.headline ? `<b>${esc(x.headline)}</b>` : ''}${x.body ? esc(x.body) : ''}${reviewHTML(x)}<div class="ai-meta">${esc(aiMetaText(ai))}</div></div>`;
 }

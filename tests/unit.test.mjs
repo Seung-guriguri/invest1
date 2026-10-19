@@ -8,7 +8,7 @@ import vm from 'node:vm';
 import { COMPUTED, clean, guessFreq, trim, valueAsOf, round, parseWorldBank } from '../scripts/fetch-data.mjs';
 import { readSheet } from '../scripts/lib/xlsx.mjs';
 import { deflateRawSync } from 'node:zlib';
-import { clean as aiClean, soften, cleanWatch, groundRefs, checkNumbers, stats as aiStats, weeklyBlock } from '../scripts/ai-insight.mjs';
+import { clean as aiClean, soften, cleanWatch, groundRefs, checkNumbers, stats as aiStats, weeklyBlock, energyLinks } from '../scripts/ai-insight.mjs';
 import { SOURCES } from '../scripts/sources.mjs';
 import { loadConfig } from '../scripts/lib/config.mjs';
 import { validateData } from '../scripts/validate-data.mjs';
@@ -302,4 +302,31 @@ test('World Bank 가격표 → 월간 관측치 (품목 머리글 앞부분 일�
   assert.deepEqual(parseWorldBank(rows, 'DAP'), [['1960-01-01', 40.5], ['2026-08-01', 640]]);
   assert.deepEqual(parseWorldBank(rows, 'Potassium chloride'), [['2026-08-01', 355.5], ['2026-09-01', 360]]);
   assert.throws(() => parseWorldBank(rows, 'Phosphate rock'), /없음/);
+});
+
+/* ---------- 에너지 3축: 연결 신호 판정 ---------- */
+test('에너지 연결 신호: 데이터로 [지지]·[해당 없음]·[지지·반대 공존] 판정', () => {
+  const r = (id, name, value, extra = {}) => ({ id, name, value, unit: '', date: '2026-10-16', chg_unit: '%', ...extra });
+  const mv = v => ({ chg_1m: v, chg_1w: v });   // 월요일(주간판)에 돌아도 같은 결과
+  const rows = [
+    r('brent', '브렌트유', 100, { chg_3m: 15, ...mv(5) }), r('wti', 'WTI', 95, mv(5)),
+    r('jkm', 'JKM', 14, mv(8)), r('ttf', 'TTF', 40, mv(4)), r('eurusd', '유로/달러', 1.1, mv(0)), r('natgas', '헨리허브', 3, mv(-3)),
+    r('coal_jkm', '석탄÷가스 상대가격', 6.5, { date: '2026-07-01' }),
+    r('coal_pw_jpn', '일본 석탄 발전 비중', 29, { chg_1y: -0.4, chg_unit: '%p' }), r('coal_pw_kor', '한국 석탄 발전 비중', 37, { chg_1y: -1, chg_unit: '%p' }),
+    r('lng_spread', 'LNG 수출 마진', 9), r('ng_storage', '미국 가스 저장량', 3500, { season_dev: 2 }),
+    r('power_gas', '미국 가스 발전 비중', 39, { ...mv(-2), chg_unit: '%p' }), r('power_coal', '미국 석탄 발전 비중', 16, { ...mv(1.5), chg_unit: '%p' }),
+    r('coking_amr', '원료탄 (AMR)', 160, mv(6)), r('nuclear_util', '미국 원전 가동률', 92)
+  ];
+  const { snap, links } = energyLinks(rows);
+  const get = n => links.find(l => l.startsWith(n));
+  assert.ok(snap.oil.length && snap.gas.length && snap.coal.length);
+  assert.match(get('①'), /\[지지\]/);                       // 브렌트 3개월 +15%
+  assert.match(get('②'), /지지·반대 공존/);                    // 6.5 < 7 이지만 일본·한국 석탄 비중 감소
+  assert.match(get('②'), /2026-07-01 기준/);
+  assert.match(get('③'), /\[지지\].*아시아가 비쌈/);           // 14 − 40×1.1/3.412 ≈ 1.1
+  assert.match(get('④'), /\[지지\]/);                       // 마진 9
+  assert.match(get('⑤'), /\[지지\]/);                       // 가스 −2 · 석탄 +1.5
+  assert.match(get('⑥'), /\[지지\]/);                       // 원유·가스·석탄 모두 +2% 넘게
+  assert.match(get('⑦'), /\[해당 없음\]/);                   // 원전 92%
+  assert.deepEqual(energyLinks([]).links, []);
 });
