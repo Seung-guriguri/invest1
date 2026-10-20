@@ -255,6 +255,93 @@ function energyBlock(rows) {
   const sec = (t, xs) => `${t}\n${xs.length ? xs.map(x => '- ' + x).join('\n') : '- 데이터 없음'}`;
   return [sec('원유', snap.oil), sec('가스', snap.gas), sec('석탄', snap.coal), sec('연결 신호 ([지지]인 것만 연결로 쓸 수 있음)', links)].join('\n\n');
 }
+/* ---------- 연결 블록 3개: 식량 체인·중국 철강 체인·한국 수입 부담 (에너지 3축과 같은 방식 — 코드가 판정, AI 는 [지지]만 사용) ---------- */
+function chainLinks(rows) {
+  const R = Object.fromEntries(rows.map(r => [r.id, r]));
+  const chg = r => (r ? (WEEKLY && r.chg_1w != null ? r.chg_1w : r.chg_1m) : null);
+  const span = WEEKLY ? '1주' : '1개월';
+  const f = (v, u) => (v == null || !Number.isFinite(v) ? '—' : `${v > 0 ? '+' : ''}${Math.round(v * 10) / 10}${u || ''}`);
+  const nm = r => r.name.split(' (')[0];
+  // 월간 지표는 3개월 변화·기준월, 나머지는 1개월(주간판 1주)
+  const mv = id => { const r = R[id]; if (!r) return null; const mo = r.freq === 'M' || r.freq === 'Q';
+    return `${nm(r)} ${r.value}${r.unit || ''} (${mo ? r.date.slice(0, 7) + ' 기준, 3개월' : r.date + ', ' + span} ${f(mo ? r.chg_3m : chg(r), r.chg_unit)})`; };
+  const sign = v => (v == null ? 0 : v > 0 ? 1 : v < 0 ? -1 : 0);
+  const out = {};
+
+  // 🌾 식량 체인: 가스 → 질소 비료 → 비료 구매력 → 곡물
+  {
+    const snap = ['ttf', 'natgas', 'fert_urea', 'fert_dap', 'fert_afford_urea', 'fert_afford_dap', 'fert_cf', 'fert_mos', 'corn', 'wheat', 'soybean'].map(mv).filter(Boolean);
+    const links = []; const add = (no, name, state, why) => links.push(`${no} ${name} [${state}] ${why}`);
+    const t3 = R.ttf && R.ttf.chg_3m, u3 = R.fert_urea && R.fert_urea.chg_3m;
+    if (t3 != null && u3 != null) add('①', '가스→질소 비료 원가', Math.abs(t3) >= 10 && sign(t3) === sign(u3) ? '지지' : '해당 없음',
+      `유럽 가스 3개월 ${f(t3, '%')} · 요소 3개월 ${f(u3, '%')} — 같은 방향으로 크게 움직이면 가스 원가가 요소값에 전가되는 중`);
+    const a = R.fert_afford_urea, d = R.fert_afford_dap;
+    const hi = [a, d].filter(r => r && r.position != null && r.position >= 80), lo = [a, d].filter(r => r && r.position != null && r.position <= 20);
+    if (a || d) add('②', '비료 구매력→다음 시즌 생산', hi.length ? '지지' : lo.length ? '지지' : '해당 없음',
+      [a, d].filter(Boolean).map(r => `${nm(r)} ${r.value}배 (${r.date.slice(0, 7)}, 최근 10년 중 위치 ${r.position ?? '—'})`).join(' · ') +
+      (hi.length ? ' — 비료가 곡물 대비 비싼 구간: 비료 사용 축소 → 수확량 부담 유인' : lo.length ? ' — 비료가 싼 구간: 생산 여건 양호' : ''));
+    const c3 = R.corn && R.corn.chg_3m;
+    if (c3 != null && a && a.chg_3m != null) add('③', '농가 이중 부담', c3 <= -5 && a.chg_3m >= 5 ? '지지' : '해당 없음',
+      `옥수수 3개월 ${f(c3, '%')} · 요소÷옥수수 3개월 ${f(a.chg_3m, '%')} — 곡물값은 내리고 비료 부담은 오르면 농가 수익성 악화`);
+    const cf = chg(R.fert_cf), mos = chg(R.fert_mos), uc = R.fert_urea && R.fert_urea.chg_1m;
+    if (cf != null && uc != null) add('④', '비료 기업 주가 vs 비료값', Math.abs(cf) >= 5 && sign(cf) !== sign(uc) && uc !== 0 ? '지지·반대 공존' : '해당 없음',
+      `CF ${span} ${f(cf, '%')} · MOS ${f(mos, '%')} · 요소 직전월 대비 ${f(uc, '%')} — 엇갈리면 주가가 비료값을 앞서 반영 중일 수 있음`);
+    const dx = chg(R.dxy), cm = chg(R.corn);
+    if (dx != null && cm != null) add('⑤', '달러→곡물', Math.abs(dx) >= 1.5 && sign(dx) !== sign(cm) ? '지지' : '해당 없음',
+      `달러인덱스 ${span} ${f(dx, '%')} · 옥수수 ${f(cm, '%')} — 달러 강세는 미국산 곡물 수출 가격 부담`);
+    out.food = { snap, links };
+  }
+
+  // 🏗 중국 철강 체인: 철광석·원료탄·호주달러·위안화·벌크선
+  {
+    const snap = ['iron_ore', 'coking_amr', 'audusd', 'usdcny', 'bdry', 'copper', 'etf_pick'].map(mv).filter(Boolean);
+    const links = []; const add = (no, name, state, why) => links.push(`${no} ${name} [${state}] ${why}`);
+    const io = chg(R.iron_ore), amr = chg(R.coking_amr), aud = chg(R.audusd), cny = chg(R.usdcny), bd = chg(R.bdry);
+    if (io != null && amr != null) add('①', '철광석·원료탄 동행', Math.abs(io) >= 3 && Math.abs(amr) >= 3 && sign(io) === sign(amr) ? '지지' : '해당 없음',
+      `철광석 ${span} ${f(io, '%')} · 원료탄(AMR) ${f(amr, '%')} — 둘 다 같은 방향이면 철강 생산(고로) 수요 공통 요인`);
+    if (io != null && aud != null) add('②', '호주달러 확인', Math.abs(io) >= 3 && sign(io) === sign(aud) ? '지지' : Math.abs(io) >= 3 ? '지지·반대 공존' : '해당 없음',
+      `철광석 ${f(io, '%')} · 호주달러 ${f(aud, '%')} — 철광석 수출국 통화가 같이 움직이면 원자재 수요 신호가 진짜일 가능성`);
+    if (io != null && cny != null) add('③', '위안화→중국 경기', cny >= 0.5 && io < 0 ? '지지' : cny <= -0.5 && io > 0 ? '지지' : '해당 없음',
+      `위안/달러 ${span} ${f(cny, '%')} (오르면 위안 약세) · 철광석 ${f(io, '%')} — 위안 약세+철광석 하락이면 중국 경기 부진, 반대면 회복 기대`);
+    if (io != null && bd != null) add('④', '벌크선 운임', Math.abs(bd) >= 5 && sign(bd) === sign(io) ? '지지' : '해당 없음',
+      `벌크선(BDRY) ${span} ${f(bd, '%')} — 철광석과 같은 방향이면 실제 물동량 변화가 동반`);
+    if (R.iron_ore && R.iron_ore.position != null) add('⑤', '철광석 가격 구간', R.iron_ore.position <= 20 || R.iron_ore.position >= 80 ? '지지' : '해당 없음',
+      `철광석 최근 2년 중 위치 ${R.iron_ore.position} — ${R.iron_ore.position <= 20 ? '저점권: 중국 부동산·철강 수요 부진 구간' : R.iron_ore.position >= 80 ? '고점권: 중국 부양·철강 수요 강세 구간' : '중간 구간'}`);
+    out.steel = { snap, links };
+  }
+
+  // 🇰🇷 한국 수입 부담: 원화 기준 유가·LNG·환율
+  {
+    const snap = ['usdkrw', 'brent', 'brent_krw', 'jkm', 'coal', 'kr_cpi'].map(mv).filter(Boolean);
+    const links = []; const add = (no, name, state, why) => links.push(`${no} ${name} [${state}] ${why}`);
+    const fx = chg(R.usdkrw), br = chg(R.brent), bk = chg(R.brent_krw), jk = chg(R.jkm);
+    if (R.jkm && R.usdkrw) {
+      const lngKrw = Math.round(R.jkm.value * R.usdkrw.value);
+      const lc = jk != null && fx != null ? ((1 + jk / 100) * (1 + fx / 100) - 1) * 100 : null;
+      snap.push(`원화 환산 LNG(JKM×원/달러) ${lngKrw.toLocaleString('en-US')}원/MMBtu (${span} ${f(lc, '%')}, 계산값)`);
+      if (lc != null) add('①', 'LNG 원화 부담', Math.abs(lc) >= 5 ? '지지' : '해당 없음', `원화 LNG ${span} ${f(lc, '%')} = JKM ${f(jk, '%')} + 환율 ${f(fx, '%')}`);
+    }
+    if (br != null && bk != null && fx != null) {
+      const cushion = Math.abs(bk) < Math.abs(br) && sign(fx) !== sign(br);
+      const amplify = Math.abs(bk) > Math.abs(br) && sign(fx) === sign(br);
+      add('②', '환율의 완충·증폭', cushion || amplify ? '지지' : '해당 없음',
+        `브렌트(달러) ${span} ${f(br, '%')} vs 원화 브렌트 ${f(bk, '%')} · 원/달러 ${f(fx, '%')} — ${cushion ? '원화 강세가 유가 충격을 덜어줌' : amplify ? '원화 약세가 유가 부담을 키움' : '환율 효과 작음'}`);
+    }
+    if (R.brent_krw && R.brent_krw.position != null) add('③', '원화 유가 구간', R.brent_krw.position >= 80 || R.brent_krw.position <= 20 ? '지지' : '해당 없음',
+      `원화 환산 브렌트 ${Math.round(R.brent_krw.value).toLocaleString('en-US')}원/bbl, 최근 2년 중 위치 ${R.brent_krw.position}`);
+    const bk3 = R.brent_krw && R.brent_krw.chg_3m;
+    if (bk3 != null && R.kr_cpi) add('④', '한국 물가 전이', Math.abs(bk3) >= 10 ? '지지' : '해당 없음',
+      `원화 브렌트 3개월 ${f(bk3, '%')} — 10% 넘게 움직이면 1~3개월 뒤 국내 석유류 물가에 같은 방향 압력 · 한국 CPI ${R.kr_cpi.value}% (${R.kr_cpi.date.slice(0, 7)})`);
+    out.korea = { snap, links };
+  }
+  return out;
+}
+const CHAIN_LABEL = { food: '식량 체인 (가스→비료→곡물)', steel: '중국 철강 체인 (철광석·원료탄·호주달러·위안화)', korea: '한국 수입 부담 (원화 기준 에너지)' };
+function chainBlock(rows) {
+  const ch = chainLinks(rows);
+  return Object.entries(ch).map(([k, { snap, links }]) =>
+    `■ ${k} — ${CHAIN_LABEL[k]}\n현황\n${snap.length ? snap.map(x => '- ' + x).join('\n') : '- 데이터 없음'}\n연결 신호 ([지지]인 것만 사용)\n${links.length ? links.map(x => '- ' + x).join('\n') : '- 판정할 데이터 없음'}`).join('\n\n');
+}
 function pickTargets(rows, max = 15) {
   const score = r => Math.max(
     r.z_1m != null ? Math.abs(r.z_1m) : 0,
@@ -318,7 +405,7 @@ async function shareCopy(text, label) {
   } catch (e) { console.log(`  공유 채널 ${label} 전송 실패: ${e.message}`); }
 }
 
-async function sendBriefingTelegram(b, sections, kst, energy = {}) {
+async function sendBriefingTelegram(b, sections, kst, energy = {}, chains = {}) {
   if (!TG_TOKEN || !TG_CHAT) { console.log('  (텔레그램 미설정 — 브리핑 전송 건너뜀)'); return; }
   const lines = [`${ED.icon} ${ED.brief} · ${kst}`, '', `📌 ${b.headline || ''}`];
   if (b.top3 && b.top3.length) lines.push('', `✅ ${ED.top}`, ...b.top3.map((x, i) => `${i + 1}. ${x}`));
@@ -337,6 +424,13 @@ async function sendBriefingTelegram(b, sections, kst, energy = {}) {
     if (energy.link) lines.push(`🔗 연결: ${energy.link}`);
     if (energy.counter) lines.push(`   반대 신호: ${energy.counter}`);
   }
+  const CHAIN_TG = { food: '🌾 식량', steel: '🏗 중국 철강', korea: '🇰🇷 한국 수입 부담' };
+  const chainLines = [];
+  for (const [k, t] of Object.entries(CHAIN_TG)) {
+    const c = chains && chains[k];
+    if (c && c.body) chainLines.push('', `${t}${c.headline ? ' — ' + c.headline : ''}`, c.body, ...(c.counter ? [`   반대 신호: ${c.counter}`] : []));
+  }
+  lines.push(...chainLines);
   const secs = CATS.filter(c => sections[c] && sections[c].headline && !(hasEnergy && c === 'energy')).map(c => `• ${CAT_LABEL[c]} — ${sections[c].headline}`);
   if (secs.length) lines.push('', '분류별 한 줄', ...secs);
   const revs = CATS.filter(c => sections[c] && sections[c].review).map(c => `• ${CAT_LABEL[c]} — ${sections[c].review}`);
@@ -346,6 +440,12 @@ async function sendBriefingTelegram(b, sections, kst, energy = {}) {
   let text = lines.join('\n');
   // 너무 길면 '지난 브리핑 점검'을 먼저 빼서 맨 아래 안내 문구가 잘리지 않게
   if (text.length > 4000 && revs.length) text = lines.filter(l => !revs.includes(l) && l !== '↩ 지난 브리핑 점검').join('\n').replace(/\n{3,}/g, '\n\n');
+  // 그래도 길면 연결 블록(식량·철강·한국)을 빼고 앱 안내 한 줄로
+  if (text.length > 4000 && chainLines.length) {
+    const drop = new Set(chainLines.filter(Boolean));
+    text = lines.filter(l => !drop.has(l) && !revs.includes(l) && l !== '↩ 지난 브리핑 점검').join('\n').replace(/\n{3,}/g, '\n\n')
+      .replace('\n\n분류별 한 줄', '\n\n🔗 식량·중국 철강·한국 수입 부담 연결 블록은 앱 AI 화면에서\n\n분류별 한 줄');
+  }
   if (text.length > 4000) text = text.slice(0, 3990) + '…';
   try {
     const res = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
@@ -749,6 +849,13 @@ const SCHEMA = {
       type: 'OBJECT',
       properties: { headline: { type: 'STRING' }, oil: { type: 'STRING' }, gas: { type: 'STRING' }, coal: { type: 'STRING' }, link: { type: 'STRING' }, counter: { type: 'STRING' }, refs: { type: 'ARRAY', items: { type: 'STRING' } } },
       required: ['headline', 'oil', 'gas', 'coal', 'link']
+    },
+    chains: {
+      type: 'OBJECT',
+      properties: Object.fromEntries(['food', 'steel', 'korea'].map(k => [k, {
+        type: 'OBJECT', properties: { headline: { type: 'STRING' }, body: { type: 'STRING' }, counter: { type: 'STRING' }, refs: { type: 'ARRAY', items: { type: 'STRING' } } }, required: ['headline', 'body']
+      }])),
+      required: ['food', 'steel', 'korea']
     }
   },
   required: ['briefing', 'sections', 'indicators', 'report']
@@ -827,6 +934,7 @@ async function main() {
     .replace('{{season}}', seasonNotes().join('\n') || '없음')
     .replace('{{edition}}', WEEKLY ? weeklyBlock(prevAI, rows) : '')
     .replace('{{energy}}', energyBlock(rows))
+    .replace('{{chains}}', chainBlock(rows))
     .replace('{{previous}}', prevBlock || '없음 (지난 브리핑 없음 — sections 의 review 는 빈 문자열로)')
     .replace('{{data}}', rows.map(r => JSON.stringify(r)).join('\n'));
   if (WEEKLY) console.log('  월요일 주간판: 지난주 정리 + 이번 주 볼 것');
@@ -913,6 +1021,17 @@ async function main() {
     energy.grounding = checkNumbers(eTexts, rows);
     console.log(`  에너지 3축: 근거 ${energy.refs.length}개 · 숫자 ${energy.grounding.checked}개 중 일치 ${energy.grounding.matched}개`);
   } else { Object.keys(energy).forEach(k => delete energy[k]); console.log('  에너지 3축: 없음'); }
+  const chains = {};
+  for (const k of ['food', 'steel', 'korea']) {
+    const c = (parsed.chains || {})[k] || {};
+    const x = { headline: clean(c.headline, 40), body: clean(c.body, 260), counter: clean(c.counter, 170) };
+    if (!x.body) continue;
+    const texts = [x.body, x.counter];
+    x.refs = groundRefs(c.refs, rows, texts, 8);
+    x.grounding = checkNumbers(texts, rows);
+    chains[k] = x;
+    console.log(`  연결 블록 ${k}: 근거 ${x.refs.length}개 · 숫자 ${x.grounding.checked}개 중 일치 ${x.grounding.matched}개`);
+  }
   const indicators = {};
   for (const it of parsed.indicators || []) {
     const c = it && meta[it.id] ? clean(it.comment, 320) : null;
@@ -925,7 +1044,7 @@ async function main() {
   // 브리핑을 먼저 보내고, 이어서 칼럼 생성 (칼럼이 실패해도 브리핑은 그대로)
   const report = cleanReport(parsed.report);
   console.log(report ? `  리서치 리포트: 핵심 결론 ${report.summary.length} · 인사이트 ${report.insights.length} · 상충 ${report.conflicts.length} · 시나리오 ${report.scenarios.length}` : '  리서치 리포트: 없음');
-  await sendBriefingTelegram(briefing, sections, kst, energy);
+  await sendBriefingTelegram(briefing, sections, kst, energy, chains);
   if (report) {
     await sendTelegramLong(reportShortText(report), '리서치 리포트 요약');
     if (TG_SHARE && TG_SHARE !== TG_CHAT) await sendTelegramLong(reportShortText(report), '리서치 리포트 요약', TG_SHARE);
@@ -974,7 +1093,7 @@ async function main() {
   // asOf: 이번 브리핑이 본 지표별 마지막 기준일 → 다음 브리핑의 '지난 브리핑 이후 새 데이터' 판단에 사용
   const asOf = Object.fromEntries(rows.map(r => [r.id, r.date]));
   const briefHistory = [...((prevAI && prevAI.briefHistory) || []).filter(x => x && x.date !== kstToday), { date: kstToday, headline: briefing.headline, top3: briefing.top3, ...(WEEKLY ? { weekly: true } : {}) }].slice(-8);
-  const out = { generatedAt: new Date().toISOString(), model: used, ...(WEEKLY ? { edition: 'weekly' } : {}), briefing, sections, ...(energy.oil || energy.gas || energy.coal ? { energy } : {}), indicators: ordered, targets, ...(report ? { report } : {}), ...(column ? { column } : {}), columnHistory: column ? [...columnHistory, { date: kstToday, title: column.title }].slice(-7) : columnHistory, briefHistory, asOf };
+  const out = { generatedAt: new Date().toISOString(), model: used, ...(WEEKLY ? { edition: 'weekly' } : {}), briefing, sections, ...(energy.oil || energy.gas || energy.coal ? { energy } : {}), ...(Object.keys(chains).length ? { chains } : {}), indicators: ordered, targets, ...(report ? { report } : {}), ...(column ? { column } : {}), columnHistory: column ? [...columnHistory, { date: kstToday, title: column.title }].slice(-7) : columnHistory, briefHistory, asOf };
   await mkdir(dirname(OUT), { recursive: true });
   await writeFile(OUT, JSON.stringify(out));
   const u = resp.usageMetadata || {};
@@ -1001,7 +1120,7 @@ async function main() {
 }
 
 // 테스트에서 문장 다듬기 함수만 가져다 쓸 수 있게 내보냄. 직접 실행할 때만 생성 시작
-export { clean, cleanWatch, soften, BANNED, groundRefs, checkNumbers, stats, weeklyBlock, energyLinks };
+export { clean, cleanWatch, soften, BANNED, groundRefs, checkNumbers, stats, weeklyBlock, energyLinks, chainLinks };
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch(e => keepPrevious(`오류: ${e.message}`, { fail: true })).then(() => process.exit(0));
 }

@@ -45,7 +45,8 @@ function fixture(cfg) {
 const AI = { generatedAt: new Date().toISOString(), model: 'test',
   briefing: { headline: '테스트 브리핑', story: '합성 데이터로 만든 테스트 문장입니다.', top3: ['하나', '둘', '셋'], points: ['수치'], korea: '한국', watch: ['확인'], counterpoint: '반대', refs: [{ id: 'wti', date: '2020-01-01' }, { id: 'us10y', date: '2020-01-01' }, { id: 'nope', date: '2020-01-01' }], grounding: { checked: 5, matched: 4, unmatched: ['9.9%'] } },
   energy: { headline: '가스發 석탄 전환', oil: '원유 한 줄', gas: '가스 한 줄', coal: '석탄 한 줄', link: '연결 한 줄', counter: '반대 한 줄' },
-  sections: { rates: { headline: '금리 제목', body: '금리 본문', review: '' } }, indicators: { wti: '테스트 해설' } };
+  chains: { food: { headline: '비료 부담', body: '식량 체인 본문', counter: '식량 반대' }, steel: { headline: '철강 부진', body: '철강 체인 본문', counter: '' }, korea: { headline: '원화 완충', body: '한국 수입 본문', counter: '' } },
+  sections: { rates: { headline: '금리 제목', body: '금리 본문', review: '' }, fx: { headline: '환율 제목', body: '환율 본문', review: '' } }, indicators: { wti: '테스트 해설' } };
 
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png' };
 
@@ -172,6 +173,14 @@ async function main() {
     const en = await page.evaluate(() => { setView('ai'); render(); const a = !!document.querySelector('#aiBrief .ai-energy') && document.querySelectorAll('#aiBrief .ai-energy .en-row').length === 5;
       setView('list'); listFilter = null; activeTab = 'energy'; render(); const b = !!document.querySelector('#cards .tab-ai .ai-energy'); return { a, b }; });
     check(en.a && en.b, `${tag}: 에너지 3축 표시 (AI 화면·에너지 탭) ${JSON.stringify(en)}`);
+    const rg = await page.evaluate(() => { setView('today'); render(); const w = document.querySelector('#regimeWrap'); w.open = true;
+      return { svg: !!w.querySelector('svg.rg-map'), now: !!w.querySelector('.rg-now'), pts: w.querySelectorAll('.rg-pt, .rg-now').length, chips: w.querySelectorAll('.rg-chip').length, label: document.querySelector('#regimeCount').textContent }; });
+    check(rg.svg && rg.now && rg.pts >= 2 && rg.chips >= 6 && /과열|스태그|회복|침체/.test(rg.label), `${tag}: 경기 국면 지도 ${JSON.stringify(rg)}`);
+    if (process.env.SHOT_DIR) { await page.evaluate(() => { setView('today'); render(); const w = document.querySelector('#regimeWrap'); w.open = true; w.scrollIntoView(); }); await page.screenshot({ path: `${process.env.SHOT_DIR}/regime-${ui}-${scheme}.png` }); }
+    const chn = await page.evaluate(() => { setView('ai'); render(); const a = document.querySelectorAll('#aiBrief .ai-chain').length;
+      const tab = id => { setView('list'); listFilter = null; activeTab = id; render(); return document.querySelectorAll('#cards .tab-ai .ai-chain').length; };
+      return { a, fert: tab('fert'), grains: tab('grains'), metals: tab('metals'), fx: tab('fx'), rates: tab('rates') }; });
+    check(chn.a === 4 && chn.fert === 1 && chn.grains === 1 && chn.metals === 1 && chn.fx === 1 && chn.rates === 0, `${tag}: 연결 블록 표시 (AI 화면 4곳·비료·곡물·금속·환율 탭) ${JSON.stringify(chn)}`);
     check(!errs.length, `${tag}: 스크립트 오류 없음${errs.length ? ' — ' + errs.slice(0, 3).join(' / ') : ''}`);
     await ctx.close();
   }
