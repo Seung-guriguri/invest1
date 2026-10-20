@@ -72,6 +72,7 @@ export const SOURCES = {
   dxy:    [{ yahoo: 'DX-Y.NYB' }],
   usdjpy: [{ yahoo: 'JPY=X' }, { fred: 'DEXJPUS' }],
   eurusd: [{ yahoo: 'EURUSD=X' }, { fred: 'DEXUSEU' }],
+  audusd: [{ yahoo: 'AUDUSD=X' }, { fred: 'DEXUSAL' }],
   usdcny: [{ yahoo: 'CNY=X' }, { fred: 'DEXCHUS' }],
   vix:    [{ yahoo: '^VIX' }, { fred: 'VIXCLS' }],
 

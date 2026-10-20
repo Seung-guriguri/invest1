@@ -68,7 +68,7 @@
 | `fed_bs` | 연준 총자산 | 조$ | 실측 | FRED WALCL | pct |
 | `m2` | 미국 M2 증가율 | % | 실측 | FRED M2SL | pp |
 
-## 환율 (6)
+## 환율 (7)
 
 | ID | 이름 | 단위 | 성격 | 출처 (1순위 → 대체) | 변화 판단 |
 |---|---|---|---|---|---|
@@ -76,6 +76,7 @@
 | `dxy` | 달러인덱스 |  | 실측 | Yahoo DX-Y.NYB | pct |
 | `usdjpy` | 엔/달러 환율 | 엔 | 실측 | Yahoo JPY=X → FRED DEXJPUS | pct |
 | `eurusd` | 유로/달러 환율 | $ | 실측 | Yahoo EURUSD=X → FRED DEXUSEU | pct |
+| `audusd` | 호주달러/달러 환율 | $ | 실측 | Yahoo AUDUSD=X → FRED DEXUSAL | pct |
 | `usdcny` | 위안/달러 환율 | 위안 | 실측 | Yahoo CNY=X → FRED DEXCHUS | pct |
 | `vix` | VIX |  | 실측 | Yahoo ^VIX → FRED VIXCLS | pct |
 
