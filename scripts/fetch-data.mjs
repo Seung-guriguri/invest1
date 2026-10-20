@@ -453,9 +453,37 @@ async function fetchWorldBank(src) {
   return parseWorldBank(rows, src.wb);
 }
 
-const FETCHERS = { fred: fetchFred, yahoo: fetchYahoo, ecos: fetchEcos, eurostat: fetchEurostat, eia: fetchEia, eiaGrid: fetchEiaGrid, nrc: fetchNrc, ember: fetchEmber, wb: fetchWorldBank };
+/* ---------- SPDR 금 ETF 보유량 (공식 일별 기록 xlsx: 날짜·톤) ---------- */
+const MON = { jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06', jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12' };
+/** 'US GLD Historical Archive' 시트 행 배열 → [[YYYY-MM-DD, 톤]] (휴일 행·글자 값 제외) */
+function parseSpdr(rows) {
+  let head = -1, dc = -1, tc = -1;
+  for (let r = 0; r < Math.min(rows.length, 20) && tc < 0; r++) {
+    const row = rows[r] || [];
+    const t = row.findIndex(c => typeof c === 'string' && /^\s*tonnes of gold/i.test(c));
+    if (t >= 0) { head = r; tc = t; dc = row.findIndex(c => typeof c === 'string' && /^\s*date\s*$/i.test(c)); }
+  }
+  if (tc < 0 || dc < 0) throw new Error("'Date'·'Tonnes of Gold' 열 없음");
+  const out = [];
+  for (const row of rows.slice(head + 1)) {
+    const d = row && row[dc], v = row && row[tc];
+    if (typeof v !== 'number' || !Number.isFinite(v) || v <= 0) continue;
+    let date = null;
+    if (typeof d === 'number') date = new Date(Date.UTC(1899, 11, 30) + d * 86400000).toISOString().slice(0, 10);   // 엑셀 날짜 숫자
+    else { const m = /^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/.exec(String(d || '').trim()); if (m && MON[m[2].toLowerCase()]) date = `${m[3]}-${MON[m[2].toLowerCase()]}-${m[1].padStart(2, '0')}`; }
+    if (date) out.push([date, v]);
+  }
+  if (!out.length) throw new Error('보유량 값 없음');
+  return out;
+}
+async function fetchSpdr(src) {
+  const url = `https://api.spdrgoldshares.com/api/v1/historical-archive?product=${encodeURIComponent(src.spdr)}&exchange=NYSE&lang=en`;
+  return parseSpdr(readSheet(await getBuffer(url), /historical archive/i));
+}
+
+const FETCHERS = { fred: fetchFred, yahoo: fetchYahoo, ecos: fetchEcos, eurostat: fetchEurostat, eia: fetchEia, eiaGrid: fetchEiaGrid, nrc: fetchNrc, ember: fetchEmber, wb: fetchWorldBank, spdr: fetchSpdr };
 const sourceLabel = src => src.fred ? `FRED:${src.fred}` : src.yahoo ? `Yahoo:${src.yahoo}`
-  : src.eurostat ? `Eurostat:${src.eurostat}` : src.eia ? `EIA:${src.eia}` : src.eiaGrid ? `EIA-930:US48/${src.eiaGrid}` : src.nrc ? 'NRC:원자로 출력' : src.ember ? `Ember:${src.ember}/${src.series}` : src.wb ? `WorldBank:${src.wb}` : `ECOS:${src.ecos}/${src.item}`;
+  : src.eurostat ? `Eurostat:${src.eurostat}` : src.eia ? `EIA:${src.eia}` : src.eiaGrid ? `EIA-930:US48/${src.eiaGrid}` : src.nrc ? 'NRC:원자로 출력' : src.ember ? `Ember:${src.ember}/${src.series}` : src.wb ? `WorldBank:${src.wb}` : src.spdr ? `SPDR:${src.spdr.toUpperCase()} 보유량` : `ECOS:${src.ecos}/${src.item}`;
 
 /** 지표 하나: 소스를 순서대로 시도 */
 async function collect(id, sources) {
@@ -580,7 +608,7 @@ async function main() {
 }
 
 // 테스트(tests/)에서 계산·정리 함수만 가져다 쓸 수 있게 내보냄. 직접 실행할 때만 수집 시작
-export { COMPUTED, clean, guessFreq, trim, valueAsOf, round, parseWorldBank };
+export { COMPUTED, clean, guessFreq, trim, valueAsOf, round, parseWorldBank, parseSpdr };
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch(e => { console.error(e); process.exit(1); });
 }

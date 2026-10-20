@@ -184,6 +184,7 @@ export const SOURCES = {
   // ── 금속·광물 ──
   copper:   [{ yahoo: 'HG=F', scale: LB_PER_T }, { fred: 'PCOPPUSDM' }],
   gold:     [{ yahoo: 'GC=F' }],
+  gold_etf_gld: [{ spdr: 'gld' }],   // GLD 금 보유량(톤) — SPDR 공식 일별 기록 xlsx
   silver:   [{ yahoo: 'SI=F' }],
   aluminum: [{ yahoo: 'ALI=F' }, { fred: 'PALUMUSDM' }],
   iron_ore: [{ yahoo: 'TIO=F' }, { fred: 'PIORECRUSDM' }],

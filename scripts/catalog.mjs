@@ -22,6 +22,7 @@ function srcLabel(s) {
   if (s.ember) return `Ember ${s.ember}/${s.series}`;
   if (s.eurostat) return `Eurostat ${s.eurostat}`;
   if (s.wb) return `World Bank 월간 가격표 ${s.wb}`;
+  if (s.spdr) return `SPDR 공식 일별 기록 ${s.spdr.toUpperCase()} 보유 톤`;
   return '?';
 }
 

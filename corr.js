@@ -138,7 +138,7 @@
       const sd = Math.sqrt(vals.reduce((s, v) => s + (v - b) ** 2, 0) / vals.length) || 1;   // 차이 지표: 표준편차 단위로 100 주변
       return vals.map(v => 100 + (v - b) / sd * 10);
     };
-    return { basis, keys: rows.map(r => r[0]), a: norm(rows.map(r => r[1]), A.mode), b: norm(rows.map(r => r[2]), B.mode) };
+    return { basis, keys: rows.map(r => r[0]), a: norm(rows.map(r => r[1]), A.mode), b: norm(rows.map(r => r[2]), B.mode), ra: rows.map(r => r[1]), rb: rows.map(r => r[2]) };
   }
 
   const mean = a => a.reduce((s, v) => s + v, 0) / a.length;
