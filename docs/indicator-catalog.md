@@ -149,12 +149,13 @@
 | `crude_net_imports` | 미국 원유 순수입 | 백만 b/d | 실측 | EIA PET.WCRNTUS2.W | abs |
 | `eu_oil_stock` | 독일 비상 석유 비축 | 일 | 실측 | Eurostat nrg_stk_oem | pct |
 
-## 금속 (8)
+## 금속 (9)
 
 | ID | 이름 | 단위 | 성격 | 출처 (1순위 → 대체) | 변화 판단 |
 |---|---|---|---|---|---|
 | `copper` | 구리 | $/t | 실측 | Yahoo HG=F → FRED PCOPPUSDM | pct |
 | `gold` | 금 | $/oz | 실측 | Yahoo GC=F | pct |
+| `gold_etf_gld` | 금 ETF 보유량 (GLD) | 톤 | 실측 | SPDR 공식 일별 기록 GLD 보유 톤 | pct |
 | `silver` | 은 | $/oz | 실측 | Yahoo SI=F | pct |
 | `gold_silver` | 금/은 비율 | 배 | 계산 | 계산: 금÷은 | pct |
 | `aluminum` | 알루미늄 | $/t | 실측 | Yahoo ALI=F → FRED PALUMUSDM | pct |

@@ -111,6 +111,12 @@ async function main() {
       }
       check(tabsOk.join() === 'sum,roll,evt,ratio', `관계 분석 탭 (요약·추이·사건 반응·비율) ${tabsOk.join(' | ')}`);
       await page.click('#corrOut [data-corrtab="sum"]');
+      // 겹친 차트: 기본 '각자 축' → 버튼으로 '같은 축(시작=100)' 전환·기억
+      const d1 = await page.evaluate(() => document.querySelector('#corrDual') && document.querySelector('#corrDual').textContent);
+      await page.click('#corrDual');
+      const d2 = await page.evaluate(() => ({ t: document.querySelector('#corrDual').textContent, saved: DataStore.getSettings().corrDual, lines: document.querySelectorAll('#corrOut .corr-chart polyline').length }));
+      await page.click('#corrDual');
+      check(/각자 축/.test(d1 || '') && /시작=100/.test(d2.t) && d2.saved === false && d2.lines === 2, `겹친 차트 축 전환 ${JSON.stringify({ d1, d2 })}`);
       await page.evaluate(() => document.querySelector('#editSheet').close());
       check(co.sec && co.win === 3 && co.svg && co.saved === 'brent', `상관관계: 순위·직접 비교·차트·선택 기억 ${JSON.stringify(co)}`);
       // 엇갈림 감지: 계산 함수를 잠시 바꿔 첫 감시 짝이 엇갈린 상황을 만들고 화면 연결 확인

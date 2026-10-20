@@ -160,6 +160,7 @@
   .corr-chart { margin-top: 8px; }
   .corr-chart svg { width: 100%; height: auto; display: block; }
   .corr-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--text-2); margin-top: 4px; }
+  .corr-legend .linkish { border: 0; background: none; padding: 0; color: var(--accent-text, var(--accent)); text-decoration: underline; font: inherit; cursor: pointer; }
   .corr-legend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 4px; }
   .corr-note { font-size: 11.5px; color: var(--text-2); margin: 6px 0 0; }
   .corr-tabs { display: flex; gap: 4px; margin: 10px 0 4px; }
@@ -868,6 +869,8 @@ const CONFIG = {
       change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
     { id: 'gold', cat: 'metals', name: '금', unit: '$/oz', dp: 1, changeMode: 'pct', profile: 'gold',
       change: { dir: 'both', flat: 0.5, warn: 3, danger: 6 } },
+    { id: 'gold_etf_gld', cat: 'metals', name: '금 ETF 보유량 (GLD)', sub: '세계 최대 금 ETF가 보관 중인 금, 톤 (SPDR 일별) — 투자 수요 흐름', unit: '톤', dp: 1, changeMode: 'pct', profile: 'goldEtf',
+      change: { dir: 'both', flat: 0.2, warn: 1.5, danger: 3 } },
     { id: 'silver', cat: 'metals', name: '은', unit: '$/oz', dp: 2, changeMode: 'pct', profile: 'silver',
       change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
     { id: 'gold_silver', cat: 'metals', name: '금/은 비율', sub: '금 1온스 = 은 몇 온스, 자동 계산 · 높을수록 경기 걱정', unit: '배', dp: 1, changeMode: 'pct', profile: 'goldSilver',
@@ -1417,6 +1420,13 @@ const COMMENTS = {
     rise: '금 상승 → 안전자산 선호 또는 달러 약세 반영',
     fall: '금 하락 → 투자 심리 회복 또는 실질금리 상승 반영',
     flat: '금 보합 → 안전자산 수요 변화 작음'
+  },
+  goldEtf: {
+    surge: '금 ETF 보유량 급증 → 투자 자금이 금으로 몰리는 중',
+    rise: '금 ETF 보유량 증가 → 서구 투자자의 금 매수 유입',
+    fall: '금 ETF 보유량 감소 → 투자 자금 이탈 (가격 하락 압력)',
+    plunge: '금 ETF 보유량 급감 → 대규모 환매',
+    flat: '금 ETF 보유량 보합 → 투자 수요 변화 작음'
   },
   silver: {
     rise: '은 상승 → 귀금속·태양광 등 산업 수요 동반, 금보다 출렁임 큼',
@@ -2523,7 +2533,9 @@ function corrSectionHTML(id) {
   const t = CORR.top(id, list);
   const chip = (x, cls) => { const dv = DIVERGE.get(id + '|' + x.id); return `<button type="button" class="${cls}" data-edit="${x.id}" title="표본 ${x.n}${x.basis === 'M' ? '개월' : '주'}${dv ? ` · 최근 ${dv.n}${dv.unit} 엇갈림 (${fmtR(dv.rr)})` : ''}">${dv ? '⚠ ' : ''}${esc(IND[x.id].name)}<b>${fmtR(x.r)}</b></button>`; };
   const saved = (DataStore.getSettings().corrPick || {})[id];
-  const pick = saved && IND[saved] && saved !== id ? saved : (t.pos[0] || t.neg[0] || {}).id;
+  // 처음 열 때 기본 비교 상대: 정해 둔 짝(금 ETF 보유량 ↔ 금 등) → 없으면 상관 1위
+  const DEFAULT_PAIR = { gold_etf_gld: 'gold', gold: 'gold_etf_gld' };
+  const pick = saved && IND[saved] && saved !== id ? saved : (DEFAULT_PAIR[id] && list.some(x => x.id === DEFAULT_PAIR[id]) ? DEFAULT_PAIR[id] : (t.pos[0] || t.neg[0] || {}).id);
   const opts = CONFIG.categories.map(c => {
     const items = CONFIG.indicators.filter(i => i.cat === c.id && i.id !== id && list.some(s => s.id === i.id));
     return items.length ? `<optgroup label="${esc(c.label)}">${items.map(i => `<option value="${i.id}"${i.id === pick ? ' selected' : ''}>${esc(i.name)}</option>`).join('')}</optgroup>` : '';
@@ -2546,7 +2558,7 @@ const WATCH_PAIRS = [
   ['us10y', 'mortgage', 1], ['bdry', 'iron_ore', 1], ['tanker_fro', 'etf_bwet', 1], ['brent', 'bei10y', 1],
   ['dxy', 'gold', -1], ['copper', 'sp500', 1], ['coking_amr', 'iron_ore', 1], ['fert_cf', 'ttf', 1], ['fert_mos', 'corn', 1],
   ['audusd', 'iron_ore', 1], ['audusd', 'copper', 1], ['ng_storage', 'natgas', -1], ['us_crude', 'wti', -1],
-  ['crack321', 'refinery_util', 1], ['usdkrw', 'etf_ewy', -1]
+  ['crack321', 'refinery_util', 1], ['usdkrw', 'etf_ewy', -1], ['gold_etf_gld', 'gold', 1]
 ];
 /** 지금 엇갈린 감시 짝 (render 마다 계산, 상세 화면 ⚠ 표시에도 사용) */
 let DIVERGE = new Map();
@@ -2679,6 +2691,18 @@ function chgFmt(x, id, mode) {
   const ind = IND[id], u = ind.unit === '%' ? '%p' : (ind.unit || '');
   return fmtSigned(x, Math.max(ind.dp, Math.abs(x) < 1 ? 2 : 1)) + (u ? ' ' + u : '');
 }
+/** 겹친 차트: '같은 축(시작=100)' 또는 '각자 축(블룸버그식 이중 축 — 움직임 폭이 다른 두 지표의 모양 비교)' */
+function overlayHTML(ov, id, other) {
+  const dual = (DataStore.getSettings().corrDual ?? true) !== false;
+  const mm = v => { const lo = Math.min(...v), hi = Math.max(...v); return v.map(x => (x - lo) / (hi - lo || 1)); };
+  const lines = dual ? [{ v: mm(ov.a), c: 'var(--accent)' }, { v: mm(ov.b), c: '#e8890c' }] : [{ v: ov.a, c: 'var(--accent)' }, { v: ov.b, c: '#e8890c' }];
+  const rng = (v, k) => `${fmtSig(Math.min(...v))}~${fmtSig(Math.max(...v))}${IND[k].unit ? ' ' + esc(IND[k].unit) : ''}`;
+  const sw = c => `<i style="background:${c}"></i>`;
+  const key = dual ? `<span>${sw('var(--accent)')}${esc(IND[id].name)} ${rng(ov.ra, id)}</span><span>${sw('#e8890c')}${esc(IND[other].name)} ${rng(ov.rb, other)}</span>`
+    : `<span>${sw('var(--accent)')}${esc(IND[id].name)} · ${sw('#e8890c')}${esc(IND[other].name)} — 시작=100</span>`;
+  return `<div class="corr-chart">${miniLineSVG(lines, { label: '두 지표 겹친 차트', ...(dual ? { lo: 0, hi: 1 } : {}) })}
+    <div class="corr-legend">${key}<span>${esc(ov.keys[0])} ~ ${esc(ov.keys[ov.keys.length - 1])} · <button type="button" class="linkish" id="corrDual">${dual ? '각자 축 (모양 비교) — 같은 축으로 보기' : '같은 축 (시작=100) — 각자 축으로 보기'}</button></span></div></div>`;
+}
 function renderCorrPair(id, other) {
   const out = $('#corrOut'); if (!out) return;
   const A = corrSeries(id), B = other && corrSeries(other);
@@ -2702,7 +2726,7 @@ function renderCorrPair(id, other) {
     body = `<div class="corr-win">${p.windows.map(w => `<div>${w.label}<b>${w.r == null ? '—' : fmtR(w.r)}</b>${w.r == null ? '데이터 부족' : `표본 ${w.n}`}</div>`).join('')}</div>
       ${main.r != null ? `<p class="corr-say">최근 ${main.label}: ${CORR.strength(main.r)}${p.windows[0].r != null && Math.abs(p.windows[0].r - main.r) >= 0.3 ? ` — 최근 ${p.windows[0].label}은 ${fmtR(p.windows[0].r)}로 관계가 달라지는 중` : ''}</p>` : ''}
       ${sens}${lead}
-      ${ov ? `<div class="corr-chart">${miniLineSVG([{ v: ov.a, c: 'var(--accent)' }, { v: ov.b, c: '#e8890c' }], { label: '두 지표 겹친 차트' })}${legend(`<span>${esc(ov.keys[0])} ~ ${esc(ov.keys[ov.keys.length - 1])} · 시작=100</span>`)}</div>` : ''}`;
+      ${ov ? overlayHTML(ov, id, other) : ''}`;
   } else if (tab === 'roll') {
     const ro = CORR.rolling(A, B);
     if (ro.pts.length < 2) body = `<p class="corr-note">겹치는 기간이 짧아 추이를 그릴 수 없습니다 (${ro.window}${ro.basis === 'M' ? '개월' : '주'} 창이 2개 이상 필요).</p>`;
@@ -2823,6 +2847,7 @@ function openEdit(id) {
   if (cp) {
     renderCorrPair(id, cp.value);
     $('#corrOut').onclick = e => {
+      if (e.target.closest('#corrDual')) { DataStore.setSettings({ corrDual: (DataStore.getSettings().corrDual ?? true) === false }); renderCorrPair(id, cp.value); return; }
       const b = e.target.closest('[data-corrtab]'); if (!b) return;
       DataStore.setSettings({ corrTab: b.dataset.corrtab }); renderCorrPair(id, cp.value);
     };

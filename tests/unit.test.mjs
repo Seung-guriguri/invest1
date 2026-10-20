@@ -5,7 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
-import { COMPUTED, clean, guessFreq, trim, valueAsOf, round, parseWorldBank } from '../scripts/fetch-data.mjs';
+import { COMPUTED, clean, guessFreq, trim, valueAsOf, round, parseWorldBank, parseSpdr } from '../scripts/fetch-data.mjs';
 import { readSheet } from '../scripts/lib/xlsx.mjs';
 import { deflateRawSync } from 'node:zlib';
 import { clean as aiClean, soften, cleanWatch, groundRefs, checkNumbers, stats as aiStats, weeklyBlock, energyLinks, chainLinks } from '../scripts/ai-insight.mjs';
@@ -372,4 +372,17 @@ test('연결 블록 신호: 식량·철강·한국 판정', () => {
   assert.ok(ch.food.snap.some(x => /2026-09 기준, 3개월/.test(x)));
   const empty = chainLinks([]);
   assert.deepEqual([empty.food.links, empty.steel.links, empty.korea.links], [[], [], []]);
+});
+
+/* ---------- SPDR 금 ETF 보유량 ---------- */
+test('parseSpdr: 날짜(글자·엑셀 숫자)·톤 열, 휴일 행 제외', () => {
+  const rows = [
+    ['Date', 'Closing Price', 'Ounces of Gold per Share', 'Tonnes of Gold'],
+    ['18-Nov-2004', 44.38, 0.1, 8.09],
+    ['25-Nov-2004', 'US Holiday', 'US Holiday', 'US Holiday'],
+    ['5-Oct-2026', 380, 0.0917, 1050.5],
+    [46314, 379.69, 0.0917, 1058.47]   // 2026-10-19 (엑셀 날짜 숫자)
+  ];
+  assert.deepEqual(parseSpdr(rows), [['2004-11-18', 8.09], ['2026-10-05', 1050.5], ['2026-10-19', 1058.47]]);
+  assert.throws(() => parseSpdr([['Date', 'Price']]), /열 없음/);
 });
