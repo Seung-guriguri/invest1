@@ -16,6 +16,9 @@ on:
       eia:
         description: 'EIA API v2 경로 (쉼표로 구분, 예: coal)'
         default: ''
+      find:
+        description: '받은 내용에서 찾을 정규식 (예: api\.[a-z.]+/api/[^"]+ — 페이지 속 데이터 주소 찾기)'
+        default: ''
 
 permissions:
   contents: read
@@ -44,6 +47,7 @@ jobs:
         env:
           URLS: ${{ inputs.urls }}
           EIA_ROUTES: ${{ inputs.eia }}
+          FIND: ${{ inputs.find }}
           EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
         run: |
           args=()

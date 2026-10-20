@@ -10,6 +10,14 @@ const UA = 'Mozilla/5.0 (macro-dashboard probe)';
 const args = process.argv.slice(2);
 const many = name => args.flatMap((a, i) => (a === name && args[i + 1] ? [args[i + 1]] : []));
 const KEY = (process.env.EIA_API_KEY || '').trim();
+const FIND = (process.env.FIND || '').trim();
+/** FIND 정규식에 맞는 부분 (중복 제거, 최대 40개) */
+function finds(text) {
+  if (!FIND) return;
+  let re; try { re = new RegExp(FIND, 'gi'); } catch (e) { console.log(`  찾기 정규식 오류: ${e.message}`); return; }
+  const hits = [...new Set([...text.matchAll(re)].map(m => m[0].slice(0, 200)))];
+  console.log(`  찾기 /${FIND}/ — ${hits.length}개`); hits.slice(0, 40).forEach(h => console.log(`   » ${h}`));
+}
 
 async function get(url) {
   const res = await fetch(url, { headers: { 'user-agent': UA }, redirect: 'follow', signal: AbortSignal.timeout(40000) });
@@ -25,6 +33,7 @@ for (const url of many('--url')) {
     console.log(`  상태 ${res.status} · ${type} · ${buf.length.toLocaleString()} 바이트 · 최종 주소 ${res.url}${res.headers.get('last-modified') ? ` · 수정 ${res.headers.get('last-modified')}` : ''}`);
     if (/html/.test(type)) {
       const html = buf.toString('utf8');
+      finds(html);
       console.log(`  제목: ${((/<title[^>]*>([\s\S]*?)<\/title>/i.exec(html) || [])[1] || '').trim().slice(0, 120)}`);
       const links = [...new Set([...html.matchAll(/href="([^"]+\.(?:xlsx?|csv|zip)(?:\?[^"]*)?)"/gi)].map(m => abs(res.url, m[1])))];
       console.log(`  파일 링크 ${links.length}개`); links.slice(0, 40).forEach(l => console.log(`   - ${l}`));
@@ -47,8 +56,13 @@ for (const url of many('--url')) {
       console.log('  옛 엑셀(.xls, BIFF) 형식 — 읽으려면 별도 해석기 필요');
       const s = buf.toString('latin1').replace(/[^\x20-\x7e]+/g, ' ').replace(/\s+/g, ' ');
       console.log(`  들어 있는 글자 일부: ${s.slice(0, 800)}`);
+    } else if (/pdf/.test(type)) {
+      console.log('  PDF 파일 — 내용은 표시하지 않음');
     } else {
-      console.log(`  앞부분: ${buf.toString('utf8', 0, 1200)}`);
+      const t = buf.toString('utf8');
+      console.log(`  앞부분: ${t.slice(0, 1200)}`);
+      if (t.length > 1200) console.log(`  끝부분: ${t.slice(-600)}`);
+      finds(t);
     }
   } catch (e) { console.log(`  실패: ${e.message}`); }
 }
