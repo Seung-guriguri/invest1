@@ -58,7 +58,15 @@ const COMPUTED = {
   us_crude_total: { inputs: ['us_crude', 'us_spr'], label: 'Calc:상업+SPR', calc: (c, spr) => c + spr },
   // 석탄÷가스 상대가격 = 뉴캐슬 석탄($/t, IMF 월평균) ÷ JKM($/MMBtu, 월말 선물) — 같은 달끼리 (byMonth)
   //   7 아래면 석탄이 가스보다 싸서 아시아 발전사가 석탄을 더 때기 쉬움, 16 위면 가스가 상대적으로 쌈
-  coal_jkm:       { inputs: ['coal', 'aux_jkm_m'], label: 'Calc:뉴캐슬석탄÷JKM', byMonth: true, calc: (c, j) => c / j }
+  coal_jkm:       { inputs: ['coal', 'aux_jkm_m'], label: 'Calc:뉴캐슬석탄÷JKM', byMonth: true, calc: (c, j) => c / j },
+  // 디젤 크랙 = 디젤($/gal)×42 − 브렌트($/bbl): 디젤만 따로 본 정유 마진 (겨울 난방·물류 수요)
+  diesel_crack:   { inputs: ['diesel', 'brent'], label: 'Calc:HO×42−브렌트', calc: (ho, b) => ho * 42 - b },
+  // 재고 일수 = 재고(백만 bbl) ÷ 하루 수요(백만 b/d, 4주 평균) — 지금 수요로 며칠 버티는지
+  distill_days:   { inputs: ['us_distill', 'distill_demand'], label: 'Calc:디젤 재고÷수요', calc: (s, d) => s / d },
+  gasoline_days:  { inputs: ['us_gasoline', 'gasoline_demand'], label: 'Calc:휘발유 재고÷수요', calc: (s, d) => s / d },
+  // 비료 구매력 = 비료($/t) ÷ 옥수수($/t), 둘 다 World Bank 월평균 — 높을수록 농가가 비료 사기 어려움
+  fert_afford_urea: { inputs: ['fert_urea', 'aux_maize_m'], label: 'Calc:요소÷옥수수', byMonth: true, calc: (f, c) => f / c },
+  fert_afford_dap:  { inputs: ['fert_dap', 'aux_maize_m'], label: 'Calc:DAP÷옥수수', byMonth: true, calc: (f, c) => f / c }
 };
 
 /** 날짜 오름차순 obs 에서 date 이전(같은 날 포함) 가장 최근 값 */

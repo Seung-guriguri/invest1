@@ -80,7 +80,7 @@
 | `usdcny` | 위안/달러 환율 | 위안 | 실측 | Yahoo CNY=X → FRED DEXCHUS | pct |
 | `vix` | VIX |  | 실측 | Yahoo ^VIX → FRED VIXCLS | pct |
 
-## 에너지 (13)
+## 에너지 (14)
 
 | ID | 이름 | 단위 | 성격 | 출처 (1순위 → 대체) | 변화 판단 |
 |---|---|---|---|---|---|
@@ -97,6 +97,7 @@
 | `gasoline` | 휘발유 | $/gal | 실측 | Yahoo RB=F → FRED DGASNYH | pct |
 | `diesel` | 디젤 | $/gal | 실측 | Yahoo HO=F → FRED DDFUELNYH | pct |
 | `crack321` | 3-2-1 크랙 스프레드 | $/bbl | 계산 | 계산: 2RB+HO−3CL | abs |
+| `diesel_crack` | 디젤 크랙 | $/bbl | 계산 | 계산: HO×42−브렌트 | abs |
 
 ## 전력 (13)
 
@@ -128,7 +129,7 @@
 | `lng_flng` | LNG선 (FLNG) | $ | 실측 | Yahoo FLNG | pct |
 | `lng_spread` | LNG 수출 마진 (TTF−헨리허브) | $/MMBtu | 계산 | 계산: TTF−HH | abs |
 
-## 비축·재고 (13)
+## 비축·재고 (15)
 
 | ID | 이름 | 단위 | 성격 | 출처 (1순위 → 대체) | 변화 판단 |
 |---|---|---|---|---|---|
@@ -137,6 +138,8 @@
 | `us_crude_total` | 미국 원유 총재고 | 백만 bbl | 계산 | 계산: 상업+SPR | pct |
 | `us_gasoline` | 미국 휘발유 재고 | 백만 bbl | 실측 | EIA PET.WGTSTUS1.W | pct |
 | `us_distill` | 미국 디젤·난방유 재고 | 백만 bbl | 실측 | EIA PET.WDISTUS1.W | pct |
+| `distill_days` | 디젤·난방유 재고 일수 | 일 | 계산 | 계산: 디젤 재고÷수요 | pct |
+| `gasoline_days` | 휘발유 재고 일수 | 일 | 계산 | 계산: 휘발유 재고÷수요 | pct |
 | `ng_storage` | 미국 천연가스 저장량 | Bcf | 실측 | EIA NG.NW2_EPG0_SWO_R48_BCF.W | pct |
 | `cushing` | 쿠싱 원유 재고 | 백만 bbl | 실측 | EIA PET.W_EPC0_SAX_YCUOK_MBBL.W | pct |
 | `refinery_util` | 미국 정제 가동률 | % | 실측 | EIA PET.WPULEUS3.W | pp |
@@ -167,7 +170,7 @@
 | `corn` | 옥수수 | $/t | 실측 | Yahoo ZC=F → FRED PMAIZMTUSDM | pct |
 | `soybean` | 대두 | $/t | 실측 | Yahoo ZS=F → FRED PSOYBUSDM | pct |
 
-## 비료 (6)
+## 비료 (8)
 
 | ID | 이름 | 단위 | 성격 | 출처 (1순위 → 대체) | 변화 판단 |
 |---|---|---|---|---|---|
@@ -175,6 +178,8 @@
 | `fert_dap` | DAP (인산이암모늄) | $/t | 실측 | World Bank 월간 가격표 DAP | pct |
 | `fert_potash` | 염화칼륨 (칼륨 비료) | $/t | 실측 | World Bank 월간 가격표 Potassium chloride | pct |
 | `fert_phosrock` | 인광석 | $/t | 실측 | World Bank 월간 가격표 Phosphate rock | pct |
+| `fert_afford_urea` | 비료 구매력 (요소÷옥수수) | 배 | 계산 | 계산: 요소÷옥수수 | pct |
+| `fert_afford_dap` | 비료 구매력 (DAP÷옥수수) | 배 | 계산 | 계산: DAP÷옥수수 | pct |
 | `fert_mos` | 인산·칼륨 비료 (MOS) | $ | 실측 | Yahoo MOS | pct |
 | `fert_cf` | 질소 비료 (CF) | $ | 실측 | Yahoo CF | pct |
 
@@ -204,8 +209,8 @@
 | `etf_ewy` | EWY | $ | 실측 | Yahoo EWY | pct |
 | `etf_eem` | EEM | $ | 실측 | Yahoo EEM | pct |
 
-## 가이드 전용 시세 (40)
+## 가이드 전용 시세 (41)
 
 카드로 보이지 않고 가이드(유조선·벌크선·석유 밸류체인)의 미니 시세와 관심 종목 후보에만 쓰는 주가입니다.
 
-`aux_jkm_m` (Yahoo JKM=F) · `tk_dht` (Yahoo DHT) · `tk_tnk` (Yahoo TNK) · `tk_nat` (Yahoo NAT) · `tk_eco` (Yahoo ECO) · `tk_hafn` (Yahoo HAFN) · `tk_trmd` (Yahoo TRMD) · `tk_insw` (Yahoo INSW) · `gd_sblk` (Yahoo SBLK) · `gd_gnk` (Yahoo GNK) · `gd_sb` (Yahoo SB) · `gd_ship` (Yahoo SHIP) · `gd_dsx` (Yahoo DSX) · `gd_panl` (Yahoo PANL) · `gd_xop` (Yahoo XOP) · `gd_cop` (Yahoo COP) · `gd_eog` (Yahoo EOG) · `gd_oxy` (Yahoo OXY) · `gd_rig` (Yahoo RIG) · `gd_val` (Yahoo VAL) · `gd_ne` (Yahoo NE) · `gd_sdrl` (Yahoo SDRL) · `gd_borr` (Yahoo BORR) · `gd_fti` (Yahoo FTI) · `gd_tdw` (Yahoo TDW) · `gd_oih` (Yahoo OIH) · `gd_slb` (Yahoo SLB) · `gd_hal` (Yahoo HAL) · `gd_bkr` (Yahoo BKR) · `gd_amlp` (Yahoo AMLP) · `gd_epd` (Yahoo EPD) · `gd_et` (Yahoo ET) · `gd_kmi` (Yahoo KMI) · `gd_wmb` (Yahoo WMB) · `gd_crak` (Yahoo CRAK) · `gd_vlo` (Yahoo VLO) · `gd_mpc` (Yahoo MPC) · `gd_psx` (Yahoo PSX) · `gd_xom` (Yahoo XOM) · `gd_cvx` (Yahoo CVX)
+`aux_jkm_m` (Yahoo JKM=F) · `aux_maize_m` (World Bank 월간 가격표 Maize) · `tk_dht` (Yahoo DHT) · `tk_tnk` (Yahoo TNK) · `tk_nat` (Yahoo NAT) · `tk_eco` (Yahoo ECO) · `tk_hafn` (Yahoo HAFN) · `tk_trmd` (Yahoo TRMD) · `tk_insw` (Yahoo INSW) · `gd_sblk` (Yahoo SBLK) · `gd_gnk` (Yahoo GNK) · `gd_sb` (Yahoo SB) · `gd_ship` (Yahoo SHIP) · `gd_dsx` (Yahoo DSX) · `gd_panl` (Yahoo PANL) · `gd_xop` (Yahoo XOP) · `gd_cop` (Yahoo COP) · `gd_eog` (Yahoo EOG) · `gd_oxy` (Yahoo OXY) · `gd_rig` (Yahoo RIG) · `gd_val` (Yahoo VAL) · `gd_ne` (Yahoo NE) · `gd_sdrl` (Yahoo SDRL) · `gd_borr` (Yahoo BORR) · `gd_fti` (Yahoo FTI) · `gd_tdw` (Yahoo TDW) · `gd_oih` (Yahoo OIH) · `gd_slb` (Yahoo SLB) · `gd_hal` (Yahoo HAL) · `gd_bkr` (Yahoo BKR) · `gd_amlp` (Yahoo AMLP) · `gd_epd` (Yahoo EPD) · `gd_et` (Yahoo ET) · `gd_kmi` (Yahoo KMI) · `gd_wmb` (Yahoo WMB) · `gd_crak` (Yahoo CRAK) · `gd_vlo` (Yahoo VLO) · `gd_mpc` (Yahoo MPC) · `gd_psx` (Yahoo PSX) · `gd_xom` (Yahoo XOM) · `gd_cvx` (Yahoo CVX)

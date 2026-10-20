@@ -78,8 +78,8 @@
   const IDS = {
     natgas: 'gas', ttf: 'gas', jkm: 'gas', etf_ung: 'gas', lng_spread: 'gas',
     ng_storage: 'gasStorage',
-    gasoline: 'gasoline', crack321: 'gasoline', gasoline_demand: 'gasoline', us_gasoline: 'gasoline',
-    diesel: 'distillate', distill_demand: 'distillate', us_distill: 'distillate',
+    gasoline: 'gasoline', crack321: 'gasoline', gasoline_demand: 'gasoline', us_gasoline: 'gasoline', gasoline_days: 'gasoline',
+    diesel: 'distillate', distill_demand: 'distillate', us_distill: 'distillate', distill_days: 'distillate', diesel_crack: 'distillate',
     refinery_util: 'refinery',
     wheat: 'grain', corn: 'grain', soybean: 'grain', etf_dba: 'grain',
     bdry: 'bulk', scfi: 'container',

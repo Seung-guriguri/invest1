@@ -8,7 +8,7 @@ import vm from 'node:vm';
 import { COMPUTED, clean, guessFreq, trim, valueAsOf, round, parseWorldBank } from '../scripts/fetch-data.mjs';
 import { readSheet } from '../scripts/lib/xlsx.mjs';
 import { deflateRawSync } from 'node:zlib';
-import { clean as aiClean, soften, cleanWatch, groundRefs, checkNumbers, stats as aiStats, weeklyBlock, energyLinks } from '../scripts/ai-insight.mjs';
+import { clean as aiClean, soften, cleanWatch, groundRefs, checkNumbers, stats as aiStats, weeklyBlock, energyLinks, chainLinks } from '../scripts/ai-insight.mjs';
 import { SOURCES } from '../scripts/sources.mjs';
 import { loadConfig } from '../scripts/lib/config.mjs';
 import { validateData } from '../scripts/validate-data.mjs';
@@ -35,6 +35,14 @@ test('단순 계산 지표', () => {
   near(COMPUTED.hy_ig.calc(3.2, 0.8), 2.4);
   near(COMPUTED.us_crude_total.calc(420, 280), 700);
   near(COMPUTED.kr_us_base.calc(2.5, 4.0), -1.5);
+});
+test('디젤 크랙·재고 일수·비료 구매력', () => {
+  near(COMPUTED.diesel_crack.calc(3.0, 100), 26);              // 3$/gal × 42 − 100
+  near(COMPUTED.distill_days.calc(102.6, 3.9), 102.6 / 3.9);   // 백만 bbl ÷ 백만 b/d = 일
+  near(COMPUTED.gasoline_days.calc(208, 8.32), 25);
+  near(COMPUTED.fert_afford_urea.calc(400, 200), 2);
+  near(COMPUTED.fert_afford_dap.calc(800, 200), 4);
+  for (const k of ['fert_afford_urea', 'fert_afford_dap']) { assert.equal(COMPUTED[k].byMonth, true); assert.equal(COMPUTED[k].inputs[1], 'aux_maize_m'); }
 });
 
 /* ---------- 관측치 정리 ---------- */
@@ -329,4 +337,39 @@ test('에너지 연결 신호: 데이터로 [지지]·[해당 없음]·[지지·
   assert.match(get('⑥'), /\[지지\]/);                       // 원유·가스·석탄 모두 +2% 넘게
   assert.match(get('⑦'), /\[해당 없음\]/);                   // 원전 92%
   assert.deepEqual(energyLinks([]).links, []);
+});
+
+/* ---------- 연결 블록: 식량·중국 철강·한국 수입 부담 ---------- */
+test('연결 블록 신호: 식량·철강·한국 판정', () => {
+  const r = (id, name, value, extra = {}) => ({ id, name, value, unit: '', date: '2026-10-16', chg_unit: '%', freq: 'D', ...extra });
+  const mv = v => ({ chg_1m: v, chg_1w: v });
+  const M = { freq: 'M', date: '2026-09-01' };
+  const rows = [
+    r('ttf', 'TTF', 88, { chg_3m: 20, ...mv(4) }), r('fert_urea', '요소', 410, { ...M, chg_3m: 12, chg_1m: 3 }),
+    r('fert_afford_urea', '비료 구매력 (요소÷옥수수)', 2.3, { ...M, chg_3m: 9, position: 90 }), r('fert_afford_dap', '비료 구매력 (DAP÷옥수수)', 4.1, { ...M, position: 85 }),
+    r('corn', '옥수수', 183, { chg_3m: -11, ...mv(-4) }), r('dxy', '달러인덱스', 102, mv(0.5)), r('fert_cf', '질소 비료 (CF)', 118, mv(-8)), r('fert_mos', 'MOS', 18, mv(-20)),
+    r('iron_ore', '철광석', 90, { ...mv(-6), position: 5 }), r('coking_amr', '원료탄 (AMR)', 160, mv(-5)), r('audusd', '호주달러', 0.69, mv(-2)),
+    r('usdcny', '위안/달러', 6.7, mv(0.8)), r('bdry', '벌크선', 13, mv(2)),
+    r('usdkrw', '원/달러', 1330, mv(-3.5)), r('brent', '브렌트유', 110, mv(8)), r('brent_krw', '원화 환산 브렌트', 146000, { ...mv(4), chg_3m: 12, position: 90 }),
+    r('jkm', 'JKM', 30, mv(10)), r('kr_cpi', '한국 CPI', 2.9, M)
+  ];
+  const ch = chainLinks(rows);
+  const get = (k, n) => ch[k].links.find(l => l.startsWith(n));
+  assert.match(get('food', '①'), /\[지지\]/);           // 가스 3개월 +20%, 요소 +12%
+  assert.match(get('food', '②'), /\[지지\].*비싼 구간/);
+  assert.match(get('food', '③'), /\[지지\]/);           // 옥수수 −11%, 구매력 +9%
+  assert.match(get('food', '④'), /지지·반대 공존/);       // CF −8% vs 요소 +3%
+  assert.match(get('food', '⑤'), /\[해당 없음\]/);
+  assert.match(get('steel', '①'), /\[지지\]/);
+  assert.match(get('steel', '②'), /\[지지\]/);
+  assert.match(get('steel', '③'), /\[지지\]/);          // 위안 약세 + 철광석 하락
+  assert.match(get('steel', '④'), /\[해당 없음\]/);
+  assert.match(get('steel', '⑤'), /저점권/);
+  assert.match(get('korea', '①'), /\[지지\]/);          // (1.10×0.965−1) ≈ +6.2%
+  assert.match(get('korea', '②'), /\[지지\].*덜어줌/);     // 원화 강세가 유가 충격 덜어줌
+  assert.match(get('korea', '④'), /\[지지\].*2026-09/);
+  assert.ok(ch.korea.snap.some(x => /원화 환산 LNG.*39,900원/.test(x)));
+  assert.ok(ch.food.snap.some(x => /2026-09 기준, 3개월/.test(x)));
+  const empty = chainLinks([]);
+  assert.deepEqual([empty.food.links, empty.steel.links, empty.korea.links], [[], [], []]);
 });

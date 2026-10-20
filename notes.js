@@ -1766,6 +1766,88 @@
       ],
       watch: '요소 월간 가격 · 유럽 가스(TTF)와 헨리허브 차이 · 옥수수 파종 면적 · 저탄소 암모니아 투자'
     },
+    diesel_crack: {
+      what: '디젤 크랙 — 디젤(난방유 선물 $/갤런×42)에서 브렌트($/배럴)를 뺀 값. 3-2-1 크랙과 달리 디젤 한 제품의 정유 마진만 봄. 화물 운송·농업·난방 수요를 반영',
+      states: {
+        surge: '급등 → 디젤 공급이 빡빡, 물류비·난방비가 원유보다 빠르게 오름',
+        rise: '확대 → 디젤이 원유보다 강함, 재고 부족이나 겨울 수요 확인',
+        fall: '축소 → 디젤 수급 여유',
+        plunge: '급락 → 화물·산업 디젤 수요 둔화 신호일 수 있음',
+        high: '최근 수년 중 높은 마진 → 물류·농업·난방 원가 부담',
+        low: '낮은 마진 → 디젤 수요 부진',
+        flat: '보합 → 디젤과 원유가 같이 움직이는 중'
+      },
+      pairs: [
+        { when: S => S.season('distill_days') <= -5, text: S => `디젤 재고 일수가 평년보다 ${Math.abs(S.season('distill_days')).toFixed(1)}% 적음 → 마진을 지지` },
+        { when: S => S.up('diesel_crack') && S.down('crack321'), text: '전체 정유 마진은 줄었는데 디젤만 확대 → 휘발유 쪽 수요가 약함' },
+        { when: S => S.down('diesel_crack') && S.down('freight_ppi'), text: '화물 운임 PPI도 하락 → 물류 수요 둔화' }
+      ],
+      watch: '매주 수요일 EIA 디젤 재고·수요 · 겨울 기온(난방 수요)'
+    },
+    distill_days: {
+      what: '디젤·난방유 재고 일수 — 재고(백만 배럴) ÷ 하루 수요(4주 평균). 재고 양보다 "지금 쓰는 속도로 며칠 버티나"를 봐서 계절 수요 변화까지 반영',
+      states: {
+        rise: '증가 → 수요 대비 재고 여유 확대',
+        fall: '감소 → 수요 대비 재고가 얇아짐',
+        high: '평년보다 버틸 일수가 크게 적음 → 공급 차질 때 디젤값이 크게 뛰기 쉬움',
+        warn: '평년보다 버틸 일수가 적은 편',
+        flat: '보합'
+      },
+      pairs: [
+        { when: S => S.down('distill_days') && S.up('diesel_crack'), text: '디젤 마진 확대 동반 → 재고 부족이 가격에 반영되는 중' },
+        { when: S => S.down('distill_days') && !S.down('us_distill'), text: '재고는 그대로인데 일수 감소 → 수요가 늘어서 얇아짐' }
+      ],
+      watch: '매주 수요일 EIA 주간 석유 재고'
+    },
+    gasoline_days: {
+      what: '휘발유 재고 일수 — 재고(백만 배럴) ÷ 하루 수요(4주 평균). 여름 운전 시즌처럼 수요가 늘 때 재고가 실제로 얼마나 얇은지 보여줌',
+      states: {
+        rise: '증가 → 수요 대비 재고 여유 확대',
+        fall: '감소 → 수요 대비 재고가 얇아짐',
+        high: '평년보다 버틸 일수가 크게 적음 → 휘발유값 급등에 취약',
+        warn: '평년보다 버틸 일수가 적은 편',
+        flat: '보합'
+      },
+      pairs: [
+        { when: S => S.down('gasoline_days') && S.up('gasoline'), text: '휘발유 선물 상승 동반 → 재고 부족이 가격에 반영' },
+        { when: S => S.up('gasoline_days') && S.down('gasoline_demand'), text: '수요 감소로 일수 증가 → 소비 둔화 신호' }
+      ],
+      watch: '매주 수요일 EIA 주간 석유 재고 · 여름 운전 시즌(5~9월)'
+    },
+    fert_afford_urea: {
+      what: '비료 구매력 (요소÷옥수수) — 요소 1톤을 사려면 옥수수 몇 톤을 팔아야 하나. 둘 다 World Bank 월평균. 높을수록 농가가 비료를 줄이기 쉬워 다음 시즌 수확량에 부담',
+      states: {
+        surge: '급등 → 비료가 곡물보다 훨씬 비싸짐, 비료 사용 축소 위험',
+        rise: '상승 → 비료 구매력 악화',
+        fall: '하락 → 비료 구매력 개선, 다음 시즌 생산에 우호',
+        plunge: '급락 → 요소 급락 또는 옥수수 급등',
+        high: '최근 수년 중 비료가 비싼 구간 → 질소 비료 수요 둔화·수확량 걱정',
+        low: '비료가 싼 구간 → 농가 비료 구매 여건 양호',
+        flat: '보합'
+      },
+      pairs: [
+        { when: S => S.up('fert_afford_urea') && S.up('ttf'), text: '유럽 가스 상승 동반 → 가스 원가가 요소값을 밀어올림' },
+        { when: S => S.up('fert_afford_urea') && S.down('corn'), text: '옥수수 하락이 겹침 → 농가 수익성 이중 부담' }
+      ],
+      watch: '월간 (World Bank, 매월 초 전월 값) · 유럽 가스(TTF) · 미국 파종기(3~5월) 전 비료 구매'
+    },
+    fert_afford_dap: {
+      what: '비료 구매력 (DAP÷옥수수) — 인산 비료 DAP 1톤을 사려면 옥수수 몇 톤이 필요한가. 둘 다 World Bank 월평균. 높을수록 인산 비료 사용이 줄기 쉬움',
+      states: {
+        surge: '급등 → 인산 비료가 곡물보다 훨씬 비싸짐',
+        rise: '상승 → 인산 비료 구매력 악화',
+        fall: '하락 → 인산 비료 구매력 개선',
+        plunge: '급락 → DAP 급락 또는 옥수수 급등',
+        high: '최근 수년 중 인산 비료가 비싼 구간 → 인산 사용 축소 위험',
+        low: '인산 비료가 싼 구간',
+        flat: '보합'
+      },
+      pairs: [
+        { when: S => S.up('fert_afford_dap') && S.up('fert_phosrock'), text: '인광석 상승 동반 → 원료 원가가 DAP를 끌어올림' },
+        { when: S => S.up('fert_afford_dap') && S.down('fert_mos'), text: '그런데 비료 기업(MOS) 주가는 하락 → 시장은 수요 감소를 걱정' }
+      ],
+      watch: '월간 (World Bank) · 인광석·황 가격 · 중국 인산 비료 수출 정책'
+    },
     coal_jkm: {
       what: '석탄÷가스 상대가격 — 뉴캐슬 석탄($/t)을 아시아 LNG(JKM, $/MMBtu)로 나눈 값. 발전사가 석탄과 가스 중 무엇을 더 때는 게 유리한지 보는 지표. 대략 7 아래면 석탄이 싸서 석탄 발전이 늘기 쉽고, 16 위면 가스가 상대적으로 쌈',
       states: {

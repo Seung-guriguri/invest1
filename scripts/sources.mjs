@@ -102,6 +102,8 @@ export const SOURCES = {
   // 계산용 보조 시계열 (카드 없음, aux_): JKM 월봉 10년 — 석탄÷JKM 상대가격의 긴 이력용
   aux_jkm_m: [{ yahoo: 'JKM=F', range: '10y', interval: '1mo' }],
   // 비료 — World Bank 원자재 월간 가격표(Pink Sheet, $/t) · 비료 기업 주가(일간, 업황 대용)
+  // 계산용 보조: World Bank 옥수수 월평균($/t) — 비료 구매력(비료÷옥수수)을 같은 출처·같은 달끼리 계산
+  aux_maize_m:   [{ wb: 'Maize' }],
   fert_urea:     [{ wb: 'Urea' }],                          // 요소 (질소 비료, 중동 등 FOB)
   fert_dap:      [{ wb: 'DAP' }],                           // 인산이암모늄 (인산 비료, 미국 걸프 FOB)
   fert_potash:   [{ wb: 'Potassium chloride' }],            // 염화칼륨 (칼륨 비료)

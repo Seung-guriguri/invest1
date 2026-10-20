@@ -203,6 +203,9 @@
   .ai-energy .en-row { display: grid; grid-template-columns: 4.6em 1fr; gap: 6px; }
   .ai-energy .en-row b { font-size: 12.5px; color: var(--text-2); white-space: nowrap; }
   .ai-energy .en-counter span { color: var(--text-2); }
+  .ai-chain { display: grid; gap: 2px; margin: 8px 0 2px; padding: 7px 9px; border-radius: 8px; background: var(--surface-2); font-size: 13.5px; line-height: 1.5; }
+  .ai-chain b { font-size: 12.5px; }
+  .ai-chain .ch-counter { color: var(--text-2); font-size: 12.5px; }
   .ai-brief .row b { font-size: 12px; color: var(--text-2); display: block; }
   .ai-secs { margin-top: 10px; border-top: 1px solid var(--border); }
   .ai-brief details.ai-column { margin-top: 10px; border: 1px solid var(--border); border-radius: 12px; padding: 4px 12px; }
@@ -313,6 +316,18 @@
   .ins-wrap { margin-top: 12px; border-top: 1px dashed var(--border); padding-top: 10px; }
   .ins-wrap > summary { cursor: pointer; font-weight: 600; font-size: 15px; }
   .ins-wrap[open] > summary { margin-bottom: 8px; }
+  .rg-map { width: 100%; max-width: 360px; display: block; margin: 0 auto; }
+  .rg-bg.hh { fill: var(--yellow-bg); } .rg-bg.lh { fill: var(--red-bg); } .rg-bg.hl { fill: var(--green-bg); } .rg-bg.ll { fill: var(--grey-bg); }
+  .rg-ax { stroke: var(--border); stroke-width: 1; }
+  .rg-q { font-size: 11px; fill: var(--text-2); } .rg-q.on { fill: var(--text); font-weight: 700; }
+  .rg-axl, .rg-lbl { font-size: 10px; fill: var(--text-2); }
+  .rg-line { fill: none; stroke: var(--accent); stroke-width: 1.6; stroke-dasharray: 4 3; }
+  .rg-pt { fill: var(--accent); opacity: .55; } .rg-now { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
+  .rg-now-t { margin: 8px 0 6px; font-size: 14px; line-height: 1.5; } .rg-now-t small { color: var(--text-2); }
+  .rg-parts { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin: 4px 0; font-size: 12.5px; }
+  .rg-parts > span { color: var(--text-2); width: 2.6em; }
+  .rg-chip { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 999px; padding: 2px 8px; font-size: 12px; cursor: pointer; }
+  .rg-chip b { margin-left: 4px; font-weight: 600; }
   .tabs.groups { margin-bottom: 8px; }
   .tabs-bar .tabs { flex-wrap: wrap; overflow: visible; margin: 0; padding: 0; }   /* 묶음·세부 탭 모두 한눈에 (가로 스크롤 없음) */
   .tabs-bar .tabs + .tabs { row-gap: 6px; }
@@ -495,6 +510,10 @@
       <details class="ins-wrap" id="divWrap">
         <summary>엇갈림 감시 <small id="divCount"></small></summary>
         <div id="divList"></div>
+      </details>
+      <details class="ins-wrap" id="regimeWrap">
+        <summary>경기 국면 지도 <small id="regimeCount"></small></summary>
+        <div id="regimeBox"></div>
       </details>
     </section>
 
@@ -825,6 +844,8 @@ const CONFIG = {
       level: { dir: 'up', warn: 3.0, danger: 3.5 }, change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
     { id: 'crack321', cat: 'energy', name: '3-2-1 크랙 스프레드', sub: '정유 마진: (휘발유×2 + 디젤×1 − WTI×3) ÷ 3', unit: '$/bbl', dp: 2, changeMode: 'abs', profile: 'crack',
       level: { dir: 'up', warn: 35, danger: 45 }, change: { dir: 'both', flat: 0.5, warn: 3, danger: 6 } },
+    { id: 'diesel_crack', cat: 'energy', name: '디젤 크랙', sub: '디젤 마진: 디젤×42 − 브렌트, 자동 계산 — 겨울 난방·물류 수요', unit: '$/bbl', dp: 2, changeMode: 'abs', profile: 'dieselCrack',
+      change: { dir: 'both', flat: 0.5, warn: 4, danger: 8 } },
 
     // ── 운임 ──
     { id: 'bdry', cat: 'freight', name: '벌크선 운임', sub: 'BDRY ETF — BDI 대용, 지수 아님', unit: '$', dp: 2, changeMode: 'pct', profile: 'bulkFreight',
@@ -877,6 +898,10 @@ const CONFIG = {
       change: { dir: 'both', flat: 1, warn: 8, danger: 15 } },
     { id: 'fert_phosrock', cat: 'fert', name: '인광석', sub: '인산 비료 원료, 모로코 FOB 월간 (World Bank)', unit: '$/t', dp: 1, changeMode: 'pct', staleDays: 80, profile: 'fert',
       change: { dir: 'both', flat: 1, warn: 8, danger: 15 } },
+    { id: 'fert_afford_urea', cat: 'fert', name: '비료 구매력 (요소÷옥수수)', sub: '요소 1t 사는 데 드는 옥수수 t, 월간 자동 계산 — 높을수록 농가 부담', unit: '배', dp: 2, changeMode: 'pct', staleDays: 80, profile: 'fertAfford',
+      change: { dir: 'up', flat: 1, warn: 8, danger: 15 } },
+    { id: 'fert_afford_dap', cat: 'fert', name: '비료 구매력 (DAP÷옥수수)', sub: 'DAP 1t 사는 데 드는 옥수수 t, 월간 자동 계산 — 높을수록 농가 부담', unit: '배', dp: 2, changeMode: 'pct', staleDays: 80, profile: 'fertAfford',
+      change: { dir: 'up', flat: 1, warn: 8, danger: 15 } },
     { id: 'fert_mos', cat: 'fert', name: '인산·칼륨 비료 (MOS)', sub: 'Mosaic 주가 — 인산·칼륨 비료 업황 대용 (가격 아님)', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
       change: { dir: 'both', flat: 0.4, danger: 5, moveOnly: true }, comments: { rise: '인산·칼륨 비료 기업 상승 → 비료 가격 강세 또는 곡물 경기 기대', fall: '인산·칼륨 비료 기업 하락 → 비료 가격 약세 또는 농가 수요 둔화 걱정' } },
     { id: 'fert_cf', cat: 'fert', name: '질소 비료 (CF)', sub: 'CF Industries 주가 — 요소·암모니아 업황 대용 (가격 아님)', unit: '$', dp: 2, changeMode: 'pct', profile: 'etf',
@@ -891,6 +916,10 @@ const CONFIG = {
       level: { seasonal: { warn: -5, danger: -10 }, dir: 'down', warn: 220, danger: 210 }, change: { dir: 'both', flat: 0.3, warn: 2, danger: 4 } },
     { id: 'us_distill', cat: 'stocks', name: '미국 디젤·난방유 재고', sub: '중간유분, 주간 (EIA)', unit: '백만 bbl', dp: 1, changeMode: 'pct', profile: 'stocks',
       level: { seasonal: { warn: -5, danger: -10 }, dir: 'down', warn: 115, danger: 105 }, change: { dir: 'both', flat: 0.3, warn: 2, danger: 4 } },
+    { id: 'distill_days', cat: 'stocks', name: '디젤·난방유 재고 일수', sub: '재고 ÷ 하루 수요, 자동 계산 — 지금 수요로 며칠 버티나', unit: '일', dp: 1, changeMode: 'pct', profile: 'daysSupply',
+      level: { seasonal: { warn: -5, danger: -10 }, dir: 'down' }, change: { dir: 'both', flat: 0.5, warn: 3, danger: 6 } },
+    { id: 'gasoline_days', cat: 'stocks', name: '휘발유 재고 일수', sub: '재고 ÷ 하루 수요, 자동 계산 — 지금 수요로 며칠 버티나', unit: '일', dp: 1, changeMode: 'pct', profile: 'daysSupply',
+      level: { seasonal: { warn: -5, danger: -10 }, dir: 'down' }, change: { dir: 'both', flat: 0.5, warn: 3, danger: 6 } },
     { id: 'ng_storage', cat: 'stocks', name: '미국 천연가스 저장량', sub: '본토 48개 주, 주간 (EIA)', unit: 'Bcf', dp: 0, changeMode: 'pct', profile: 'gasStorage',
       level: { seasonal: { warn: -5, danger: -10 }, dir: 'down', warn: 2500, danger: 2000 }, change: { flat: 0.5 } },
     { id: 'cushing', cat: 'stocks', name: '쿠싱 원유 재고', sub: 'WTI 인도 지점, 주간 (EIA)', unit: '백만 bbl', dp: 1, changeMode: 'pct', profile: 'cushing',
@@ -1271,6 +1300,21 @@ const COMMENTS = {
     high: '정유 마진 최근 수년 중 높은 수준 → 정제 설비가 병목, 소비자 기름값 부담',
     flat: '정유 마진 보합 → 제품·원유 가격이 같이 움직이는 중'
   },
+  dieselCrack: {
+    surge: '디젤 마진 급등 → 디젤 공급 빡빡, 물류비·난방비 상승 압력',
+    rise: '디젤 마진 확대 → 디젤이 원유보다 강함, 재고 부족·겨울 수요 확인',
+    plunge: '디젤 마진 급락 → 화물·산업 수요 둔화 신호일 수 있음',
+    fall: '디젤 마진 축소 → 디젤 수급 여유',
+    high: '디젤 마진 높은 구간 → 물류·농업·난방 원가 부담',
+    flat: '디젤 마진 보합'
+  },
+  daysSupply: {
+    rise: '재고 일수 증가 → 수요 대비 재고 여유가 늘어남',
+    fall: '재고 일수 감소 → 수요 대비 재고가 얇아짐, 가격 급등에 취약',
+    high: '평년보다 버틸 일수가 크게 적음 → 공급 차질 때 가격이 크게 뛰기 쉬움',
+    warn: '평년보다 버틸 일수가 적은 편 → 계절 흐름과 함께 확인',
+    flat: '재고 일수 보합'
+  },
   ttf: {
     surge: '유럽 가스 급등 → 난방·발전·화학 원가 급등, LNG 확보 경쟁으로 아시아 가스값도 자극',
     rise: '유럽 가스 상승 → 유럽 에너지 원가↑, LNG 수입 수요↑',
@@ -1468,6 +1512,14 @@ const COMMENTS = {
     fall: '{name} 하락 → 비료 원가 부담↓, 농가 수익성 개선',
     plunge: '{name} 급락 → 비료 수요 둔화 또는 공급 과잉',
     flat: '{name} 보합 → 비료 원가 변화 작음'
+  },
+  fertAfford: {
+    surge: '비료가 곡물보다 훨씬 비싸짐 → 농가가 비료를 줄여 다음 시즌 수확량 감소 위험',
+    rise: '비료 구매력 악화 → 비료 사용 축소 압력, 곡물 공급에 시차를 두고 부담',
+    fall: '비료 구매력 개선 → 농가가 비료를 사기 쉬워짐, 다음 시즌 생산에 우호적',
+    plunge: '비료 구매력 크게 개선 → 비료값 급락 또는 곡물값 급등',
+    high: '최근 수년 중 비료가 곡물 대비 비싼 구간 → 비료 수요 둔화·수확량 걱정',
+    flat: '비료 구매력 보합'
   },
   grain: {
     surge: '{name} 급등 → 식품 원가·물가 압력, 날씨·수출 뉴스 확인',
@@ -1976,6 +2028,7 @@ function render() {
   const ins = buildInsights(R);
   $('#insCount').textContent = ins.length ? `${ins.length}개` : '';
   const dvs = divergenceStatusHTML(); $('#divCount').textContent = dvs.count; $('#divList').innerHTML = dvs.html;
+  const rgm = regimeHTML(); $('#regimeCount').textContent = rgm.label; $('#regimeBox').innerHTML = rgm.html;
   $('#insights').innerHTML = ins.length ? ins.map((it, i) => `
     <details class="insight" ${i === 0 ? 'open' : ''}>
       <summary><b>${esc(it.title)}</b>${it.summary ? `<span>${esc(it.summary)}</span>` : ''}</summary>
@@ -2256,12 +2309,21 @@ function energyHTML(e) {
   const row = (icon, t, v) => v ? `<div class="en-row"><b>${icon} ${t}</b><span>${esc(v)}</span></div>` : '';
   return `<div class="ai-energy">${row('🛢', '원유', e.oil)}${row('🔥', '가스', e.gas)}${row('⛏', '석탄', e.coal)}${row('🔗', '연결', e.link)}${e.counter ? `<div class="en-row en-counter"><b>↔ 반대</b><span>${esc(e.counter)}</span></div>` : ''}</div>`;
 }
+/** 연결 블록(식량·중국 철강·한국 수입 부담) — 어느 분류 탭에 붙는지 */
+const CHAIN_UI = { food: { icon: '🌾', label: '식량 체인', cats: ['fert', 'grains'] }, steel: { icon: '🏗', label: '중국 철강 체인', cats: ['metals'] }, korea: { icon: '🇰🇷', label: '한국 수입 부담', cats: ['fx'] } };
+function chainsHTML(ai, cat) {
+  const ch = (ai && ai.chains) || {};
+  return Object.entries(CHAIN_UI).filter(([k, u]) => ch[k] && ch[k].body && u.cats.includes(cat)).map(([k, u]) => {
+    const c = ch[k];
+    return `<div class="ai-chain"><b>${u.icon} ${u.label}${c.headline ? ' — ' + esc(c.headline) : ''}</b><span>${esc(c.body)}</span>${c.counter ? `<span class="ch-counter">↔ ${esc(c.counter)}</span>` : ''}</div>`;
+  }).join('');
+}
 function aiSectionsHTML(ai) {
   const secs = ai.sections || {};
-  const items = CONFIG.categories.filter(c => secs[c.id] || (c.id === 'energy' && ai.energy)).map(c => {
+  const items = CONFIG.categories.filter(c => secs[c.id] || (c.id === 'energy' && ai.energy) || chainsHTML(ai, c.id)).map(c => {
     const x = secs[c.id] || {};
     const en = c.id === 'energy' ? energyHTML(ai.energy) : '';
-    return `<details class="ai-sec"><summary><span class="ai-cat">${esc(c.label)}</span><span>${esc((c.id === 'energy' && ai.energy && ai.energy.headline) || x.headline || '')}</span></summary>${en}${x.body && !en ? `<p>${esc(x.body)}</p>` : ''}${reviewHTML(x)}</details>`;
+    return `<details class="ai-sec"><summary><span class="ai-cat">${esc(c.label)}</span><span>${esc((c.id === 'energy' && ai.energy && ai.energy.headline) || x.headline || '')}</span></summary>${en}${x.body && !en ? `<p>${esc(x.body)}</p>` : ''}${chainsHTML(ai, c.id)}${reviewHTML(x)}</details>`;
   });
   return items.length ? `<div class="ai-secs">${items.join('')}</div>` : '';
 }
@@ -2271,8 +2333,10 @@ function tabAIHTML(cat) {
   if (cat === 'energy' && ai && ai.energy && (ai.energy.oil || ai.energy.gas || ai.energy.coal)) {
     return `<div class="tab-ai"><span class="ai-label">AI 브리핑 · 에너지 3축</span>${ai.energy.headline ? `<b>${esc(ai.energy.headline)}</b>` : ''}${energyHTML(ai.energy)}${reviewHTML(x)}<div class="ai-meta">${esc(aiMetaText(ai))}</div></div>`;
   }
-  if (!x) return '';
-  return `<div class="tab-ai"><span class="ai-label">AI 브리핑</span>${x.headline ? `<b>${esc(x.headline)}</b>` : ''}${x.body ? esc(x.body) : ''}${reviewHTML(x)}<div class="ai-meta">${esc(aiMetaText(ai))}</div></div>`;
+  const chs = chainsHTML(ai, cat);
+  if (!x && !chs) return '';
+  if (!x) return `<div class="tab-ai"><span class="ai-label">AI 브리핑 · 연결 블록</span>${chs}<div class="ai-meta">${esc(aiMetaText(ai))}</div></div>`;
+  return `<div class="tab-ai"><span class="ai-label">AI 브리핑</span>${x.headline ? `<b>${esc(x.headline)}</b>` : ''}${x.body ? esc(x.body) : ''}${chainsHTML(ai, cat)}${reviewHTML(x)}<div class="ai-meta">${esc(aiMetaText(ai))}</div></div>`;
 }
 /** 분류별 '지난 브리핑 점검' 한 줄 */
 function reviewHTML(x) {
@@ -2481,7 +2545,8 @@ const WATCH_PAIRS = [
   ['dxy', 'usdkrw', 1], ['sp500', 'kospi', 1], ['usdkrw', 'kospi', -1], ['hy_spread', 'sp500', -1],
   ['us10y', 'mortgage', 1], ['bdry', 'iron_ore', 1], ['tanker_fro', 'etf_bwet', 1], ['brent', 'bei10y', 1],
   ['dxy', 'gold', -1], ['copper', 'sp500', 1], ['coking_amr', 'iron_ore', 1], ['fert_cf', 'ttf', 1], ['fert_mos', 'corn', 1],
-  ['audusd', 'iron_ore', 1]
+  ['audusd', 'iron_ore', 1], ['audusd', 'copper', 1], ['ng_storage', 'natgas', -1], ['us_crude', 'wti', -1],
+  ['crack321', 'refinery_util', 1], ['usdkrw', 'etf_ewy', -1]
 ];
 /** 지금 엇갈린 감시 짝 (render 마다 계산, 상세 화면 ⚠ 표시에도 사용) */
 let DIVERGE = new Map();
@@ -2514,6 +2579,62 @@ function divergenceStatusHTML() {
     return `<button type="button" class="div-row" data-edit="${a}" data-corrwith="${b}"><span class="nm">${esc(IND[a].name)} · ${esc(IND[b].name)} <small>${expect > 0 ? '같은 방향' : '반대 방향'}</small></span><span class="st ${cls}">${st}</span><span class="nums">${nums}</span></button>`;
   });
   return { count: `${rows.length}쌍 · 엇갈림 ${on}`, html: rows.join('') + '<p class="corr-note">엇갈림 = 평소(최근 8주 직전 1년) 상관이 ±0.5 이상인데 최근 8주 상관이 반대 부호이고, 두 지표가 서로 반대로 의미 있게 움직였을 때 · 누르면 그 짝의 추이 보기</p>' };
+}
+/* ---------- 경기 국면 지도: 성장 × 물가 (각 지표를 자기 이력의 중앙값·흩어짐으로 표준화해 평균) ---------- */
+const REGIME_AXES = {
+  growth: [['cfnai', 1], ['pmi_philly', 1], ['pmi_empire', 1], ['umcsent', 1], ['claims', -1], ['indpro', 1], ['retail', 1], ['payems', 1]],
+  infl: [['us_cpi', 1], ['us_core_cpi', 1], ['us_core_pce', 1], ['us_ppi', 1], ['bei10y', 1]]
+};
+const REGIME_Q = { hh: ['과열', '성장↑ 물가↑ — 원자재·가치주에 우호, 금리 상승 압력'], lh: ['스태그플레이션', '성장↓ 물가↑ — 위험자산에 가장 불리, 현금·실물자산'],
+  hl: ['회복·골디락스', '성장↑ 물가↓ — 주식에 우호, 금리 안정'], ll: ['침체·디스인플레', '성장↓ 물가↓ — 채권에 우호, 금리 인하 기대'] };
+/** 지표 하나의 robust z (중앙값·MAD) — 날짜 d 이전 마지막 값 기준 */
+function regimeZ(id, sign, dates) {
+  const a = (R && R[id]) || (IND[id] && analyze(IND[id]));
+  if (!a || a.isSample || !a.history || a.history.length < 24) return null;
+  const vals = a.history.map(e => e.value).filter(Number.isFinite).sort((x, y) => x - y);
+  const med = vals[vals.length >> 1];
+  const dev = vals.map(v => Math.abs(v - med)).sort((x, y) => x - y);
+  const mad = dev[dev.length >> 1] * 1.4826 || 1;
+  return dates.map(d => { const e = a.history.find(x => x.date <= d); return e ? Math.max(-3, Math.min(3, sign * (e.value - med) / mad)) : null; });
+}
+function computeRegime() {
+  const now = new Date(), dates = [];
+  for (let k = 6; k >= 0; k--) { const d = new Date(now.getFullYear(), now.getMonth() - k + 1, 0); dates.push(k === 0 ? now.toISOString().slice(0, 10) : d.toISOString().slice(0, 10)); }
+  const axis = list => {
+    const parts = list.map(([id, sg]) => ({ id, sg, z: regimeZ(id, sg, dates) })).filter(p => p.z);
+    const score = dates.map((_, i) => { const xs = parts.map(p => p.z[i]).filter(v => v != null); return xs.length >= 3 ? xs.reduce((a, b) => a + b, 0) / xs.length : null; });
+    return { parts, score };
+  };
+  const g = axis(REGIME_AXES.growth), f = axis(REGIME_AXES.infl);
+  const path = dates.map((d, i) => ({ d, g: g.score[i], f: f.score[i] })).filter(p => p.g != null && p.f != null);
+  return path.length ? { path, g, f } : null;
+}
+function regimeHTML() {
+  const rg = computeRegime();
+  if (!rg) return { label: '데이터 부족', html: '<p class="corr-note">성장·물가 지표 이력이 부족해 그릴 수 없습니다.</p>' };
+  const W = 300, H = 230, L = 2.5, cx = W / 2, cy = H / 2;
+  const X = v => (cx + Math.max(-L, Math.min(L, v)) / L * (W / 2 - 14)).toFixed(1), Y = v => (cy - Math.max(-L, Math.min(L, v)) / L * (H / 2 - 14)).toFixed(1);
+  const cur = rg.path[rg.path.length - 1], first = rg.path[0];
+  const q = (cur.g >= 0 ? 'h' : 'l') + (cur.f >= 0 ? 'h' : 'l');
+  const quad = (x, y, k, anchor) => `<text x="${x}" y="${y}" text-anchor="${anchor}" class="rg-q${k === q ? ' on' : ''}">${REGIME_Q[k][0]}</text>`;
+  const pts = rg.path.map(p => `${X(p.g)},${Y(p.f)}`).join(' ');
+  const dots = rg.path.map((p, i) => { const last = i === rg.path.length - 1;
+    return `<circle cx="${X(p.g)}" cy="${Y(p.f)}" r="${last ? 6 : 3}" class="${last ? 'rg-now' : 'rg-pt'}"><title>${p.d.slice(0, 7)} · 성장 ${p.g.toFixed(2)} · 물가 ${p.f.toFixed(2)}</title></circle>${last || i === 0 ? `<text x="${X(p.g)}" y="${+Y(p.f) - 9}" text-anchor="middle" class="rg-lbl">${last ? '지금' : p.d.slice(2, 7).replace('-', '.')}</text>` : ''}`; }).join('');
+  const svg = `<svg class="rg-map" viewBox="0 0 ${W} ${H}" role="img" aria-label="경기 국면 지도: ${REGIME_Q[q][0]}">
+    <rect x="${cx}" y="0" width="${cx}" height="${cy}" class="rg-bg hh"/><rect x="0" y="0" width="${cx}" height="${cy}" class="rg-bg lh"/>
+    <rect x="${cx}" y="${cy}" width="${cx}" height="${cy}" class="rg-bg hl"/><rect x="0" y="${cy}" width="${cx}" height="${cy}" class="rg-bg ll"/>
+    <line x1="0" x2="${W}" y1="${cy}" y2="${cy}" class="rg-ax"/><line y1="0" y2="${H}" x1="${cx}" x2="${cx}" class="rg-ax"/>
+    ${quad(W - 6, 14, 'hh', 'end')}${quad(6, 14, 'lh', 'start')}${quad(W - 6, H - 6, 'hl', 'end')}${quad(6, H - 6, 'll', 'start')}
+    <text x="${W - 4}" y="${cy - 4}" text-anchor="end" class="rg-axl">성장 →</text><text x="${cx + 4}" y="${H / 2 - (H / 2 - 26)}" class="rg-axl">물가 ↑</text>
+    <polyline points="${pts}" class="rg-line"/>${dots}</svg>`;
+  const dir = (a, b) => (b - a > 0.15 ? '↑' : b - a < -0.15 ? '↓' : '→');
+  const chip = (p, i) => { const v = p.z[p.z.length - 1]; return v == null ? '' : `<button type="button" class="rg-chip" data-edit="${p.id}">${esc(IND[p.id].name)}${p.sg < 0 ? ' (반대)' : ''}<b>${fmtSigned(v, 1)}</b></button>`; };
+  const html = `${svg}
+    <p class="rg-now-t"><b>${REGIME_Q[q][0]}</b> 쪽 — 성장 ${fmtSigned(cur.g, 2)} · 물가 ${fmtSigned(cur.f, 2)} <small>(${first.d.slice(0, 7)} 이후 성장 ${dir(first.g, cur.g)} 물가 ${dir(first.f, cur.f)})</small><br><small>${REGIME_Q[q][1]}</small></p>
+    <div class="rg-parts"><span>성장</span>${rg.g.parts.map(chip).join('')}</div>
+    <div class="rg-parts"><span>물가</span>${rg.f.parts.map(chip).join('')}</div>
+    <p class="corr-note">점수 = 각 지표가 자기 이력(월간 약 10년)의 중앙값에서 평소 흩어짐의 몇 배 위·아래인지의 평균 (실업수당 청구는 반대로 셈). 0 = 평소 수준. 점은 지난 6개월 월말과 지금 · 교과서적 국면 구분일 뿐 예측이 아닙니다. 지표를 누르면 상세 보기.</p>`;
+  return { label: REGIME_Q[q][0], html };
 }
 /** 오늘 볼 것: 엇갈림 최대 2줄 */
 function divergenceChecks() {
