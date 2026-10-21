@@ -60,6 +60,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
+          check-latest: true   # 보안 패치가 반영된 최신 22.x 를 받음 (러너에 미리 깔린 버전은 패치가 늦을 수 있음)
 
       - name: 단위 테스트 (계산 공식·지표 정의·AI 문장 검사 — 실패하면 배포하지 않고 기존 사이트 유지)
         run: node --test tests/unit.test.mjs
