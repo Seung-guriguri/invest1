@@ -24,7 +24,7 @@ notes.js                        지표별 인사이트 문구 (의미·함께 �
 season.js                       계절 요인 메모 (카드의 "🗓 지금은 ○○ 시기", AI 브리핑 프롬프트에도 사용)
 data.js                         데이터 모듈: 자동 데이터(data/latest.json) + 직접 입력(localStorage) 병합, 백업
 scripts/sources.mjs             지표별 자동 수집 소스 (FRED 시리즈, Yahoo 심볼, 한국은행 통계코드)
-scripts/fetch-data.mjs          수집 스크립트 (Node 18+, 외부 패키지 없음). 계산 지표(크랙 스프레드·한미 금리차 등)도 여기서
+scripts/fetch-data.mjs          수집 스크립트 (Node 22 이상 권장 — 18·20 은 지원이 끝나 보안 패치를 받지 못함. 외부 패키지 없음). 계산 지표(크랙 스프레드·한미 금리차 등)도 여기서
 scripts/alerts.mjs              긴급 경고 판단(정제 가동률 급락 등) + 선택적 텔레그램 알림
 .github/workflows/update-data.yml  정기 수집 + Pages 배포 워크플로
 manifest.json, sw.js, icons/    PWA (홈 화면 설치, 오프라인 열람)
