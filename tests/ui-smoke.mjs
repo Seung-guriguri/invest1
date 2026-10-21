@@ -117,7 +117,20 @@ async function main() {
       const d2 = await page.evaluate(() => ({ t: document.querySelector('#corrDual').textContent, saved: DataStore.getSettings().corrDual, lines: document.querySelectorAll('#corrOut .corr-chart polyline').length }));
       await page.click('#corrDual');
       check(/각자 축/.test(d1 || '') && /시작=100/.test(d2.t) && d2.saved === false && d2.lines === 2, `겹친 차트 축 전환 ${JSON.stringify({ d1, d2 })}`);
-      await page.evaluate(() => document.querySelector('#editSheet').close());
+      // 관계 분석 공유: 보기 4개 모두 이미지 생성 · 링크 형식 · 링크로 열면 같은 짝·보기
+      const ps = await page.evaluate(() => ['sum', 'roll', 'evt', 'ratio'].map(tb => { DataStore.setSettings({ corrTab: tb }); renderCorrPair('wti', 'brent');
+        try { const c = Share.renderPair('wti', 'brent', tb).canvas; return `${tb}:${c.width}x${c.height}`; } catch (e) { return tb + ':' + e.message; } }));
+      const btns = await page.evaluate(() => document.querySelectorAll('#corrOut [data-action^="share-pair"]').length);
+      check(ps.every(x => /1080x1350$/.test(x)) && btns === 2, `관계 분석 공유 이미지 (요약·추이·사건 반응·비율) ${ps.join(' ')} · 버튼 ${btns}`);
+      if (process.env.SHOT_DIR) for (const tb of ['sum', 'roll', 'evt', 'ratio']) {
+        const url = await page.evaluate(tb => { DataStore.setSettings({ corrTab: tb }); renderCorrPair('wti', 'brent'); return Share.renderPair('wti', 'brent', tb).canvas.toDataURL('image/png'); }, tb);
+        await writeFile(`${process.env.SHOT_DIR}/share-pair-${tb}-${ui}-${scheme}.png`, Buffer.from(url.split(',')[1], 'base64'));
+      }
+      await page.evaluate(() => { DataStore.setSettings({ corrTab: 'sum' }); document.querySelector('#editSheet').close(); });
+      const lk = await page.evaluate(() => { const u = Share.pairLink('gold', 'silver', 'ratio'); location.hash = u.split('#')[1]; openFromHash();
+        return { u: /#ind=gold&with=silver&tab=ratio$/.test(u), open: document.querySelector('#editSheet').open, pick: document.querySelector('#corrPick').value, tab: document.querySelector('#corrOut [aria-pressed="true"]').dataset.corrtab }; });
+      await page.evaluate(() => { document.querySelector('#editSheet').close(); DataStore.setSettings({ corrTab: 'sum' }); });
+      check(lk.u && lk.open && lk.pick === 'silver' && lk.tab === 'ratio', `관계 분석 공유 링크로 열기 ${JSON.stringify(lk)}`);
       check(co.sec && co.win === 3 && co.svg && co.saved === 'brent', `상관관계: 순위·직접 비교·차트·선택 기억 ${JSON.stringify(co)}`);
       // 엇갈림 감지: 계산 함수를 잠시 바꿔 첫 감시 짝이 엇갈린 상황을 만들고 화면 연결 확인
       await page.evaluate(() => { window.__div = CORR.divergence; CORR.divergence = (A, B) => ({ on: A.id === 'wti' && B.id === 'etf_xle', r1: 0.8, rr: -0.3, n: 8, unit: '주', ca: 0.05, cb: -0.04, basis: 'W' }); setView('today'); render(); });
