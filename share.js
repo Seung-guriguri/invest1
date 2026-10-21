@@ -293,5 +293,168 @@
     toast(ok ? '요약과 링크를 복사했습니다' : url);
   }
 
-  global.Share = { shareIndicator, shareLink, render, shareText, linkFor };
+  /* ---------- 관계 분석(직접 비교) 공유: 두 지표 · 보기(요약·추이·사건 반응·비율) ---------- */
+  const PAIR_TABS = { sum: '요약 · 겹친 차트', roll: '상관 추이', evt: '사건 반응', ratio: '비율' };
+  const pairLink = (id, other, tab) => `${location.origin}${location.pathname}#ind=${encodeURIComponent(id)}&with=${encodeURIComponent(other)}&tab=${encodeURIComponent(tab)}`;
+  const COL_A = C.accent, COL_B = '#e8890c';
+
+  /** 선 차트 (여러 선 · 각자 축 또는 같은 축) */
+  function drawLines(ctx, lines, keys, x, y, w, h, o = {}) {
+    ctx.fillStyle = C.panel; roundRect(ctx, x, y, w, h, 28); ctx.fill();
+    const pad = { l: 32, r: o.dual ? 32 : 150, t: o.title ? 84 : 64, b: 64 };
+    const cx = x + pad.l, cy = y + pad.t, cw = w - pad.l - pad.r, ch = h - pad.t - pad.b;
+    const range = v => { let lo = Math.min(...v), hi = Math.max(...v); if (o.lo != null) lo = o.lo; if (o.hi != null) hi = o.hi; const sp = hi - lo || 1; return o.lo != null ? [lo, hi] : [lo - sp * 0.06, hi + sp * 0.06]; };
+    const all = lines.flatMap(l => l.v), common = range(all);
+    if (o.title) { ctx.font = font(26, 600); ctx.fillStyle = C.text2; ctx.fillText(o.title, x + 32, y + 44); }
+    const Yf = ([lo, hi]) => v => cy + (1 - (v - lo) / (hi - lo || 1)) * ch;
+    if (!o.dual) {
+      const Y = Yf(common), [lo, hi] = common;
+      ctx.font = font(24); ctx.fillStyle = C.text3; ctx.strokeStyle = C.line; ctx.lineWidth = 2;
+      [hi - (hi - lo) * 0.06, (hi + lo) / 2, lo + (hi - lo) * 0.06].forEach(v => {
+        const yy = Y(v); ctx.beginPath(); ctx.moveTo(cx, yy); ctx.lineTo(cx + cw, yy); ctx.stroke();
+        ctx.fillText(o.fmt ? o.fmt(v) : fmt(v, Math.abs(v) >= 100 ? 0 : 2), cx + cw + 16, yy + 8);
+      });
+      if (o.zero && lo < 0 && hi > 0) { ctx.save(); ctx.setLineDash([10, 8]); ctx.strokeStyle = C.text3; ctx.beginPath(); ctx.moveTo(cx, Y(0)); ctx.lineTo(cx + cw, Y(0)); ctx.stroke(); ctx.restore(); }
+    }
+    lines.forEach(l => {
+      const Y = Yf(o.dual ? range(l.v) : common), n = l.v.length;
+      const X = i => cx + i / Math.max(1, n - 1) * cw;
+      ctx.beginPath(); l.v.forEach((v, i) => (i ? ctx.lineTo(X(i), Y(v)) : ctx.moveTo(X(i), Y(v))));
+      ctx.strokeStyle = l.c; ctx.lineWidth = 5; ctx.lineJoin = 'round'; ctx.stroke();
+      ctx.beginPath(); ctx.arc(X(n - 1), Y(l.v[n - 1]), 9, 0, Math.PI * 2); ctx.fillStyle = l.c; ctx.fill();
+    });
+    ctx.font = font(24); ctx.fillStyle = C.text3;
+    if (keys && keys.length) { ctx.fillText(keys[0], cx, y + h - 22); ctx.textAlign = 'right'; ctx.fillText(keys[keys.length - 1], cx + cw, y + h - 22); ctx.textAlign = 'left'; }
+  }
+
+  /** 화면의 문장들 (그 보기에서 실제로 보이는 해석 그대로) */
+  const screenSays = () => [...document.querySelectorAll('#corrOut .corr-say')].map(e => e.innerText.replace(/\s+/g, ' ').trim()).filter(Boolean);
+
+  function renderPair(id, other, tab) {
+    const A = corrSeries(id), B = corrSeries(other);
+    if (!A || !B) throw new Error('비교할 이력이 부족합니다');
+    const na = IND[id].name, nb = IND[other].name;
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
+    ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
+    let y = P + 8;
+    ctx.font = font(28, 600); ctx.fillStyle = C.accent; ctx.fillText(`관계 분석 · ${PAIR_TABS[tab] || ''}`, P, y + 20);
+    ctx.textAlign = 'right'; ctx.fillStyle = C.text3; ctx.font = font(28); ctx.fillText('매크로 대시보드', W - P, y + 20); ctx.textAlign = 'left';
+    y += 92;
+    // 제목: 색 점 + 두 지표 이름
+    ctx.font = font(50, 800);
+    [[na, COL_A], [nb, COL_B]].forEach(([n, c], i) => {
+      ctx.beginPath(); ctx.arc(P + 14, y - 16, 14, 0, Math.PI * 2); ctx.fillStyle = c; ctx.fill();
+      ctx.fillStyle = C.text; const l = wrap(ctx, n, W - P * 2 - 44, 1)[0]; ctx.fillText(l, P + 44, y); y += 66;
+    });
+    y += 10;
+    // 요약: 기간별 상관 상자
+    if (tab === 'sum') {
+      const p = CORR.pair(A, B), bw = (W - P * 2 - 28) / 3;
+      p.windows.forEach((wd, i) => {
+        const bx = P + i * (bw + 14);
+        ctx.fillStyle = C.panel; roundRect(ctx, bx, y, bw, 120, 20); ctx.fill();
+        ctx.font = font(26); ctx.fillStyle = C.text2; ctx.fillText(wd.label, bx + 24, y + 40);
+        ctx.font = font(44, 800); ctx.fillStyle = wd.r == null ? C.text3 : wd.r >= 0 ? C.up : C.down;
+        ctx.fillText(wd.r == null ? '—' : (wd.r > 0 ? '+' : '') + wd.r.toFixed(2), bx + 24, y + 96);
+      });
+      y += 144;
+    }
+    // 해석 문장 (최대 4개 · 각 3줄)
+    ctx.font = font(30, 500);
+    for (const t of screenSays().slice(0, tab === 'sum' ? 3 : 2)) {
+      const ls = wrap(ctx, t, W - P * 2, 3); ctx.fillStyle = C.text;
+      ls.forEach(l => { ctx.fillText(l, P, y + 30); y += 42; }); y += 12;
+    }
+    y += 12;
+    const footerH = 112, chartH = Math.max(320, H - y - footerH - 120);
+    if (tab === 'evt') {
+      // 사건 반응 표
+      const rows = [...document.querySelectorAll('#corrOut .corr-tbl tr')].map(tr => [...tr.children].map(td => td.innerText.trim()));
+      const colX = [P, P + 230, P + 380, P + 580, P + 780];
+      rows.forEach((r, i) => {
+        if (i) { ctx.strokeStyle = C.line; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(P, y - 4); ctx.lineTo(W - P, y - 4); ctx.stroke(); }
+        ctx.font = font(i ? 32 : 26, i ? 600 : 500); ctx.fillStyle = i ? C.text : C.text3;
+        // 칸이 합쳐진 행(사례 부족)은 마지막 칸을 끝까지 펼침
+        r.forEach((c, j) => ctx.fillText(wrap(ctx, c, (j === r.length - 1 ? W - P : (colX[j + 1] || W - P)) - colX[j] - 16, 1)[0] || '', colX[j], y + 40));
+        y += 66;
+      });
+      y += 20;
+      ctx.font = font(26); ctx.fillStyle = C.text3;
+      const recent = [...document.querySelectorAll('#corrOut .corr-note')].map(e => e.innerText.trim()).find(t => t.startsWith('최근 사례'));
+      if (recent) { ctx.font = font(28); ctx.fillStyle = C.text2; wrap(ctx, recent, W - P * 2, 2).forEach(l => { ctx.fillText(l, P, y + 20); y += 40; }); y += 8; ctx.font = font(26); ctx.fillStyle = C.text3; }
+      wrap(ctx, '과거 평균일 뿐 예측이 아님 · 사례가 적으면 우연일 수 있음', W - P * 2, 2).forEach(l => { ctx.fillText(l, P, y + 20); y += 36; });
+    } else {
+      let lines, keys, opt, legend;
+      if (tab === 'roll') {
+        const ro = CORR.rolling(A, B);
+        lines = [{ v: ro.pts.map(x => x.r), c: COL_A }]; keys = [ro.pts[0].key, ro.pts[ro.pts.length - 1].key];
+        opt = { lo: -1, hi: 1, zero: true, title: `${ro.basis === 'M' ? '3년(월간)' : '1년(주간)'} 이동 상관 · 위 = 같은 방향, 아래 = 반대`, fmt: v => (v > 0 ? '+' : '') + v.toFixed(1) };
+        legend = [];
+      } else if (tab === 'ratio') {
+        const ra = CORR.ratio(A, B);
+        lines = [{ v: ra.vals, c: COL_A }]; keys = [ra.keys[0], ra.keys[ra.keys.length - 1]];
+        opt = { zero: ra.kind === 'diff', title: ra.kind === 'ratio' ? `${na} ÷ ${nb}` : `${na} − ${nb}`, fmt: v => fmtSig(v) };
+        legend = [];
+      } else {
+        const ov = CORR.overlay(A, B, A.freq === 'M' || B.freq === 'M' ? 60 : 104);
+        const dual = (DataStore.getSettings().corrDual ?? true) !== false;
+        lines = [{ v: dual ? ov.ra : ov.a, c: COL_A }, { v: dual ? ov.rb : ov.b, c: COL_B }]; keys = [ov.keys[0], ov.keys[ov.keys.length - 1]];
+        opt = { dual, title: dual ? '겹친 차트 · 각자 축 (모양 비교)' : '겹친 차트 · 시작=100' };
+        const rng = (v, k) => `${fmtSig(Math.min(...v))}~${fmtSig(Math.max(...v))}${IND[k].unit ? ' ' + IND[k].unit : ''}`;
+        legend = [[na, COL_A, dual ? rng(ov.ra, id) : ''], [nb, COL_B, dual ? rng(ov.rb, other) : '']];
+      }
+      drawLines(ctx, lines, keys, P, y, W - P * 2, chartH, opt);
+      y += chartH + 24;
+      ctx.font = font(26);
+      legend.forEach(([n, c, r]) => {
+        ctx.fillStyle = c; roundRect(ctx, P, y + 8, 28, 8, 4); ctx.fill();
+        ctx.fillStyle = C.text2; ctx.fillText(wrap(ctx, `${n}${r ? '  ' + r : ''}`, W - P * 2 - 44, 1)[0], P + 40, y + 20); y += 40;
+      });
+    }
+    ctx.strokeStyle = C.line; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(P, H - footerH); ctx.lineTo(W - P, H - footerH); ctx.stroke();
+    ctx.font = font(26); ctx.fillStyle = C.text3;
+    ctx.fillText('같이 움직였다고 원인·결과는 아님 · 투자 권유 아님', P, H - footerH + 50);
+    ctx.textAlign = 'right';
+    ctx.fillText(location.host + location.pathname.replace(/\/index\.html$/, '/').replace(/\/$/, ''), W - P, H - footerH + 50);
+    ctx.textAlign = 'left';
+    return { canvas: cv };
+  }
+  function pairText(id, other, tab) {
+    const say = screenSays()[0] || '';
+    return `${IND[id].name} ↔ ${IND[other].name} — ${PAIR_TABS[tab] || ''}${say ? '\n' + say : ''}\n${pairLink(id, other, tab)}`;
+  }
+  /** 🖼 비교 화면 이미지 공유 */
+  async function sharePair(id, other, tab) {
+    if (!IND[id] || !IND[other]) return;
+    try {
+      const text = pairText(id, other, tab);
+      const copied = await copyText(text);
+      if (document.fonts && document.fonts.ready) await document.fonts.ready;
+      const blob = await toBlob(renderPair(id, other, tab).canvas);
+      const name = `${id}-vs-${other}-${tab}.png`;
+      const file = new File([blob], name, { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        if (copied) toast('설명·링크를 복사했어요 — 이미지를 보낸 뒤 붙여넣기 하세요');
+        try { await navigator.share({ files: [file], text, title: `${IND[id].name} ↔ ${IND[other].name}` }); return; }
+        catch (e) { if (e && e.name === 'AbortError') return; }
+      }
+      download(blob, name);
+      toast(copied ? '이미지를 저장하고 설명·링크를 복사했습니다' : '이미지를 저장했습니다');
+    } catch (e) { toast('공유 이미지를 만들지 못했습니다: ' + e.message); }
+  }
+  /** 🔗 비교 화면 링크 공유 — 열면 같은 두 지표·같은 보기로 바로 열림 */
+  async function sharePairLink(id, other, tab) {
+    if (!IND[id] || !IND[other]) return;
+    const full = pairText(id, other, tab), lines = full.split('\n'), url = pairLink(id, other, tab);
+    if (navigator.share) {
+      try { await navigator.share({ title: `${IND[id].name} ↔ ${IND[other].name}`, text: lines.slice(0, -1).join('\n'), url }); return; }
+      catch (e) { if (e && e.name === 'AbortError') return; }
+    }
+    const ok = await copyText(full);
+    toast(ok ? '요약과 링크를 복사했습니다' : url);
+  }
+
+  global.Share = { shareIndicator, shareLink, render, shareText, linkFor, renderPair, sharePair, sharePairLink, pairLink };
 })(window);

@@ -164,6 +164,8 @@
   .corr-legend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 4px; }
   .corr-note { font-size: 11.5px; color: var(--text-2); margin: 6px 0 0; }
   .corr-tabs { display: flex; gap: 4px; margin: 10px 0 4px; }
+  .corr-share-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .corr-share-row .btn { height: 36px; font-size: 13.5px; padding: 0 12px; }
   .corr-tabs button { flex: 1; min-width: 0; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); border-radius: 9px; padding: 6px 2px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
   .corr-tabs button[aria-pressed="true"] { background: var(--text); color: var(--bg); border-color: var(--text); }
   .corr-say small { color: var(--text-2); font-size: 11.5px; }
@@ -2766,6 +2768,7 @@ function renderCorrPair(id, other) {
         <div class="corr-legend"><span>${esc(ra.keys[0])} ~ ${esc(ra.keys[ra.keys.length - 1])}</span><span>최고 ${fmtSig(ra.max.v)} (${esc(ra.max.key)})</span><span>최저 ${fmtSig(ra.min.v)} (${esc(ra.min.key)})</span></div></div>`;
     }
   }
+  body += `<div class="corr-share-row"><button type="button" class="btn small" data-action="share-pair-img">🖼 이 비교 이미지로 공유</button><button type="button" class="btn small" data-action="share-pair-link">🔗 링크 공유</button></div>`;
   out.innerHTML = tabs + (CORR_HELP[tab] ? `<details class="corr-help"${DataStore.getSettings().corrHelp ? ' open' : ''}><summary>ⓘ 이 보기는?</summary>${CORR_HELP[tab]}</details>` : '') + body;
   const hp = out.querySelector('.corr-help'); if (hp) hp.ontoggle = () => DataStore.setSettings({ corrHelp: hp.open });
 }
@@ -2932,7 +2935,15 @@ function linkedIndicator() {
 }
 function openFromHash() {
   const ind = linkedIndicator();
-  if (ind) { detailState.range = null; openEdit(ind.id); }
+  if (!ind) return;
+  // 관계 분석 공유 링크: #ind=A&with=B&tab=roll → 그 짝·그 보기로 열고 비교 칸으로 스크롤
+  const q = new URLSearchParams(location.hash.slice(1)), w = q.get('with'), tb = q.get('tab');
+  if (w && IND[w] && w !== ind.id) {
+    const m = Object.assign({}, DataStore.getSettings().corrPick || {}); m[ind.id] = w;
+    DataStore.setSettings({ corrPick: m, ...(CORR_TABS.some(x => x[0] === tb) ? { corrTab: tb } : {}) });
+  }
+  detailState.range = null; openEdit(ind.id);
+  if (w && IND[w]) setTimeout(() => { const el = $('#corrPick'); if (el) el.scrollIntoView({ block: 'start' }); }, 60);
 }
 
 let toastTimer;
@@ -2996,6 +3007,9 @@ document.addEventListener('click', e => {
   } else if (t.dataset.action === 'share-img') {
     $('#shareMenu').hidden = true;
     if (window.Share && detailState.id) Share.shareIndicator(detailState.id);
+  } else if (t.dataset.action === 'share-pair-img' || t.dataset.action === 'share-pair-link') {
+    const other = $('#corrPick') && $('#corrPick').value, tab = CORR_TABS.some(x => x[0] === DataStore.getSettings().corrTab) ? DataStore.getSettings().corrTab : 'sum';
+    if (window.Share && detailState.id && other) (t.dataset.action === 'share-pair-img' ? Share.sharePair : Share.sharePairLink)(detailState.id, other, tab);
   } else if (t.dataset.action === 'share-link') {
     $('#shareMenu').hidden = true;
     if (window.Share && detailState.id) Share.shareLink(detailState.id);
