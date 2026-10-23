@@ -27,7 +27,7 @@ const AI_PREV = arg('--ai', null);   // 직전 배포의 ai.json (오늘 아침 
 const TG_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
 let TG_CHAT = (process.env.TELEGRAM_CHAT_ID || '').trim();
 const TG_TEST = String(process.env.TELEGRAM_TEST || '').toLowerCase() === 'true';
-const TG_SHARE = (process.env.TELEGRAM_SHARE_CHAT_ID || '').trim();   // 공유 채널 (테스트 메시지만 여기서 보냄)
+const TG_SHARE = (process.env.TELEGRAM_SHARE_CHAT_ID || '').trim();   // 공유 채널 (테스트 메시지만 여기서 보냄 — 긴급 경고·작동 점검은 개인 채팅 전용)
 const DAY = 86400000;
 
 const r1 = v => Math.round(v * 10) / 10;
@@ -204,13 +204,16 @@ async function main() {
     if (!TG_TOKEN) console.log('  텔레그램 테스트: TELEGRAM_BOT_TOKEN Secret 이 없습니다');
     else if (!TG_CHAT) console.log('  텔레그램 테스트: 보낼 채팅을 못 찾음 — 봇에게 /start 를 보낸 뒤 다시 실행하세요');
     else {
-      const msg = ['✅ 매크로 대시보드 알림 연결 성공', '긴급 경고(정제 가동률 급락·하이일드 스프레드 급확대·VIX 급등)와 아침 AI 브리핑을 여기로 보냅니다.',
+      const hasShare = !!TG_SHARE && TG_SHARE !== TG_CHAT;   // 공유 채널이 있으면 브리핑 등 내용은 거기로만 가고, 여기는 운영 알림만
+      const msg = ['✅ 매크로 대시보드 알림 연결 성공', hasShare
+        ? '긴급 경고(정제 가동률 급락·하이일드 스프레드 급확대·VIX 급등) · 데이터 수집 점검 · 실패 알림을 여기로 보냅니다. (브리핑·리포트·칼럼·관심 종목·성적표는 공유 채널로 갑니다)'
+        : '긴급 경고(정제 가동률 급락·하이일드 스프레드 급확대·VIX 급등)와 아침 AI 브리핑을 여기로 보냅니다.',
         ...(autoChat ? ['', `이 채팅 ID: ${TG_CHAT}`, '→ 저장소 Secret TELEGRAM_CHAT_ID 에 이 숫자를 등록하면 계속 받을 수 있습니다.'] : [])].join('\n');
       try { await sendTelegram(msg); console.log('  텔레그램 테스트 메시지 전송 완료'); }
       catch (e) { console.log(`  텔레그램 테스트 전송 실패: ${e.message}`); }
     }
     if (TG_TOKEN && TG_SHARE && TG_SHARE !== TG_CHAT) {
-      const msg = ['✅ 공유 채널 연결 성공', '평일 아침 AI 브리핑 · 리서치 리포트 요약 · 오늘의 칼럼을 이 채널로 함께 보냅니다.', '', '※ AI가 작성한 참고용 분석이며 투자 권유가 아닙니다.'].join('\n');
+      const msg = ['✅ 공유 채널 연결 성공', '평일 아침 AI 브리핑 · 리서치 리포트 요약 · 오늘의 칼럼 · 관심 종목 · 월요일 성적표를 이 채널로 보냅니다.', '', '※ AI가 작성한 참고용 분석이며 투자 권유가 아닙니다.'].join('\n');
       try { await sendTelegram(msg, TG_SHARE); console.log('  공유 채널 테스트 메시지 전송 완료'); }
       catch (e) { console.log(`  공유 채널 테스트 전송 실패: ${e.message} — 채널 ID(-100…)와 봇의 '메시지 게시' 관리자 권한을 확인하세요`); }
     } else if (!TG_SHARE) console.log('  공유 채널: TELEGRAM_SHARE_CHAT_ID 미등록 — 건너뜀');
