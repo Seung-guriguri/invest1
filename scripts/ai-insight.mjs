@@ -41,8 +41,12 @@ const ED = WEEKLY ? { brief: '주간 AI 브리핑 (지난주 정리)', top: '지
 const WATCH_DIR = (process.env.WATCH_DIR || '').trim();   // 성적표용 기록 폴더 (배포하지 않는 private/)
 const TG_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
 const TG_CHAT = (process.env.TELEGRAM_CHAT_ID || '').trim();
-// (선택) 공유 채널·그룹 — 브리핑·리포트 요약·칼럼·관심 종목도 같이 보냄 (성적표는 track.mjs 에서, 실패 알림은 개인 채팅에만)
+// (선택) 공유 채널·그룹 — 브리핑·리포트 요약·칼럼·관심 종목은 공유 채널이 설정돼 있으면 거기로만 보냄 (성적표는 track.mjs 에서)
+// 개인 채팅에는 운영 알림(실패·작동 점검·긴급 경고)만 — 공유 채널이 없거나 개인 채팅과 같은 ID 면 내용도 개인 채팅으로
 const TG_SHARE = (process.env.TELEGRAM_SHARE_CHAT_ID || '').trim();
+const TO_SHARE = !!TG_SHARE && TG_SHARE !== TG_CHAT;
+const TG_DEST = TO_SHARE ? TG_SHARE : TG_CHAT;
+const WHERE = TO_SHARE ? '공유 채널' : '텔레그램';
 const SITE_URL = (process.env.SITE_URL || '').trim();
 const API = 'https://generativelanguage.googleapis.com/v1beta';
 const DAY = 86400000;
@@ -393,20 +397,20 @@ async function autoModels() {
 const CAT_LABEL = { rates: '금리', inflation: '물가', growth: '경기', market: '시장·신용', fx: '환율', energy: '에너지', power: '전력', freight: '운임', stocks: '비축·재고', metals: '금속', grains: '곡물', fert: '비료', etf: 'ETF' };
 
 /** 새 브리핑을 텔레그램으로 (4096자 제한 안에서) */
-/** 공유 채널에 같은 내용을 한 번 더 보냄 (설정했고 개인 채팅과 다를 때만) */
-async function shareCopy(text, label) {
-  if (!TG_TOKEN || !TG_SHARE || TG_SHARE === TG_CHAT) return;
+/** 공유 채널로 가는 내용 전송이 실패하면 개인 채팅(운영 알림 창구)에 한 줄로 알림 — 채널이 조용히 끊기는 걸 막음 */
+async function contentFailed(label, why) {
+  if (!TO_SHARE || !TG_TOKEN || !TG_CHAT) return;
   try {
-    const res = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
+    await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ chat_id: TG_SHARE, text: text.slice(0, 4090), disable_web_page_preview: true }), signal: AbortSignal.timeout(20000)
+      body: JSON.stringify({ chat_id: TG_CHAT, text: `⚠️ 공유 채널로 ${label} 전송이 실패했어요 (${String(why).slice(0, 80)})\n봇이 채널의 '메시지 게시' 관리자인지, TELEGRAM_SHARE_CHAT_ID 값이 맞는지 확인하세요.`, disable_web_page_preview: true }),
+      signal: AbortSignal.timeout(20000)
     });
-    console.log(res.ok ? `  공유 채널로 ${label} 전송 완료` : `  공유 채널 ${label} 전송 실패: HTTP ${res.status}`);
-  } catch (e) { console.log(`  공유 채널 ${label} 전송 실패: ${e.message}`); }
+  } catch (e) { /* 알림도 못 보내면 로그만 */ }
 }
 
 async function sendBriefingTelegram(b, sections, kst, energy = {}, chains = {}) {
-  if (!TG_TOKEN || !TG_CHAT) { console.log('  (텔레그램 미설정 — 브리핑 전송 건너뜀)'); return; }
+  if (!TG_TOKEN || !TG_DEST) { console.log('  (텔레그램 미설정 — 브리핑 전송 건너뜀)'); return; }
   const lines = [`${ED.icon} ${ED.brief} · ${kst}`, '', `📌 ${b.headline || ''}`];
   if (b.top3 && b.top3.length) lines.push('', `✅ ${ED.top}`, ...b.top3.map((x, i) => `${i + 1}. ${x}`));
   lines.push('', b.story || '');
@@ -450,11 +454,11 @@ async function sendBriefingTelegram(b, sections, kst, energy = {}, chains = {}) 
   try {
     const res = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ chat_id: TG_CHAT, text, disable_web_page_preview: true }), signal: AbortSignal.timeout(20000)
+      body: JSON.stringify({ chat_id: TG_DEST, text, disable_web_page_preview: true }), signal: AbortSignal.timeout(20000)
     });
-    console.log(res.ok ? '  텔레그램으로 브리핑 전송 완료' : `  텔레그램 브리핑 전송 실패: HTTP ${res.status}`);
-  } catch (e) { console.log(`  텔레그램 브리핑 전송 실패: ${e.message}`); }
-  await shareCopy(text, '브리핑');
+    console.log(res.ok ? `  ${WHERE}로 브리핑 전송 완료` : `  ${WHERE} 브리핑 전송 실패: HTTP ${res.status}`);
+    if (!res.ok) await contentFailed('브리핑', `HTTP ${res.status}`);
+  } catch (e) { console.log(`  ${WHERE} 브리핑 전송 실패: ${e.message}`); await contentFailed('브리핑', e.message); }
 }
 
 /* ---------- 오늘의 칼럼: 섹션형 짧은 칼럼 (브리핑 성공 뒤 1회 추가 호출) ----------
@@ -532,18 +536,19 @@ async function generateColumn(models, first, material) {
 }
 
 async function sendColumnTelegram(col) {
-  if (!TG_TOKEN || !TG_CHAT || !col) return;
+  if (!TG_TOKEN || !TG_DEST || !col) return;
   // 텔레그램에는 제목 + 오늘의 한 줄 정리만 (전문은 앱의 'AI 브리핑 → 오늘의 칼럼')
   let text = [`📰 ${ED.col} 《${col.title}》`, '', col.oneline || col.summary || '', '', SITE_URL ? `전문 보기: ${SITE_URL}` : '전문은 앱의 AI 브리핑에서 볼 수 있어요.'].join('\n');
+  if (TO_SHARE) text += '\n\n※ AI가 작성한 참고용 글이며 투자 권유가 아닙니다.';   // 여러 사람이 보는 채널
   if (text.length > 4000) text = text.slice(0, 3990) + '…';
   try {
     const res = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ chat_id: TG_CHAT, text, disable_web_page_preview: true }), signal: AbortSignal.timeout(20000)
+      body: JSON.stringify({ chat_id: TG_DEST, text, disable_web_page_preview: true }), signal: AbortSignal.timeout(20000)
     });
-    console.log(res.ok ? '  텔레그램으로 칼럼 전송 완료' : `  텔레그램 칼럼 전송 실패: HTTP ${res.status}`);
-  } catch (e) { console.log(`  텔레그램 칼럼 전송 실패: ${e.message}`); }
-  await shareCopy(text + '\n\n※ AI가 작성한 참고용 글이며 투자 권유가 아닙니다.', '칼럼');
+    console.log(res.ok ? `  ${WHERE}로 칼럼 전송 완료` : `  ${WHERE} 칼럼 전송 실패: HTTP ${res.status}`);
+    if (!res.ok) await contentFailed('칼럼', `HTTP ${res.status}`);
+  } catch (e) { console.log(`  ${WHERE} 칼럼 전송 실패: ${e.message}`); await contentFailed('칼럼', e.message); }
 }
 
 /* ---------- 관심 종목·ETF: 텔레그램 전용 — 개인 채팅 + 공유 채널 (앱·ai.json·로그에 내용을 남기지 않음) ---------- */
@@ -654,7 +659,7 @@ async function generateWatchlist(models, first, material, universe) {
   return null;
 }
 async function sendWatchlistTelegram(w, universe, kst) {
-  if (!TG_TOKEN || !TG_CHAT || !w) return;
+  if (!TG_TOKEN || !TG_DEST || !w) return;
   // 헤드라인 + 핵심 한 줄, 종목마다 '티커 — 이름' 한 줄 + 핵심 1~2줄
   const lines = [`🎯 관심 종목·ETF${w.headline ? ` — ${w.headline}` : ''}`];
   if (w.theme) lines.push(w.theme);
@@ -664,23 +669,23 @@ async function sendWatchlistTelegram(w, universe, kst) {
     if (i.invalidation) lines.push(`↳ 철회 조건: ${i.invalidation}`);
   });
   const body = lines.join('\n');
-  let text = body + '\n\n※ 텔레그램 전용 · AI가 고른 조사 후보이며 매수·매도 권유가 아닙니다.';
-  if (text.length > 4000) text = text.slice(0, 3990) + '…';
-  try {
-    const res = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ chat_id: TG_CHAT, text, disable_web_page_preview: true }), signal: AbortSignal.timeout(20000)
-    });
-    console.log(res.ok ? '  텔레그램으로 관심 종목·ETF 전송 완료' : `  텔레그램 관심 종목 전송 실패: HTTP ${res.status}`);
-  } catch (e) { console.log(`  텔레그램 관심 종목 전송 실패: ${e.message}`); }
-  // 공유 채널에도 전송 — 여러 사람이 보므로 투자 권유가 아님을 더 분명하게
+  // 공유 채널은 여러 사람이 보므로 투자 권유가 아님을 더 분명하게
   const shareNote = [
     '⚠️ 투자 권유가 아닙니다',
     '· AI가 오늘의 매크로 지표만 보고 고른 "조사해 볼 후보"이며, 매수·매도·보유를 권하지 않습니다.',
     '· 기업 실적·뉴스는 반영하지 않았고, 틀릴 수 있습니다.',
     '· 투자 판단과 그 결과의 책임은 본인에게 있습니다.'
   ].join('\n');
-  await shareCopy((body + '\n\n' + shareNote).slice(0, 4090), '관심 종목·ETF');
+  let text = body + '\n\n' + (TO_SHARE ? shareNote : '※ 텔레그램 전용 · AI가 고른 조사 후보이며 매수·매도 권유가 아닙니다.');
+  if (text.length > 4000) text = text.slice(0, 3990) + '…';
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ chat_id: TG_DEST, text, disable_web_page_preview: true }), signal: AbortSignal.timeout(20000)
+    });
+    console.log(res.ok ? `  ${WHERE}로 관심 종목·ETF 전송 완료` : `  ${WHERE} 관심 종목 전송 실패: HTTP ${res.status}`);
+    if (!res.ok) await contentFailed('관심 종목·ETF', `HTTP ${res.status}`);
+  } catch (e) { console.log(`  ${WHERE} 관심 종목 전송 실패: ${e.message}`); await contentFailed('관심 종목·ETF', e.message); }
 }
 
 const CATS = ['rates', 'inflation', 'growth', 'market', 'fx', 'energy', 'power', 'freight', 'stocks', 'metals', 'grains', 'fert', 'etf'];
@@ -766,7 +771,7 @@ function reportShortText(r) {
 }
 
 /** 긴 글은 빈 줄 기준으로 나눠 여러 메시지로 (텔레그램 4096자 제한) */
-async function sendTelegramLong(text, label, chat = TG_CHAT) {
+async function sendTelegramLong(text, label, chat = TG_DEST) {
   if (!TG_TOKEN || !chat) return;
   const parts = []; let cur = '';
   for (const block of text.split('\n\n')) {
@@ -780,8 +785,8 @@ async function sendTelegramLong(text, label, chat = TG_CHAT) {
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ chat_id: chat, text: body.slice(0, 4090), disable_web_page_preview: true }), signal: AbortSignal.timeout(20000)
       });
-      if (!res.ok) { console.log(`  텔레그램 ${label} 전송 실패: HTTP ${res.status}`); return; }
-    } catch (e) { console.log(`  텔레그램 ${label} 전송 실패: ${e.message}`); return; }
+      if (!res.ok) { console.log(`  텔레그램 ${label} 전송 실패: HTTP ${res.status}`); if (chat !== TG_CHAT) await contentFailed(label, `HTTP ${res.status}`); return; }
+    } catch (e) { console.log(`  텔레그램 ${label} 전송 실패: ${e.message}`); if (chat !== TG_CHAT) await contentFailed(label, e.message); return; }
   }
   console.log(`  ${chat === TG_CHAT ? '텔레그램' : '공유 채널'}으로 ${label} 전송 완료 (${parts.length}개 메시지)`);
 }
@@ -1047,7 +1052,6 @@ async function main() {
   await sendBriefingTelegram(briefing, sections, kst, energy, chains);
   if (report) {
     await sendTelegramLong(reportShortText(report), '리서치 리포트 요약');
-    if (TG_SHARE && TG_SHARE !== TG_CHAT) await sendTelegramLong(reportShortText(report), '리서치 리포트 요약', TG_SHARE);
   }
   let column = null;
   // 최근 칼럼 제목 (최대 7개) — 같은 주제 반복을 피하도록 칼럼 재료로 넘기고 ai.json 에 이어서 보관
@@ -1067,7 +1071,7 @@ async function main() {
     console.log(`  오늘의 칼럼: 생성 실패 → 오늘 앞서 만든 칼럼 유지 (${column.title})`);
   } else console.log('  오늘의 칼럼: 생성 실패 → 브리핑만 전송');
   // 관심 종목·ETF — 텔레그램 전용 (텔레그램 미설정이면 호출하지 않음, ai.json 에 저장하지 않음)
-  if (TG_TOKEN && TG_CHAT) {
+  if (TG_TOKEN && TG_DEST) {
     try {
       const universe = watchUniverse(meta, rows);
       const past = await pastIdeasBlock().catch(() => null);
@@ -1120,7 +1124,7 @@ async function main() {
 }
 
 // 테스트에서 문장 다듬기 함수만 가져다 쓸 수 있게 내보냄. 직접 실행할 때만 생성 시작
-export { clean, cleanWatch, soften, BANNED, groundRefs, checkNumbers, stats, weeklyBlock, energyLinks, chainLinks };
+export { clean, cleanWatch, soften, BANNED, groundRefs, checkNumbers, stats, weeklyBlock, energyLinks, chainLinks, sendColumnTelegram, sendWatchlistTelegram, sendTelegramLong };
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch(e => keepPrevious(`오류: ${e.message}`, { fail: true })).then(() => process.exit(0));
 }

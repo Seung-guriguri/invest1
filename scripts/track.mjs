@@ -22,7 +22,10 @@ const arg = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] :
 const DIR = arg('--dir', 'private');
 const TG_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
 const TG_CHAT = (process.env.TELEGRAM_CHAT_ID || '').trim();
-const TG_SHARE = (process.env.TELEGRAM_SHARE_CHAT_ID || '').trim();   // 관심 종목을 공유 채널로 보내므로 그 결과(성적표)도 함께
+const TG_SHARE = (process.env.TELEGRAM_SHARE_CHAT_ID || '').trim();   // 관심 종목을 공유 채널로 보내므로 그 결과(성적표)도 공유 채널로
+// 공유 채널이 설정돼 있으면 거기로만, 없거나 개인 채팅과 같은 ID 면 개인 채팅으로 (개인 채팅은 운영 알림 창구)
+const TO_SHARE = !!TG_SHARE && TG_SHARE !== TG_CHAT;
+const TG_DEST = TO_SHARE ? TG_SHARE : TG_CHAT;
 const FORCE = String(process.env.SCORE_FORCE || '').toLowerCase() === 'true';
 const kstNow = () => new Date(Date.now() + 9 * 3600000);
 const readJSON = async (f, d) => { try { return JSON.parse(await readFile(f, 'utf8')); } catch { return d; } };
@@ -60,7 +63,7 @@ async function main() {
   const todayKst = now.toISOString().slice(0, 10);
   if (!FORCE && now.getUTCDay() !== 1) { console.log('성적표: 월요일에만 전송'); return; }
   if (!FORCE && log.lastScore === todayKst) { console.log('성적표: 오늘 이미 전송'); return; }
-  if (!TG_TOKEN || !TG_CHAT) { console.log('성적표: 텔레그램 미설정'); return; }
+  if (!TG_TOKEN || !TG_DEST) { console.log('성적표: 텔레그램 미설정'); return; }
 
   // 최근 6주 기록 평가
   const from = new Date(Date.now() - 42 * 86400000).toISOString().slice(0, 10);
@@ -101,18 +104,16 @@ async function main() {
   }
   L.push('※ 짧은 기간·적은 표본이라 우연의 영향이 큽니다. 매주 쌓이는 흐름으로 참고하세요.');
   try {
-    await sendTelegram(L.join('\n')); console.log(`성적표: 텔레그램 전송 (1주 평가 ${w1.length}건 · 4주 평가 ${w4.length}건)`);
-    // 공유 채널: 여러 사람이 보므로 투자 권유가 아님을 더 분명히 (개인 채팅과 같은 곳이면 보내지 않음)
-    // 개인 채팅 전송이 성공한 뒤에만 → 실패해 다음 실행에서 다시 보낼 때 채널에 중복되지 않게
-    if (TG_SHARE && TG_SHARE !== TG_CHAT) {
-      try {
-        await sendTelegram(L.join('\n') + '\n※ AI가 매크로 지표만 보고 고른 후보의 사후 기록이며, 매수·매도·보유를 권하지 않습니다.', TG_SHARE);
-        console.log('성적표: 공유 채널 전송');
-      } catch (e) { console.log(`성적표 공유 채널 전송 실패: ${e.message}`); }
-    }
+    // 공유 채널은 여러 사람이 보므로 투자 권유가 아님을 더 분명히
+    await sendTelegram(L.join('\n') + (TO_SHARE ? '\n※ AI가 매크로 지표만 보고 고른 후보의 사후 기록이며, 매수·매도·보유를 권하지 않습니다.' : ''), TG_DEST);
+    console.log(`성적표: ${TO_SHARE ? '공유 채널' : '텔레그램'} 전송 (1주 평가 ${w1.length}건 · 4주 평가 ${w4.length}건)`);
     log.lastScore = todayKst; await writeFile(logFile, JSON.stringify(log));
   }
-  catch (e) { console.log(`성적표 전송 실패: ${e.message}`); }
+  catch (e) {
+    console.log(`성적표 전송 실패: ${e.message}`);
+    // 공유 채널 전송이 실패하면 개인 채팅(운영 알림 창구)에 한 줄 알림
+    if (TO_SHARE && TG_CHAT) await sendTelegram(`⚠️ 공유 채널로 성적표 전송이 실패했어요 (${String(e.message).slice(0, 80)})\n봇이 채널의 '메시지 게시' 관리자인지, TELEGRAM_SHARE_CHAT_ID 값이 맞는지 확인하세요.`, TG_CHAT).catch(() => {});
+  }
 }
 
 main().catch(e => console.log(`성적표 오류: ${e.message}`)).then(() => process.exit(0));

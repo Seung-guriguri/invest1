@@ -386,3 +386,49 @@ test('parseSpdr: 날짜(글자·엑셀 숫자)·톤 열, 휴일 행 제외', () 
   assert.deepEqual(parseSpdr(rows), [['2004-11-18', 8.09], ['2026-10-05', 1050.5], ['2026-10-19', 1058.47]]);
   assert.throws(() => parseSpdr([['Date', 'Price']]), /열 없음/);
 });
+
+/* ---------- 텔레그램 받는 곳: 내용은 공유 채널로만, 개인 채팅은 운영 알림 ---------- */
+test('텔레그램 내용 메시지: 공유 채널이 있으면 거기로만, 없거나 같은 ID 면 개인 채팅, 실패하면 개인 채팅에 알림', async () => {
+  const realFetch = globalThis.fetch, env0 = { ...process.env };
+  let sent = [], failChat = null;
+  globalThis.fetch = async (url, opt) => {
+    if (!String(url).includes('api.telegram.org')) return realFetch(url, opt);
+    const b = JSON.parse(opt.body); sent.push({ chat: b.chat_id, text: b.text });
+    return b.chat_id === failChat ? { ok: false, status: 403 } : { ok: true, status: 200 };
+  };
+  const col = { title: '테스트 제목', oneline: '한 줄 정리' };
+  const watch = { headline: '헤드', theme: '테마', ideas: [{ ticker: 'AAA', stance: '관심', point: '핵심', invalidation: '철회' }] };
+  const universe = new Map([['AAA', 'AAA · 테스트 (ETF)']]);
+  const run = async (share, tag) => {
+    Object.assign(process.env, { TELEGRAM_BOT_TOKEN: 'tok', TELEGRAM_CHAT_ID: '111', TELEGRAM_SHARE_CHAT_ID: share });
+    const m = await import(`../scripts/ai-insight.mjs?dest-${tag}`);
+    sent = [];
+    await m.sendColumnTelegram(col); await m.sendWatchlistTelegram(watch, universe, 'kst'); await m.sendTelegramLong('가\n\n나', '리서치 리포트 요약');
+    return sent;
+  };
+  try {
+    // 공유 채널 설정: 세 종류 모두 공유 채널로 한 번씩만, 개인 채팅은 0건
+    let r = await run('222', 'share');
+    assert.deepEqual(r.map(x => x.chat), ['222', '222', '222']);
+    assert.match(r[0].text, /투자 권유가 아닙니다/);                       // 칼럼: 공유 채널용 안내
+    assert.match(r[1].text, /⚠️ 투자 권유가 아닙니다/);                   // 관심 종목: 강화된 안내
+    assert.doesNotMatch(r[1].text, /텔레그램 전용/);
+    // 공유 채널 없음: 개인 채팅으로 (시험·재생성용 personal_only 와 같은 동작)
+    r = await run('', 'none');
+    assert.deepEqual(r.map(x => x.chat), ['111', '111', '111']);
+    assert.match(r[1].text, /텔레그램 전용/);
+    assert.doesNotMatch(r[0].text, /참고용 글이며/);
+    // 공유 채널이 개인 채팅과 같은 ID: 한 번만
+    r = await run('111', 'same');
+    assert.deepEqual(r.map(x => x.chat), ['111', '111', '111']);
+    // 공유 채널 전송 실패 → 개인 채팅에 한 줄 알림 (칼럼 한 건 + 관심 종목 한 건 + 리포트 한 건)
+    failChat = '222';
+    r = await run('222', 'fail');
+    assert.deepEqual(r.map(x => x.chat), ['222', '111', '222', '111', '222', '111']);
+    assert.match(r[1].text, /공유 채널로 칼럼 전송이 실패/);
+    assert.match(r[3].text, /관심 종목·ETF/);
+  } finally {
+    globalThis.fetch = realFetch;
+    for (const k of ['TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID', 'TELEGRAM_SHARE_CHAT_ID']) { if (env0[k] === undefined) delete process.env[k]; else process.env[k] = env0[k]; }
+  }
+});
