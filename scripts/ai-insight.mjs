@@ -211,7 +211,8 @@ function energyLinks(rows) {
   const f = (v, u) => (v == null || !Number.isFinite(v) ? '—' : `${v > 0 ? '+' : ''}${Math.round(v * 10) / 10}${u || ''}`);
   const mv = id => { const r = R[id]; return r ? `${r.name.split(' (')[0]} ${r.value}${r.unit || ''} (${r.date}, ${span} ${f(chg(r), r.chg_unit)})` : null; };
   const snap = {
-    oil: [mv('wti'), mv('brent'), R.us_crude && R.us_crude.season_dev != null ? `미국 원유 재고 평년 대비 ${f(R.us_crude.season_dev, '%')}` : null, mv('crack321')].filter(Boolean),
+    oil: [mv('wti'), mv('brent'), R.us_crude && R.us_crude.season_dev != null ? `미국 원유 재고 평년 대비 ${f(R.us_crude.season_dev, '%')}` : null, mv('crack321'), mv('jet_crack'),
+      R.jet_days && R.jet_days.season_dev != null ? `미국 항공유 재고 일수 ${R.jet_days.value}일 (평년 대비 ${f(R.jet_days.season_dev, '%')}, ${R.jet_days.date} 기준)` : null].filter(Boolean),
     gas: [mv('natgas'), mv('ttf'), mv('jkm'), R.ng_storage && R.ng_storage.season_dev != null ? `미국 가스 저장량 평년 대비 ${f(R.ng_storage.season_dev, '%')}` : null, mv('lng_spread'), mv('jkm_hh')].filter(Boolean),
     coal: [mv('coal'), mv('coal_jkm'), mv('coking_amr'), mv('etf_coal')].filter(Boolean)
   };
