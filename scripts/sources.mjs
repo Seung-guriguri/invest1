@@ -110,6 +110,8 @@ export const SOURCES = {
   fert_phosrock: [{ wb: 'Phosphate rock' }],                // 인광석 (모로코 FOB) — 인산 비료 원료
   fert_mos:      [{ yahoo: 'MOS', adj: true }],             // Mosaic — 인산·칼륨 비료
   fert_cf:       [{ yahoo: 'CF', adj: true }],              // CF Industries — 질소(요소·암모니아) 비료                // Alpha Metallurgical Resources — 미국 원료탄(제철용) 생산 1위권, 원료탄 업황 대용
+  // 항공유: 미국 걸프 연안 케로신형 항공유 현물가($/갤런, EIA 일간 · 약 1주 지연) — FRED 가 막히면 EIA 에서 직접
+  jet_fuel: [{ fred: 'DJFUELUSGULF' }, { eia: 'PET.EER_EPJK_PF4_RGC_DPG.D' }],
   gasoline: [{ yahoo: 'RB=F' }, { fred: 'DGASNYH' }],       // RBOB 휘발유 선물 (실패 시 뉴욕항 현물)
   diesel:   [{ yahoo: 'HO=F' }, { fred: 'DDFUELNYH' }],     // 초저유황 디젤(ULSD) 선물 (실패 시 뉴욕항 현물)
 
@@ -146,6 +148,7 @@ export const SOURCES = {
   us_crude:    [{ eia: 'PET.WCESTUS1.W', scale: 0.001 }],   // 미국 상업 원유 재고 (SPR 제외)
   us_gasoline: [{ eia: 'PET.WGTSTUS1.W', scale: 0.001 }],   // 미국 휘발유 재고
   us_distill:  [{ eia: 'PET.WDISTUS1.W', scale: 0.001 }],   // 미국 디젤·난방유(중간유분) 재고
+  us_jet:      [{ eia: 'PET.WKJSTUS1.W', scale: 0.001 }],    // 미국 항공유(케로신형) 재고
   // 미국 에너지 수급 (EIA, 주간)
   ng_storage:   [{ eia: 'NG.NW2_EPG0_SWO_R48_BCF.W' }],                   // 천연가스 저장량, 본토 48개 주 (Bcf)
   cushing:      [{ eia: 'PET.W_EPC0_SAX_YCUOK_MBBL.W', scale: 0.001 }],  // 쿠싱 원유 재고 (백만 배럴)
@@ -153,6 +156,7 @@ export const SOURCES = {
   us_crude_prod:[{ eia: 'PET.WCRFPUS2.W', scale: 0.001 }],                // 원유 생산 (백만 배럴/일)
   gasoline_demand: [{ eia: 'PET.WGFUPUS2.W', scale: 0.001, avg: 4 }],     // 휘발유 제품 공급 = 수요, 4주 평균 (백만 배럴/일)
   distill_demand:  [{ eia: 'PET.WDIUPUS2.W', scale: 0.001, avg: 4 }],     // 디젤·난방유 수요, 4주 평균
+  jet_demand:      [{ eia: 'PET.WKJUPUS2.W', scale: 0.001, avg: 4 }],     // 항공유 수요, 4주 평균
   crude_net_imports: [{ eia: 'PET.WCRNTUS2.W', scale: 0.001 }],           // 원유 순수입 (백만 배럴/일)
   // 독일 비상 석유 비축 (월간, 수개월 지연). EU 합계는 데이터셋에 없어 독일을 대표로 사용
   // stk_flow STK_EUE_DIR = EU 지침에 따른 비상 비축 (일수 환산), unit NR = 일수

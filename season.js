@@ -31,6 +31,11 @@
       { m: [4, 5, 9, 10], text: '파종·수확기 — 농기계·화물용 디젤 수요가 늘어나는 시기' },
       { m: [6, 7, 8], text: '상대적 비수기 — 겨울에 대비해 재고를 쌓는 시기' }
     ],
+    jet: [
+      { m: [6, 7, 8], text: '여름 여행 성수기 — 항공유 수요가 늘어나는 시기' },
+      { m: [11, 12], text: '연말 연휴 여행철 — 항공유 수요가 다시 늘어나는 시기' },
+      { m: [1, 2, 3, 4, 5, 9, 10], text: '성수기가 아닌 시기 — 항공유 수요의 계절 요인이 약한 시기' }
+    ],
     refinery: [
       { m: [2, 3, 4], text: '봄 정비 시즌 — 정비로 가동률이 낮아지는 시기' },
       { m: [9, 10], text: '가을 정비 시즌 — 정비로 가동률이 낮아지는 시기' },
@@ -79,6 +84,7 @@
     natgas: 'gas', ttf: 'gas', jkm: 'gas', etf_ung: 'gas', lng_spread: 'gas', jkm_hh: 'gas',
     ng_storage: 'gasStorage',
     gasoline: 'gasoline', crack321: 'gasoline', gasoline_demand: 'gasoline', us_gasoline: 'gasoline', gasoline_days: 'gasoline',
+    jet_fuel: 'jet', jet_crack: 'jet', jet_diesel: 'jet', us_jet: 'jet', jet_demand: 'jet', jet_days: 'jet',
     diesel: 'distillate', distill_demand: 'distillate', us_distill: 'distillate', distill_days: 'distillate', diesel_crack: 'distillate',
     refinery_util: 'refinery',
     wheat: 'grain', corn: 'grain', soybean: 'grain', etf_dba: 'grain',

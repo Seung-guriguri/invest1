@@ -849,6 +849,12 @@ const CONFIG = {
       level: { dir: 'up', warn: 35, danger: 45 }, change: { dir: 'both', flat: 0.5, warn: 3, danger: 6 } },
     { id: 'diesel_crack', cat: 'energy', name: '디젤 크랙', sub: '디젤 마진: 디젤×42 − 브렌트, 자동 계산 — 겨울 난방·물류 수요', unit: '$/bbl', dp: 2, changeMode: 'abs', profile: 'dieselCrack',
       change: { dir: 'both', flat: 0.5, warn: 4, danger: 8 } },
+    { id: 'jet_fuel', cat: 'energy', name: '항공유', sub: '미국 걸프 연안 현물가, EIA 일간 (약 1주 지연) — 항공사 연료비', unit: '$/gal', dp: 3, changeMode: 'pct', staleDays: 14, profile: 'jetFuel',
+      change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
+    { id: 'jet_crack', cat: 'energy', name: '항공유 크랙', sub: '항공유 마진: 항공유×42 − 브렌트, 자동 계산 — 항공 수요·정제 병목', unit: '$/bbl', dp: 2, changeMode: 'abs', staleDays: 14, profile: 'jetCrack',
+      change: { dir: 'both', flat: 0.5, warn: 4, danger: 8 } },
+    { id: 'jet_diesel', cat: 'energy', name: '항공유−디젤 가격차', sub: '(항공유 − 디젤) × 42, 자동 계산 — 항공유가 디젤보다 비싸면 +', unit: '$/bbl', dp: 2, changeMode: 'abs', staleDays: 14, profile: 'jetDiesel',
+      change: { dir: 'both', flat: 0.5, warn: 3, danger: 6 } },
 
     // ── 운임 ──
     { id: 'bdry', cat: 'freight', name: '벌크선 운임', sub: 'BDRY ETF — BDI 대용, 지수 아님', unit: '$', dp: 2, changeMode: 'pct', profile: 'bulkFreight',
@@ -924,6 +930,12 @@ const CONFIG = {
     { id: 'us_distill', cat: 'stocks', name: '미국 디젤·난방유 재고', sub: '중간유분, 주간 (EIA)', unit: '백만 bbl', dp: 1, changeMode: 'pct', profile: 'stocks',
       level: { seasonal: { warn: -5, danger: -10 }, dir: 'down', warn: 115, danger: 105 }, change: { dir: 'both', flat: 0.3, warn: 2, danger: 4 } },
     { id: 'distill_days', cat: 'stocks', name: '디젤·난방유 재고 일수', sub: '재고 ÷ 하루 수요, 자동 계산 — 지금 수요로 며칠 버티나', unit: '일', dp: 1, changeMode: 'pct', profile: 'daysSupply',
+      level: { seasonal: { warn: -5, danger: -10 }, dir: 'down' }, change: { dir: 'both', flat: 0.5, warn: 3, danger: 6 } },
+    { id: 'us_jet', cat: 'stocks', name: '미국 항공유 재고', sub: '케로신형 항공유, 주간 (EIA)', unit: '백만 bbl', dp: 1, changeMode: 'pct', profile: 'stocks',
+      level: { seasonal: { warn: -5, danger: -10 }, dir: 'down' }, change: { dir: 'both', flat: 0.3, warn: 2, danger: 4 } },
+    { id: 'jet_demand', cat: 'stocks', name: '미국 항공유 수요', sub: '제품 공급량 4주 평균 (EIA) — 항공 여행·화물 활동', unit: '백만 b/d', dp: 2, changeMode: 'pct', profile: 'jetDemand',
+      level: { seasonal: { warn: -5, danger: -10 }, dir: 'down' }, change: { dir: 'both', flat: 0.5, warn: 3, danger: 6 } },
+    { id: 'jet_days', cat: 'stocks', name: '항공유 재고 일수', sub: '재고 ÷ 하루 수요, 자동 계산 — 지금 수요로 며칠 버티나', unit: '일', dp: 1, changeMode: 'pct', profile: 'daysSupply',
       level: { seasonal: { warn: -5, danger: -10 }, dir: 'down' }, change: { dir: 'both', flat: 0.5, warn: 3, danger: 6 } },
     { id: 'gasoline_days', cat: 'stocks', name: '휘발유 재고 일수', sub: '재고 ÷ 하루 수요, 자동 계산 — 지금 수요로 며칠 버티나', unit: '일', dp: 1, changeMode: 'pct', profile: 'daysSupply',
       level: { seasonal: { warn: -5, danger: -10 }, dir: 'down' }, change: { dir: 'both', flat: 0.5, warn: 3, danger: 6 } },
@@ -1306,6 +1318,35 @@ const COMMENTS = {
     fall: '정유 마진 축소 → 석유제품 수급 여유, 정유사 이익 감소',
     high: '정유 마진 최근 수년 중 높은 수준 → 정제 설비가 병목, 소비자 기름값 부담',
     flat: '정유 마진 보합 → 제품·원유 가격이 같이 움직이는 중'
+  },
+  jetFuel: {
+    surge: '항공유 급등 → 항공사 연료비 부담↑ (유류할증료·항공주에 부담), 원유 때문인지 항공유 수급 때문인지 확인',
+    rise: '항공유 상승 → 항공사 연료비 부담↑, 항공주에 부담',
+    plunge: '항공유 급락 → 항공사 연료비 부담↓ (원유 급락이나 항공 수요 둔화 반영)',
+    fall: '항공유 하락 → 항공사 연료비 부담↓, 항공주에 우호적',
+    flat: '항공유 보합 → 항공사 연료비 변화 작음'
+  },
+  jetCrack: {
+    surge: '항공유 마진 급등 → 항공유가 원유보다 훨씬 비싸짐, 항공 수요 급증이나 정제 병목·공급 차질 확인',
+    rise: '항공유 마진 확대 → 항공유가 원유보다 강함, 여행 수요 호조나 공급 부족 신호',
+    plunge: '항공유 마진 급락 → 항공 수요 둔화 또는 원유만 급등',
+    fall: '항공유 마진 축소 → 항공유 수급 여유',
+    high: '항공유 마진 높은 구간 → 항공사 연료비 부담 큼',
+    flat: '항공유 마진 보합'
+  },
+  jetDiesel: {
+    rise: '항공유가 디젤보다 강해짐 → 정유사가 디젤 대신 항공유를 더 만들 유인, 항공 수요 호조 신호일 수 있음',
+    fall: '항공유가 디젤보다 약해짐 → 항공 수요 둔화 또는 디젤 강세',
+    high: '항공유가 디젤보다 크게 비싼 구간 → 항공유 공급 확대 유인, 항공사 연료비 부담',
+    low: '항공유가 디젤보다 싼 구간 → 정유사가 항공유 대신 디젤을 더 만들기 쉬움 (항공유 공급 감소 가능)',
+    flat: '항공유−디젤 가격차 보합'
+  },
+  jetDemand: {
+    high: '항공유 수요 같은 시기 평년보다 크게 적음 → 항공 여행·화물 활동 위축 신호',
+    warn: '항공유 수요 같은 시기 평년보다 적은 편 → 항공 수요 둔화 여부 확인',
+    rise: '항공유 수요 증가 → 항공 여행·화물 활동 살아나는 신호',
+    fall: '항공유 수요 감소 → 항공 수요 둔화 신호',
+    flat: '항공유 수요 안정'
   },
   dieselCrack: {
     surge: '디젤 마진 급등 → 디젤 공급 빡빡, 물류비·난방비 상승 압력',

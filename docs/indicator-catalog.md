@@ -80,7 +80,7 @@
 | `usdcny` | 위안/달러 환율 | 위안 | 실측 | Yahoo CNY=X → FRED DEXCHUS | pct |
 | `vix` | VIX |  | 실측 | Yahoo ^VIX → FRED VIXCLS | pct |
 
-## 에너지 (14)
+## 에너지 (17)
 
 | ID | 이름 | 단위 | 성격 | 출처 (1순위 → 대체) | 변화 판단 |
 |---|---|---|---|---|---|
@@ -98,6 +98,9 @@
 | `diesel` | 디젤 | $/gal | 실측 | Yahoo HO=F → FRED DDFUELNYH | pct |
 | `crack321` | 3-2-1 크랙 스프레드 | $/bbl | 계산 | 계산: 2RB+HO−3CL | abs |
 | `diesel_crack` | 디젤 크랙 | $/bbl | 계산 | 계산: HO×42−브렌트 | abs |
+| `jet_fuel` | 항공유 | $/gal | 실측 | FRED DJFUELUSGULF → EIA PET.EER_EPJK_PF4_RGC_DPG.D | pct |
+| `jet_crack` | 항공유 크랙 | $/bbl | 계산 | 계산: 항공유×42−브렌트 | abs |
+| `jet_diesel` | 항공유−디젤 가격차 | $/bbl | 계산 | 계산: (항공유−디젤)×42 | abs |
 
 ## 전력 (13)
 
@@ -130,7 +133,7 @@
 | `lng_spread` | LNG 수출 마진 – 유럽행 (TTF−헨리허브) | $/MMBtu | 계산 | 계산: TTF−HH | abs |
 | `jkm_hh` | LNG 수출 마진 – 아시아행 (JKM−헨리허브) | $/MMBtu | 계산 | 계산: JKM−HH | abs |
 
-## 비축·재고 (15)
+## 비축·재고 (18)
 
 | ID | 이름 | 단위 | 성격 | 출처 (1순위 → 대체) | 변화 판단 |
 |---|---|---|---|---|---|
@@ -140,6 +143,9 @@
 | `us_gasoline` | 미국 휘발유 재고 | 백만 bbl | 실측 | EIA PET.WGTSTUS1.W | pct |
 | `us_distill` | 미국 디젤·난방유 재고 | 백만 bbl | 실측 | EIA PET.WDISTUS1.W | pct |
 | `distill_days` | 디젤·난방유 재고 일수 | 일 | 계산 | 계산: 디젤 재고÷수요 | pct |
+| `us_jet` | 미국 항공유 재고 | 백만 bbl | 실측 | EIA PET.WKJSTUS1.W | pct |
+| `jet_demand` | 미국 항공유 수요 | 백만 b/d | 실측 | EIA PET.WKJUPUS2.W | pct |
+| `jet_days` | 항공유 재고 일수 | 일 | 계산 | 계산: 항공유 재고÷수요 | pct |
 | `gasoline_days` | 휘발유 재고 일수 | 일 | 계산 | 계산: 휘발유 재고÷수요 | pct |
 | `ng_storage` | 미국 천연가스 저장량 | Bcf | 실측 | EIA NG.NW2_EPG0_SWO_R48_BCF.W | pct |
 | `cushing` | 쿠싱 원유 재고 | 백만 bbl | 실측 | EIA PET.W_EPC0_SAX_YCUOK_MBBL.W | pct |
