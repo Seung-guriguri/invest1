@@ -24,6 +24,13 @@ test('3-2-1 크랙 스프레드 = (휘발유×42×2 + 디젤×42 − WTI×3) ÷ 
 test('LNG 수출 마진 = TTF(€/MWh)×유로/달러÷3.412 − 헨리허브', () => {
   near(COMPUTED.lng_spread.calc(34.12, 1.0, 3), 7);
 });
+test('LNG 수출 마진: 유럽행(TTF €/MWh → $/MMBtu 환산)·아시아행(JKM 은 이미 $/MMBtu 라 그대로 뺄셈)', () => {
+  near(COMPUTED.lng_spread.calc(88, 1.124, 3.0), 88 * 1.124 / 3.412 - 3.0);   // ≈ 25.99
+  near(COMPUTED.jkm_hh.calc(29.9, 3.0), 26.9);
+  near(COMPUTED.jkm_hh.calc(2, 3.0), -1);                                       // 아시아 가스가 더 싸면 음수
+  assert.deepEqual(COMPUTED.jkm_hh.inputs, ['jkm', 'natgas']);
+  assert.equal(COMPUTED.jkm_hh.asof, true);
+});
 test('석탄÷가스 상대가격 = 뉴캐슬 석탄($/t) ÷ JKM($/MMBtu), 같은 달끼리', () => {
   near(COMPUTED.coal_jkm.calc(140, 28), 5);
   assert.equal(COMPUTED.coal_jkm.byMonth, true);

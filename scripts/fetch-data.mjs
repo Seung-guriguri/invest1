@@ -47,6 +47,10 @@ const COMPUTED = {
   //   asof: 환율(24시간·런던 날짜)과 선물의 날짜 체계가 달라 '세 값이 같은 날짜'만 쓰면 최신 날이 빠짐 → TTF 날짜 기준으로 나머지는 그날 이전 최신값
   lng_spread: { inputs: ['ttf', 'eurusd', 'natgas'], label: 'Calc:TTF−HH', asof: true,
                 calc: (ttf, fx, hh) => ttf * fx / 3.412 - hh },
+  // JKM − Henry Hub 가격차 ($/MMBtu): 둘 다 이미 $/MMBtu 라 단위 변환 없이 뺄셈 (TTF 는 €/MWh 라 위처럼 환산)
+  //   클수록 미국 LNG를 아시아에 팔 때 남는 몫이 커져 LNG 수출·LNG선 수요가 늘기 쉬움
+  //   asof: JKM 날짜 기준으로 헨리허브는 그날 이전 최신값 (선물 거래일이 달라도 계산)
+  jkm_hh:     { inputs: ['jkm', 'natgas'], label: 'Calc:JKM−HH', asof: true, calc: (jkm, hh) => jkm - hh },
   // asof: 첫 재료의 날짜마다 나머지 재료는 그날 이전 가장 최근 값 사용 (휴일·발표 주기가 달라도 계산)
   kr_us_base:     { inputs: ['kr_base', 'us_ffr'], label: 'Calc:한국−미국 기준금리', asof: true, calc: (kr, us) => kr - us },
   kr_us_10y:      { inputs: ['kr10y', 'us10y'], label: 'Calc:한국−미국 10년', asof: true, calc: (kr, us) => kr - us },

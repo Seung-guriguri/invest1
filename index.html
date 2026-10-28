@@ -863,8 +863,10 @@ const CONFIG = {
       change: { dir: 'both', flat: 0.4, danger: 5, moveOnly: true }, comments: { rise: '제품선사 상승 → 휘발유·디젤 해상 수송 수요↑, 정유 마진 강세와 함께 보기', fall: '제품선사 하락 → 석유제품 물동량·운임 약세' } },
     { id: 'lng_flng', cat: 'freight', name: 'LNG선 (FLNG)', sub: 'Flex LNG 주가 — LNG 운반선 업황 대용 (운임 지수 아님)', unit: '$', dp: 2, changeMode: 'pct', profile: 'shipping',
       change: { dir: 'both', flat: 0.4, danger: 5, moveOnly: true }, comments: { rise: 'LNG선사 상승 → LNG 물동량·용선료 강세 기대', fall: 'LNG선사 하락 → LNG선 공급 과잉 또는 LNG 교역 둔화 걱정' } },
-    { id: 'lng_spread', cat: 'freight', name: 'LNG 수출 마진 (TTF−헨리허브)', sub: '유럽 가스값 − 미국 가스값, 자동 계산 — 클수록 LNG 수출·LNG선 수요↑', unit: '$/MMBtu', dp: 2, changeMode: 'abs', profile: 'lngSpread',
+    { id: 'lng_spread', cat: 'freight', name: 'LNG 수출 마진 – 유럽행 (TTF−헨리허브)', sub: '유럽 가스값(€/MWh → $/MMBtu 환산) − 미국 가스값, 자동 계산 — 클수록 LNG 수출·LNG선 수요↑', unit: '$/MMBtu', dp: 2, changeMode: 'abs', profile: 'lngSpread',
       level: { dir: 'up', warn: 10, danger: 14 }, change: { dir: 'both', flat: 0.2, warn: 1, danger: 2 } },
+    { id: 'jkm_hh', cat: 'freight', name: 'LNG 수출 마진 – 아시아행 (JKM−헨리허브)', sub: '아시아 LNG(JKM, $/MMBtu) − 미국 가스값($/MMBtu), 같은 단위라 그대로 뺌, 자동 계산 — 클수록 미국 LNG를 아시아로 보낼 유인↑', unit: '$/MMBtu', dp: 2, changeMode: 'abs', profile: 'jkmSpread',
+      change: { dir: 'both', flat: 0.2, warn: 1, danger: 2 } },
 
     // ── 금속·광물 ──
     { id: 'copper', cat: 'metals', name: '구리', unit: '$/t', dp: 0, changeMode: 'pct', profile: 'copper',
@@ -1386,6 +1388,14 @@ const COMMENTS = {
     fall: 'LNG 수출 마진 축소 → 미국 LNG 수출 유인 감소',
     high: 'LNG 수출 마진 큰 구간 → 미국 LNG가 계속 유럽으로 향하기 쉬움',
     flat: 'LNG 수출 마진 보합 → LNG 교역 흐름 변화 작음'
+  },
+  jkmSpread: {
+    surge: '아시아행 LNG 마진 급등 → 미국 LNG를 아시아로 보낼 유인 급증, LNG선 수요↑ (운송 거리가 길어 선박 수요 효과가 큼)',
+    rise: '아시아행 LNG 마진 확대 → 미국 LNG 수출·LNG선 수요에 우호적, 아시아 가스 수급이 빡빡하다는 신호',
+    plunge: '아시아행 LNG 마진 급락 → 아시아 가스 급락 또는 미국 가스 급등, 아시아행 수출 유인 약화',
+    fall: '아시아행 LNG 마진 축소 → 아시아행 수출 유인 감소',
+    high: '아시아행 LNG 마진 큰 구간 → 미국 LNG가 계속 아시아로 향하기 쉬움',
+    flat: '아시아행 LNG 마진 보합 → LNG 교역 흐름 변화 작음'
   },
   shipping: {
     flat: '{name} 보합 → 해운 업황 변화 작음'

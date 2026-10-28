@@ -212,7 +212,7 @@ function energyLinks(rows) {
   const mv = id => { const r = R[id]; return r ? `${r.name.split(' (')[0]} ${r.value}${r.unit || ''} (${r.date}, ${span} ${f(chg(r), r.chg_unit)})` : null; };
   const snap = {
     oil: [mv('wti'), mv('brent'), R.us_crude && R.us_crude.season_dev != null ? `미국 원유 재고 평년 대비 ${f(R.us_crude.season_dev, '%')}` : null, mv('crack321')].filter(Boolean),
-    gas: [mv('natgas'), mv('ttf'), mv('jkm'), R.ng_storage && R.ng_storage.season_dev != null ? `미국 가스 저장량 평년 대비 ${f(R.ng_storage.season_dev, '%')}` : null, mv('lng_spread')].filter(Boolean),
+    gas: [mv('natgas'), mv('ttf'), mv('jkm'), R.ng_storage && R.ng_storage.season_dev != null ? `미국 가스 저장량 평년 대비 ${f(R.ng_storage.season_dev, '%')}` : null, mv('lng_spread'), mv('jkm_hh')].filter(Boolean),
     coal: [mv('coal'), mv('coal_jkm'), mv('coking_amr'), mv('etf_coal')].filter(Boolean)
   };
   const links = [];
