@@ -24,6 +24,18 @@ test('3-2-1 크랙 스프레드 = (휘발유×42×2 + 디젤×42 − WTI×3) ÷ 
 test('LNG 수출 마진 = TTF(€/MWh)×유로/달러÷3.412 − 헨리허브', () => {
   near(COMPUTED.lng_spread.calc(34.12, 1.0, 3), 7);
 });
+test('항공유: 크랙(항공유 $/gal ×42 − 브렌트)·디젤과의 차이·재고 일수, 수집 소스 순서', () => {
+  near(COMPUTED.jet_crack.calc(3.0, 100), 26);
+  near(COMPUTED.jet_diesel.calc(3.2, 3.0), 8.4);
+  near(COMPUTED.jet_diesel.calc(2.9, 3.0), -4.2);          // 항공유가 더 싸면 음수
+  near(COMPUTED.jet_days.calc(45, 1.6), 28.125);
+  for (const k of ['jet_crack', 'jet_diesel']) assert.equal(COMPUTED[k].asof, true);
+  assert.deepEqual(COMPUTED.jet_crack.inputs, ['jet_fuel', 'brent']);
+  assert.deepEqual(COMPUTED.jet_diesel.inputs, ['jet_fuel', 'diesel']);
+  assert.deepEqual(SOURCES.jet_fuel.map(x => x.fred || x.eia), ['DJFUELUSGULF', 'PET.EER_EPJK_PF4_RGC_DPG.D']);
+  assert.equal(SOURCES.jet_demand[0].avg, 4);
+  assert.equal(SOURCES.us_jet[0].scale, 0.001);
+});
 test('LNG 수출 마진: 유럽행(TTF €/MWh → $/MMBtu 환산)·아시아행(JKM 은 이미 $/MMBtu 라 그대로 뺄셈)', () => {
   near(COMPUTED.lng_spread.calc(88, 1.124, 3.0), 88 * 1.124 / 3.412 - 3.0);   // ≈ 25.99
   near(COMPUTED.jkm_hh.calc(29.9, 3.0), 26.9);
