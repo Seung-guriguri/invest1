@@ -117,7 +117,7 @@
 | `gas_pw_chn` | 중국 가스 발전 비중 | % | 실측 | Ember CHN/Gas | pp · 전년 동월 대비 |
 | `gas_pw_eu` | EU 가스 발전 비중 | % | 실측 | Ember EU/Gas | pp · 전년 동월 대비 |
 
-## 운임 (7)
+## 운임 (8)
 
 | ID | 이름 | 단위 | 성격 | 출처 (1순위 → 대체) | 변화 판단 |
 |---|---|---|---|---|---|
@@ -127,7 +127,8 @@
 | `tanker_fro` | VLCC 원유선 (FRO) | $ | 실측 | Yahoo FRO | pct |
 | `tanker_stng` | 석유제품선 (STNG) | $ | 실측 | Yahoo STNG | pct |
 | `lng_flng` | LNG선 (FLNG) | $ | 실측 | Yahoo FLNG | pct |
-| `lng_spread` | LNG 수출 마진 (TTF−헨리허브) | $/MMBtu | 계산 | 계산: TTF−HH | abs |
+| `lng_spread` | LNG 수출 마진 – 유럽행 (TTF−헨리허브) | $/MMBtu | 계산 | 계산: TTF−HH | abs |
+| `jkm_hh` | LNG 수출 마진 – 아시아행 (JKM−헨리허브) | $/MMBtu | 계산 | 계산: JKM−HH | abs |
 
 ## 비축·재고 (15)
 
