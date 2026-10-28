@@ -342,11 +342,14 @@ test('에너지 연결 신호: 데이터로 [지지]·[해당 없음]·[지지·
     r('coal_pw_jpn', '일본 석탄 발전 비중', 29, { chg_1y: -0.4, chg_unit: '%p' }), r('coal_pw_kor', '한국 석탄 발전 비중', 37, { chg_1y: -1, chg_unit: '%p' }),
     r('lng_spread', 'LNG 수출 마진', 9), r('ng_storage', '미국 가스 저장량', 3500, { season_dev: 2 }),
     r('power_gas', '미국 가스 발전 비중', 39, { ...mv(-2), chg_unit: '%p' }), r('power_coal', '미국 석탄 발전 비중', 16, { ...mv(1.5), chg_unit: '%p' }),
-    r('coking_amr', '원료탄 (AMR)', 160, mv(6)), r('nuclear_util', '미국 원전 가동률', 92)
+    r('coking_amr', '원료탄 (AMR)', 160, mv(6)), r('nuclear_util', '미국 원전 가동률', 92),
+    r('jet_crack', '항공유 크랙', 85.7, { date: '2026-10-20', unit: '$/bbl', ...mv(2) }), r('jet_days', '항공유 재고 일수', 24.5, { date: '2026-10-16', season_dev: -6 })
   ];
   const { snap, links } = energyLinks(rows);
   const get = n => links.find(l => l.startsWith(n));
   assert.ok(snap.oil.length && snap.gas.length && snap.coal.length);
+  assert.ok(snap.oil.some(x => /^항공유 크랙 85\.7\$\/bbl \(2026-10-20/.test(x)), '원유 현황에 항공유 크랙(기준일 포함)');
+  assert.ok(snap.oil.some(x => /항공유 재고 일수 24\.5일 \(평년 대비 -6%, 2026-10-16 기준\)/.test(x)), '원유 현황에 항공유 재고 일수(평년 대비)');
   assert.match(get('①'), /\[지지\]/);                       // 브렌트 3개월 +15%
   assert.match(get('②'), /지지·반대 공존/);                    // 6.5 < 7 이지만 일본·한국 석탄 비중 감소
   assert.match(get('②'), /2026-07-01 기준/);
