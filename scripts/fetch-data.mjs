@@ -65,6 +65,8 @@ const COMPUTED = {
   coal_jkm:       { inputs: ['coal', 'aux_jkm_m'], label: 'Calc:뉴캐슬석탄÷JKM', byMonth: true, calc: (c, j) => c / j },
   // 디젤 크랙 = 디젤($/gal)×42 − 브렌트($/bbl): 디젤만 따로 본 정유 마진 (겨울 난방·물류 수요)
   diesel_crack:   { inputs: ['diesel', 'brent'], label: 'Calc:HO×42−브렌트', calc: (ho, b) => ho * 42 - b },
+  // 휘발유 크랙 = 휘발유(RBOB $/gal)×42 − 브렌트($/bbl): 휘발유만 따로 본 정유 마진 (드라이빙 시즌·소비 수요)
+  gasoline_crack: { inputs: ['gasoline', 'brent'], label: 'Calc:RB×42−브렌트', calc: (rb, b) => rb * 42 - b },
   // 항공유 크랙 = 항공유($/gal)×42 − 브렌트($/bbl): 항공유만 따로 본 정유 마진 (항공 수요·정제 병목)
   //   asof: 항공유 현물은 약 1주 늦게 나오므로 그 날짜 기준으로 브렌트는 그날 이전 최신값
   jet_crack:   { inputs: ['jet_fuel', 'brent'], label: 'Calc:항공유×42−브렌트', asof: true, calc: (jet, b) => jet * 42 - b },
