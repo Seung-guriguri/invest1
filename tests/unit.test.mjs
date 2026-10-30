@@ -57,6 +57,7 @@ test('단순 계산 지표', () => {
 });
 test('디젤 크랙·재고 일수·비료 구매력', () => {
   near(COMPUTED.diesel_crack.calc(3.0, 100), 26);              // 3$/gal × 42 − 100
+  near(COMPUTED.gasoline_crack.calc(2.5, 80), 25);             // 2.5$/gal × 42 − 80
   near(COMPUTED.distill_days.calc(102.6, 3.9), 102.6 / 3.9);   // 백만 bbl ÷ 백만 b/d = 일
   near(COMPUTED.gasoline_days.calc(208, 8.32), 25);
   near(COMPUTED.fert_afford_urea.calc(400, 200), 2);
@@ -343,7 +344,7 @@ test('에너지 연결 신호: 데이터로 [지지]·[해당 없음]·[지지·
     r('lng_spread', 'LNG 수출 마진', 9), r('ng_storage', '미국 가스 저장량', 3500, { season_dev: 2 }),
     r('power_gas', '미국 가스 발전 비중', 39, { ...mv(-2), chg_unit: '%p' }), r('power_coal', '미국 석탄 발전 비중', 16, { ...mv(1.5), chg_unit: '%p' }),
     r('coking_amr', '원료탄 (AMR)', 160, mv(6)), r('nuclear_util', '미국 원전 가동률', 92),
-    r('jet_crack', '항공유 크랙', 85.7, { date: '2026-10-20', unit: '$/bbl', ...mv(2) }), r('jet_days', '항공유 재고 일수', 24.5, { date: '2026-10-16', season_dev: -6 })
+    r('jet_crack', '항공유 크랙', 85.7, { date: '2026-10-20', unit: '$/bbl', position: 92, ...mv(2) }), r('gasoline_crack', '휘발유 크랙', 20, { unit: '$/bbl', position: 50, ...mv(1) }), r('jet_days', '항공유 재고 일수', 24.5, { date: '2026-10-16', season_dev: -6 })
   ];
   const { snap, links } = energyLinks(rows);
   const get = n => links.find(l => l.startsWith(n));
@@ -358,6 +359,8 @@ test('에너지 연결 신호: 데이터로 [지지]·[해당 없음]·[지지·
   assert.match(get('⑤'), /\[지지\]/);                       // 가스 −2 · 석탄 +1.5
   assert.match(get('⑥'), /\[지지\]/);                       // 원유·가스·석탄 모두 +2% 넘게
   assert.match(get('⑦'), /\[해당 없음\]/);                   // 원전 92%
+  assert.match(get('⑧'), /\[지지\].*항공유 크랙 85\.7.*위치 92.*항공유 마진 매우 높음/);  // 위치 85 이상
+  assert.ok(snap.oil.some(x => /^휘발유 크랙 20/.test(x)), '원유 현황에 휘발유 크랙');
   assert.deepEqual(energyLinks([]).links, []);
 });
 

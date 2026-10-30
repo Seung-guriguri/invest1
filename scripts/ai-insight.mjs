@@ -211,7 +211,7 @@ function energyLinks(rows) {
   const f = (v, u) => (v == null || !Number.isFinite(v) ? '—' : `${v > 0 ? '+' : ''}${Math.round(v * 10) / 10}${u || ''}`);
   const mv = id => { const r = R[id]; return r ? `${r.name.split(' (')[0]} ${r.value}${r.unit || ''} (${r.date}, ${span} ${f(chg(r), r.chg_unit)})` : null; };
   const snap = {
-    oil: [mv('wti'), mv('brent'), R.us_crude && R.us_crude.season_dev != null ? `미국 원유 재고 평년 대비 ${f(R.us_crude.season_dev, '%')}` : null, mv('crack321'), mv('jet_crack'),
+    oil: [mv('wti'), mv('brent'), R.us_crude && R.us_crude.season_dev != null ? `미국 원유 재고 평년 대비 ${f(R.us_crude.season_dev, '%')}` : null, mv('crack321'), mv('gasoline_crack'), mv('diesel_crack'), mv('jet_crack'),
       R.jet_days && R.jet_days.season_dev != null ? `미국 항공유 재고 일수 ${R.jet_days.value}일 (평년 대비 ${f(R.jet_days.season_dev, '%')}, ${R.jet_days.date} 기준)` : null].filter(Boolean),
     gas: [mv('natgas'), mv('ttf'), mv('jkm'), R.ng_storage && R.ng_storage.season_dev != null ? `미국 가스 저장량 평년 대비 ${f(R.ng_storage.season_dev, '%')}` : null, mv('lng_spread'), mv('jkm_hh')].filter(Boolean),
     coal: [mv('coal'), mv('coal_jkm'), mv('coking_amr'), mv('etf_coal')].filter(Boolean)
@@ -253,6 +253,16 @@ function energyLinks(rows) {
   }
   // ⑦ 원전 공백 → 가스 발전 수요
   if (R.nuclear_util) add('⑦', '원전 공백→가스 수요', R.nuclear_util.value < 85 ? '지지' : '해당 없음', `미국 원전 가동률 ${R.nuclear_util.value}%${R.power_gas ? ` · 가스 발전 비중 ${R.power_gas.value}%` : ''}`);
+  // ⑧ 제품별 정제 마진 쏠림 (항공유·휘발유·디젤 크랙의 최근 10년 위치, 항공유 재고 일수 평년 편차)
+  {
+    const pr = [['항공유', R.jet_crack], ['휘발유', R.gasoline_crack], ['디젤', R.diesel_crack]].filter(([, r]) => r && r.position != null);
+    const ext = pr.filter(([, r]) => r.position >= 85 || r.position <= 15);
+    const jd = R.jet_days && R.jet_days.season_dev != null && Math.abs(R.jet_days.season_dev) >= 10 ? R.jet_days : null;
+    if (pr.length) add('⑧', '제품별 정제 마진', ext.length || jd ? '지지' : '해당 없음',
+      pr.map(([n, r]) => `${n} 크랙 ${r.value}$/bbl (${r.date}, 10년 중 위치 ${r.position})`).join(' · ') +
+      (jd ? ` · 항공유 재고 일수 평년 대비 ${f(jd.season_dev, '%')}` : '') +
+      (ext.length ? ` — ${ext.map(([n, r]) => n + (r.position >= 85 ? ' 마진 매우 높음' : ' 마진 매우 낮음')).join(', ')}` : ''));
+  }
   return { snap, links };
 }
 function energyBlock(rows) {

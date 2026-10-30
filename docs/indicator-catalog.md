@@ -80,7 +80,7 @@
 | `usdcny` | 위안/달러 환율 | 위안 | 실측 | Yahoo CNY=X → FRED DEXCHUS | pct |
 | `vix` | VIX |  | 실측 | Yahoo ^VIX → FRED VIXCLS | pct |
 
-## 에너지 (17)
+## 에너지 (18)
 
 | ID | 이름 | 단위 | 성격 | 출처 (1순위 → 대체) | 변화 판단 |
 |---|---|---|---|---|---|
@@ -98,6 +98,7 @@
 | `diesel` | 디젤 | $/gal | 실측 | Yahoo HO=F → FRED DDFUELNYH | pct |
 | `crack321` | 3-2-1 크랙 스프레드 | $/bbl | 계산 | 계산: 2RB+HO−3CL | abs |
 | `diesel_crack` | 디젤 크랙 | $/bbl | 계산 | 계산: HO×42−브렌트 | abs |
+| `gasoline_crack` | 휘발유 크랙 | $/bbl | 계산 | 계산: RB×42−브렌트 | abs |
 | `jet_fuel` | 항공유 | $/gal | 실측 | FRED DJFUELUSGULF → EIA PET.EER_EPJK_PF4_RGC_DPG.D | pct |
 | `jet_crack` | 항공유 크랙 | $/bbl | 계산 | 계산: 항공유×42−브렌트 | abs |
 | `jet_diesel` | 항공유−디젤 가격차 | $/bbl | 계산 | 계산: (항공유−디젤)×42 | abs |

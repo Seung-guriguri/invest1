@@ -849,6 +849,8 @@ const CONFIG = {
       level: { dir: 'up', warn: 35, danger: 45 }, change: { dir: 'both', flat: 0.5, warn: 3, danger: 6 } },
     { id: 'diesel_crack', cat: 'energy', name: '디젤 크랙', sub: '디젤 마진: 디젤×42 − 브렌트, 자동 계산 — 겨울 난방·물류 수요', unit: '$/bbl', dp: 2, changeMode: 'abs', profile: 'dieselCrack',
       change: { dir: 'both', flat: 0.5, warn: 4, danger: 8 } },
+    { id: 'gasoline_crack', cat: 'energy', name: '휘발유 크랙', sub: '휘발유 마진: 휘발유×42 − 브렌트, 자동 계산 — 드라이빙 시즌·소비 수요', unit: '$/bbl', dp: 2, changeMode: 'abs', profile: 'gasolineCrack',
+      change: { dir: 'both', flat: 0.5, warn: 4, danger: 8 } },
     { id: 'jet_fuel', cat: 'energy', name: '항공유', sub: '미국 걸프 연안 현물가, EIA 일간 (약 1주 지연) — 항공사 연료비', unit: '$/gal', dp: 3, changeMode: 'pct', staleDays: 14, profile: 'jetFuel',
       change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
     { id: 'jet_crack', cat: 'energy', name: '항공유 크랙', sub: '항공유 마진: 항공유×42 − 브렌트, 자동 계산 — 항공 수요·정제 병목', unit: '$/bbl', dp: 2, changeMode: 'abs', staleDays: 14, profile: 'jetCrack',
@@ -1347,6 +1349,14 @@ const COMMENTS = {
     rise: '항공유 수요 증가 → 항공 여행·화물 활동 살아나는 신호',
     fall: '항공유 수요 감소 → 항공 수요 둔화 신호',
     flat: '항공유 수요 안정'
+  },
+  gasolineCrack: {
+    surge: '휘발유 마진 급등 → 휘발유 공급 빡빡, 주유소 가격 상승 압력',
+    rise: '휘발유 마진 확대 → 휘발유가 원유보다 강함, 재고·드라이빙 수요 확인',
+    plunge: '휘발유 마진 급락 → 소비 수요 둔화 신호일 수 있음',
+    fall: '휘발유 마진 축소 → 휘발유 수급 여유',
+    high: '휘발유 마진 높은 구간 → 소비자 연료 부담',
+    flat: '휘발유 마진 보합'
   },
   dieselCrack: {
     surge: '디젤 마진 급등 → 디젤 공급 빡빡, 물류비·난방비 상승 압력',
