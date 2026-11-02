@@ -64,7 +64,8 @@ jobs:
           check-latest: true   # 보안 패치가 반영된 최신 22.x 를 받음 (러너에 미리 깔린 버전은 패치가 늦을 수 있음)
 
       - name: 단위 테스트 (계산 공식·지표 정의·AI 문장 검사 — 실패하면 배포하지 않고 기존 사이트 유지)
-        run: node --test tests/unit.test.mjs
+        # 파일을 직접 실행 (node --test 는 자식 프로세스 결과를 읽다 'Unable to deserialize cloned data' 로 가끔 죽음. 실패 시 종료 코드 1 은 같음)
+        run: node tests/unit.test.mjs
 
       - id: pages
         uses: actions/configure-pages@v6
