@@ -6,7 +6,7 @@
 
 ```
 [GitHub Actions — update-data.yml]  평일 07:20(cron-job.org) · 16:45 · GitHub 예약 · main push
-  ① 단위 테스트            node --test tests/unit.test.mjs        실패 → 배포 중단(기존 사이트 유지)
+  ① 단위 테스트            node tests/unit.test.mjs               실패 → 배포 중단(기존 사이트 유지)
   ② 이전 배포본 받기        previous.json · ai-previous.json · alerts-previous.json
   ③ 지표 수집              scripts/fetch-data.mjs  → _site/data/latest.json
                            소스: FRED · Yahoo · 한국은행 ECOS · EIA(+EIA-930) · NRC · Ember · Eurostat · World Bank(xlsx, scripts/lib/xlsx.mjs)
@@ -55,7 +55,7 @@ Node 스크립트는 `scripts/lib/config.mjs` 로 index.html 의 CONFIG 를 그�
 
 | 명령 | 내용 | 언제 |
 |---|---|---|
-| `node --test tests/unit.test.mjs` | 계산 공식, 관측치 정리, AI 문장 다듬기, 지표 정의 일관성, 해설 id, 카탈로그 최신, 데이터 구조 검증, 상관 계산 | 배포 워크플로 시작 시 · PR |
+| `node tests/unit.test.mjs` | 계산 공식, 관측치 정리, AI 문장 다듬기, 지표 정의 일관성, 해설 id, 카탈로그 최신, 데이터 구조 검증, 상관 계산 | 배포 워크플로 시작 시 · PR |
 | `node tests/ui-smoke.mjs` | 합성 데이터로 실제 브라우저: v1·v2 × 라이트·다크, 화면 전환, 모든 분류·지표 상세, 공유 이미지, 백업·복원, 공유 링크, 360px 가로 넘침 | PR · 작업 브랜치 push (`test.yml`) |
 | `node scripts/validate-data.mjs <파일>` | 수집 결과 구조 검증 | 배포 워크플로 수집 직후 |
 
