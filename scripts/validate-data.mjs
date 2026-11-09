@@ -10,6 +10,9 @@
 import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 
+// 급변(직전 대비 25%↑) 점검 제외: 값이 0 근처를 오가거나 규모가 작아 변동률이 의미 없는 지표
+const NO_SPIKE = new Set(['aux_rrp', 'gold_real_gap', 'power_yoy', 'rate_driver']);
+
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const FREQS = new Set(['D', 'W', 'M', 'Q']);
 const DAY = 86400000;
@@ -42,7 +45,7 @@ export function validateData(data, now = Date.now()) {
       const lim = { D: 10, W: 21, M: 140, Q: 260 }[s.freq] || 30;
       if ((now - Date.parse(s.obs[n - 1][0])) / DAY > lim) stale++;
       const a = s.obs[n - 2][1], b = s.obs[n - 1][1];
-      if (s.freq === 'D' && id !== 'aux_rrp' && a && Math.sign(a) === Math.sign(b) && Math.abs(b / a - 1) > 0.25) { spikes++; notes.push(`${id}: 직전 대비 ${((b / a - 1) * 100).toFixed(1)}% 급변 — 검증 필요 (값은 유지)`); }
+      if (s.freq === 'D' && !NO_SPIKE.has(id) && a && Math.sign(a) === Math.sign(b) && Math.abs(b / a - 1) > 0.25) { spikes++; notes.push(`${id}: 직전 대비 ${((b / a - 1) * 100).toFixed(1)}% 급변 — 검증 필요 (값은 유지)`); }
     }
   }
   if (Array.isArray(data.errors) && data.errors.length) notes.push(`수집 실패 ${data.errors.length}개: ${data.errors.map(e => e.id).join(', ')}`);

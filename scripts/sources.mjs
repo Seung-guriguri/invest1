@@ -32,6 +32,7 @@ export const SOURCES = {
   spread3m:  [{ fred: 'T10Y3M' }],
   real10y:   [{ fred: 'DFII10' }],
   bei10y:    [{ fred: 'T10YIE' }],
+  t5y5y:     [{ fred: 'T5YIFR' }],                      // 5년 후 5년 기대인플레이션 (단기 유가 영향을 뺀 장기 물가 기대)
   mortgage:  [{ fred: 'MORTGAGE30US' }],
 
   // ── 물가 ──
@@ -61,6 +62,8 @@ export const SOURCES = {
   nasdaq:    [{ yahoo: '^IXIC' }, { fred: 'NASDAQCOM' }],
   kospi:     [{ yahoo: '^KS11' }],
   hy_spread: [{ fred: 'BAMLH0A0HYM2' }],
+  ccc_spread: [{ fred: 'BAMLH0A3HYC' }],                // CCC 이하 등급 스프레드 (최하위 등급 신용 스트레스)
+  sox:       [{ yahoo: '^SOX' }],                       // 필라델피아 반도체 지수
   ig_spread: [{ fred: 'BAMLC0A0CM' }],
   nfci:      [{ fred: 'NFCI' }],
   stlfsi:    [{ fred: 'STLFSI4' }],
@@ -78,6 +81,7 @@ export const SOURCES = {
   audusd: [{ yahoo: 'AUDUSD=X' }, { fred: 'DEXUSAL' }],
   usdcny: [{ yahoo: 'CNY=X' }, { fred: 'DEXCHUS' }],
   vix:    [{ yahoo: '^VIX' }, { fred: 'VIXCLS' }],
+  move:   [{ yahoo: '^MOVE' }],                         // 미국 국채 변동성 지수 (ICE BofA MOVE)
 
   // ── 에너지 ──
   wti:    [{ yahoo: 'CL=F' }, { fred: 'DCOILWTICO' }],
@@ -86,6 +90,8 @@ export const SOURCES = {
   ttf: [{ yahoo: 'TTF=F' }],                                 // 유럽 천연가스 TTF (€/MWh)
   jkm: [{ yahoo: 'JKM=F' }],                                 // 아시아 LNG 현물 JKM ($/MMBtu, Platts 기준 선물 근월물)
   power_gas:  [{ eiaGrid: 'NG', avg: 7 }],                  // 미국 발전량 중 천연가스 비중 (%, 7일 평균, EIA-930)
+  // 전력 발전량 전년비 계산용 보조 (카드 없음): 본토 48개 주 전체 발전량 7일 평균 (MWh → GWh)
+  aux_power_total: [{ eiaGrid: 'TOTAL', avg: 7, scale: 0.001 }],
   power_coal: [{ eiaGrid: 'COL', avg: 7 }],                 // 미국 발전량 중 석탄 비중 (%, 7일 평균, EIA-930)
   nuclear_util: [{ nrc: true }],
   us_coal_cons: [{ eia: 'TOTAL.CLTCPUS.M', scale: 0.001 }],      // 미국 석탄 소비량 (전 부문, 백만 숏톤, 월간 — EIA 월간 에너지 리뷰)                            // 미국 원전 가동률 (%, NRC 원자로 일간 출력 평균)
@@ -160,7 +166,9 @@ export const SOURCES = {
   gasoline_demand: [{ eia: 'PET.WGFUPUS2.W', scale: 0.001, avg: 4 }],     // 휘발유 제품 공급 = 수요, 4주 평균 (백만 배럴/일)
   distill_demand:  [{ eia: 'PET.WDIUPUS2.W', scale: 0.001, avg: 4 }],     // 디젤·난방유 수요, 4주 평균
   jet_demand:      [{ eia: 'PET.WKJUPUS2.W', scale: 0.001, avg: 4 }],     // 항공유 수요, 4주 평균
-  crude_net_imports: [{ eia: 'PET.WCRNTUS2.W', scale: 0.001 }],           // 원유 순수입 (백만 배럴/일)
+  crude_net_imports: [{ eia: 'PET.WCRNTUS2.W', scale: 0.001 }],
+  crude_exports: [{ eia: 'PET.WCREXUS2.W', scale: 0.001 }],               // 원유 수출 (백만 배럴/일)
+  total_demand:  [{ eia: 'PET.WRPUPUS2.W', scale: 0.001, avg: 4 }],       // 석유제품 전체 공급 = 총수요, 4주 평균 (백만 배럴/일)           // 원유 순수입 (백만 배럴/일)
   // 독일 비상 석유 비축 (월간, 수개월 지연). EU 합계는 데이터셋에 없어 독일을 대표로 사용
   // stk_flow STK_EUE_DIR = EU 지침에 따른 비상 비축 (일수 환산), unit NR = 일수
   eu_oil_stock: [{ eurostat: 'nrg_stk_oem', filters: { geo: 'DE' }, prefer: { stk_flow: /^STK_EUE_DIR$/, unit: /^NR$/ } }],
