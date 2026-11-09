@@ -8,7 +8,8 @@ import vm from 'node:vm';
 import { COMPUTED, clean, guessFreq, trim, valueAsOf, round, parseWorldBank, parseSpdr } from '../scripts/fetch-data.mjs';
 import { readSheet } from '../scripts/lib/xlsx.mjs';
 import { deflateRawSync } from 'node:zlib';
-import { clean as aiClean, soften, cleanWatch, groundRefs, checkNumbers, stats as aiStats, weeklyBlock, energyLinks, chainLinks } from '../scripts/ai-insight.mjs';
+import { clean as aiClean, soften, cleanWatch, groundRefs, checkNumbers, stats as aiStats, weeklyBlock, energyLinks, chainLinks, macroLines } from '../scripts/ai-insight.mjs';
+import { obsAsOf, rateDecomp, seasonDevAt, oilTightness } from '../scripts/lib/combo.mjs';
 import { SOURCES } from '../scripts/sources.mjs';
 import { loadConfig } from '../scripts/lib/config.mjs';
 import { validateData } from '../scripts/validate-data.mjs';
@@ -457,3 +458,64 @@ test('텔레그램 내용 메시지: 공유 채널이 있으면 거기로만, �
     for (const k of ['TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID', 'TELEGRAM_SHARE_CHAT_ID']) { if (env0[k] === undefined) delete process.env[k]; else process.env[k] = env0[k]; }
   }
 });
+
+/* ---------- 조합 지표: 재료의 발표 시차 맞추기 ---------- */
+const dayIso = (start, i) => new Date(Date.parse(start) + i * 86400000).toISOString().slice(0, 10);
+test('금리 분해: 두 금리가 모두 발표된 날짜만 쓰고, 한쪽만 먼저 나온 최신 날은 제외', () => {
+  // 40일치: 10년물은 매일 +0.01, 실질금리는 매일 +0.004 → 30일 변화 0.30 = 실질 0.12 + 기대인플레 0.18
+  const us = [], real = [];
+  for (let i = 0; i < 40; i++) { us.push([dayIso('2026-09-01', i), 4 + i * 0.01]); real.push([dayIso('2026-09-01', i), 2 + i * 0.004]); }
+  us.push([dayIso('2026-09-01', 40), 9]);   // 10년물만 하루 먼저 발표 (값이 튀어도 계산에 들어가면 안 됨)
+  const out = rateDecomp(us, real), last = out[out.length - 1];
+  assert.equal(last.date, dayIso('2026-09-01', 39), '기준일 = 둘 다 있는 마지막 날');
+  assert.equal(last.base, dayIso('2026-09-01', 9));
+  near(last.d10, 0.30); near(last.dReal, 0.12); near(last.dBei, 0.18); near(last.driver, -0.06);
+  near(last.dReal + last.dBei, last.d10);
+  // 자료 공백: 기준 시점이 30~37일 전 범위에 없으면 계산하지 않음
+  const gappy = [['2026-01-01', 4], ['2026-03-20', 4.5]];
+  assert.equal(rateDecomp(gappy, [['2026-01-01', 2], ['2026-03-20', 2.1]]).length, 0);
+  assert.equal(typeof COMPUTED.rate_driver.build, 'function');
+  assert.deepEqual(COMPUTED.rate_driver.inputs, ['us10y', 'real10y']);
+});
+test('순유동성: 연준 자산 날짜 기준, 7일보다 오래된 재료 값은 쓰지 않음', () => {
+  const c = COMPUTED.net_liq;
+  assert.deepEqual(c.inputs, ['fed_bs', 'aux_tga', 'aux_rrp']);
+  assert.equal(c.asof, true); assert.equal(c.maxLag, 7);
+  near(c.calc(6.7, 0.8, 0.3), 5.6);
+  assert.equal(SOURCES.aux_tga[0].scale, 1e-6);    // 백만$ → 조$
+  assert.equal(SOURCES.aux_rrp[0].scale, 1e-3);    // 십억$ → 조$
+  const tga = [['2026-10-21', 0.8], ['2026-10-28', 0.9]];
+  assert.deepEqual(obsAsOf(tga, '2026-10-28', 7), ['2026-10-28', 0.9]);
+  assert.deepEqual(obsAsOf(tga, '2026-11-04', 7), ['2026-10-28', 0.9]);   // 꼭 7일 전까지는 허용
+  assert.equal(obsAsOf(tga, '2026-11-11', 7), null);                       // 2주 묵은 값은 사용 안 함
+  assert.equal(obsAsOf(tga, '2026-10-01', 7), null);
+});
+test('석유 수급 빡빡함: 평년 대비 부족 평균, 네 재료가 모두 있는 주만', () => {
+  // 주간 6년치: 평년 100 → 올해 90 (평년 대비 −10%)
+  const mk = (cur, lastDate = '2026-10-23') => { const o = []; for (let k = 5; k >= 1; k--) o.push([dayIso(lastDate, -k * 364), 100]); o.push([lastDate, cur]); return o; };
+  near(seasonDevAt(mk(90), '2026-10-23', 90), -10);
+  assert.equal(seasonDevAt(mk(90).slice(3), '2026-10-23', 90), null);   // 과거 2년뿐 → 계산 안 함
+  const t = oilTightness([mk(90), mk(95), mk(100), mk(85)]).pop();
+  assert.equal(t.date, '2026-10-23'); near(t.score, 7.5);               // −평균(−10, −5, 0, −15)
+  assert.deepEqual(t.devs.map(Math.round), [-10, -5, 0, -15]);
+  // 한 재료만 새 주(10/30)가 먼저 나오면 그 주는 계산하지 않고 10/23 에 머묾
+  const ahead = mk(90).concat([['2026-10-30', 50]]);
+  assert.equal(oilTightness([ahead, mk(95), mk(100), mk(85)]).pop().date, '2026-10-23');
+  assert.deepEqual(COMPUTED.oil_tight.inputs, ['us_crude', 'gasoline_days', 'distill_days', 'jet_days']);
+  assert.equal(COMPUTED.oil_tight.freq, 'W');
+});
+test('AI 조합 재료: 판정과 기준일이 줄마다 들어감', () => {
+  const us = [], real = [];
+  for (let i = 0; i < 40; i++) { us.push([dayIso('2026-09-01', i), 4 + i * 0.01]); real.push([dayIso('2026-09-01', i), 2 + i * 0.008]); }
+  const mk = cur => { const o = []; for (let k = 5; k >= 1; k--) o.push([dayIso('2026-10-23', -k * 364), 100]); o.push(['2026-10-23', cur]); return o; };
+  const series = { us10y: { obs: us }, real10y: { obs: real }, us_crude: { obs: mk(90) }, gasoline_days: { obs: mk(90) }, distill_days: { obs: mk(90) }, jet_days: { obs: mk(90) } };
+  const rows = [{ id: 'net_liq', value: 5.6, date: '2026-10-28', chg_1m: 2.1 }, { id: 'fed_bs', value: 6.7, date: '2026-10-28', chg_1m: -0.4 }, { id: 'crack321', position: 20 }];
+  const { lines, nums } = macroLines(rows, series);
+  assert.equal(lines.length, 3);
+  assert.match(lines[0], /금리 분해 \[실질금리 주도\] 미국 10년물 2026-09-10→2026-10-10 \+0\.30%p = 실질금리 \+0\.24%p \+ 기대인플레 \+0\.06%p/);
+  assert.match(lines[1], /순유동성 \[연준 자산과 반대 방향\] 5\.6조\$ \(2026-10-28 기준/);
+  assert.match(lines[2], /석유 수급 \[크게 빡빡함\].*\+10\.0% 부족 \(2026-10-23 주 기준.*괴리/);
+  assert.ok(nums.length >= 4);
+  assert.equal(macroLines([], {}).lines.length, 0);
+});
+

@@ -25,6 +25,7 @@ import { pathToFileURL } from 'node:url';
 import '../season.js';   // globalThis.SEASON 등록
 import { SOURCES } from './sources.mjs';
 import { closes, retAfter, retSoFar } from './watch-perf.mjs';
+import { rateDecomp, oilTightness } from './lib/combo.mjs';
 
 const args = process.argv.slice(2);
 const arg = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
@@ -130,7 +131,7 @@ function stats(id, s, m, prevAt = null) {
   const position = win.length >= 12 ? (win.filter(v => v < last[1]).length + win.filter(v => v === last[1]).length / 2) / win.length * 100 : null;
   // 평년 대비 (주간 재고·저장량)
   let season = null;
-  if (s.freq === 'W' && m.cat === 'stocks') {
+  if (s.freq === 'W' && m.cat === 'stocks' && id !== 'oil_tight') {   // oil_tight 는 값 자체가 평년 대비라 다시 평년과 비교하지 않음
     const vals = [];
     for (let k = 1; k <= 5; k++) { const t = Date.parse(last[0]) - k * 364 * DAY; const e = obs.find(o => Math.abs(Date.parse(o[0]) - t) <= 4 * DAY); if (e) vals.push(e[1]); }
     if (vals.length >= 3) { const avg = vals.reduce((a, b) => a + b, 0) / vals.length; season = (last[1] - avg) / Math.abs(avg) * 100; }
@@ -352,6 +353,49 @@ function chainLinks(rows) {
   return out;
 }
 const CHAIN_LABEL = { food: '식량 체인 (가스→비료→곡물)', steel: '중국 철강 체인 (철광석·원료탄·호주달러·위안화)', korea: '한국 수입 부담 (원화 기준 에너지)' };
+/* ---------- 조합 재료: 금리 분해·순유동성·석유 수급 (코드가 계산, 재료마다 기준일을 맞춤) ---------- */
+let macroKnown = [];   // 조합 재료에 나온 숫자 (본문 숫자 대조에 포함)
+/** series = latest.series. 각 줄에 기준일을 넣어 AI 가 시차를 그대로 쓰게 함 */
+function macroLines(rows, series) {
+  const R = Object.fromEntries(rows.map(r => [r.id, r]));
+  const f = (v, u, dp = 2) => (v == null || !Number.isFinite(v) ? '—' : `${v > 0 ? '+' : ''}${(Math.round(v * 10 ** dp) / 10 ** dp).toFixed(dp)}${u || ''}`);
+  const out = []; const nums = [];
+  // ① 금리 분해: 10년물과 실질금리가 모두 발표된 마지막 날짜 기준 (기대인플레는 정의상 둘의 차)
+  if (series.us10y && series.real10y) {
+    const d = rateDecomp(series.us10y.obs, series.real10y.obs).pop();
+    if (d) {
+      const lead = Math.abs(d.d10) < 0.1 ? '금리 변화 작음 — 주도 요인 판단 보류' : Math.abs(d.driver) < 0.05 ? '뚜렷한 주도 없음(둘이 비슷하게 움직임)'
+        : `${d.driver > 0 ? '실질금리' : '기대인플레'} 주도`;
+      out.push(`금리 분해 [${lead}] 미국 10년물 ${d.base}→${d.date} ${f(d.d10, '%p')} = 실질금리 ${f(d.dReal, '%p')} + 기대인플레 ${f(d.dBei, '%p')}`);
+      nums.push(d.d10, d.dReal, d.dBei, d.driver);
+    }
+  }
+  // ② 순유동성: 연준 자산과 방향이 다르면 표시
+  if (R.net_liq) {
+    const n = R.net_liq, b = R.fed_bs;
+    const diverge = b && n.chg_1m != null && b.chg_1m != null && Math.sign(n.chg_1m) !== Math.sign(b.chg_1m) && Math.abs(n.chg_1m) >= 0.5;
+    out.push(`순유동성 [${diverge ? '연준 자산과 반대 방향' : n.chg_1m != null && Math.abs(n.chg_1m) >= 1.5 ? (n.chg_1m > 0 ? '증가' : '감소') : '변화 작음'}] ${n.value}조$ (${n.date} 기준, 1개월 ${f(n.chg_1m, '%', 1)})` +
+      (b ? ` · 연준 총자산 ${b.value}조$ (${b.date}, 1개월 ${f(b.chg_1m, '%', 1)})` : '') + (diverge ? ' — 재무부 계좌·역레포 변화가 연준 자산 변화를 상쇄' : ''));
+  }
+  // ③ 석유 수급 빡빡함: 네 재고 지표가 모두 발표된 마지막 주 기준, 재료별 평년 대비도 같은 주 값
+  const ids = ['us_crude', 'gasoline_days', 'distill_days', 'jet_days'];
+  if (ids.every(k => series[k])) {
+    const t = oilTightness(ids.map(k => series[k].obs)).pop();
+    if (t) {
+      const c = R.crack321;
+      const gap = t.score >= 5 && c && c.position != null && c.position <= 30 ? ' — 재고는 부족한데 정유 마진은 낮은 편(괴리)'
+        : t.score >= 5 && c && c.position != null && c.position >= 70 ? ' — 재고 부족이 정유 마진에 반영된 상태' : '';
+      out.push(`석유 수급 [${t.score >= 10 ? '크게 빡빡함' : t.score >= 5 ? '빡빡함' : t.score <= -5 ? '여유' : '평년 수준'}] 재고가 평년보다 평균 ${f(t.score, '%', 1)} 부족 (${t.date} 주 기준 · 평년 대비: 원유 ${f(t.devs[0], '%', 1)}, 휘발유 일수 ${f(t.devs[1], '%', 1)}, 디젤 일수 ${f(t.devs[2], '%', 1)}, 항공유 일수 ${f(t.devs[3], '%', 1)})${gap}`);
+      nums.push(t.score, ...t.devs);
+    }
+  }
+  return { lines: out, nums };
+}
+function macroBlock(rows, series) {
+  const { lines, nums } = macroLines(rows, series);
+  macroKnown = nums.filter(Number.isFinite).map(Math.abs);
+  return lines.length ? lines.map(x => '- ' + x).join('\n') : '- 데이터 없음';
+}
 function chainBlock(rows) {
   const ch = chainLinks(rows);
   return Object.entries(ch).map(([k, { snap, links }]) =>
@@ -820,6 +864,7 @@ function checkNumbers(texts, rows) {
     const v = r[k]; if (v != null && Number.isFinite(v)) known.push(Math.abs(v));
   }
   for (const r of rows) if (r.position != null) known.push(100 - r.position);   // '상위 22%' 표현
+  known.push(...macroKnown);
   const nums = [];
   for (const t of texts) {
     const src = String(t || '').replace(/\d{4}[-./]\d{1,2}([-./]\d{1,2})?/g, ' ').replace(/\d{1,2}\s*월\s*\d{1,2}\s*일/g, ' ');
@@ -951,6 +996,7 @@ async function main() {
     .replace('{{edition}}', WEEKLY ? weeklyBlock(prevAI, rows) : '')
     .replace('{{energy}}', energyBlock(rows))
     .replace('{{chains}}', chainBlock(rows))
+    .replace('{{macro}}', macroBlock(rows, latest.series))
     .replace('{{previous}}', prevBlock || '없음 (지난 브리핑 없음 — sections 의 review 는 빈 문자열로)')
     .replace('{{data}}', rows.map(r => JSON.stringify(r)).join('\n'));
   if (WEEKLY) console.log('  월요일 주간판: 지난주 정리 + 이번 주 볼 것');
@@ -1135,7 +1181,7 @@ async function main() {
 }
 
 // 테스트에서 문장 다듬기 함수만 가져다 쓸 수 있게 내보냄. 직접 실행할 때만 생성 시작
-export { clean, cleanWatch, soften, BANNED, groundRefs, checkNumbers, stats, weeklyBlock, energyLinks, chainLinks, sendColumnTelegram, sendWatchlistTelegram, sendTelegramLong };
+export { clean, cleanWatch, soften, BANNED, groundRefs, checkNumbers, stats, weeklyBlock, energyLinks, chainLinks, macroLines, sendColumnTelegram, sendWatchlistTelegram, sendTelegramLong };
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch(e => keepPrevious(`오류: ${e.message}`, { fail: true })).then(() => process.exit(0));
 }

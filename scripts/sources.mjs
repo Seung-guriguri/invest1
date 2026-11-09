@@ -65,6 +65,9 @@ export const SOURCES = {
   nfci:      [{ fred: 'NFCI' }],
   stlfsi:    [{ fred: 'STLFSI4' }],
   fed_bs:    [{ fred: 'WALCL', scale: 1e-6 }],          // 백만$ → 조$
+  // 순유동성 계산용 보조 (카드 없음): 재무부 일반계정(TGA, 수요일 기준·백만$ → 조$), 역레포 잔액(일간·십억$ → 조$)
+  aux_tga:   [{ fred: 'WDTGAL', scale: 1e-6 }],
+  aux_rrp:   [{ fred: 'RRPONTSYD', scale: 1e-3 }],
   m2:        [{ fred: 'M2SL', units: 'pc1' }],
 
   // ── 환율·변동성 ──

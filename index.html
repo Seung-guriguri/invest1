@@ -773,8 +773,12 @@ const CONFIG = {
       level: { fixed: true, dir: 'up', warn: 0, danger: 0.5 }, change: { dir: 'up', flat: 0.02, warn: 0.1, danger: 0.2 } },
     { id: 'stlfsi', cat: 'market', name: '금융스트레스지수', sub: '세인트루이스 연은, 0 = 평균', unit: '', dp: 2, changeMode: 'abs', profile: 'stress',
       level: { fixed: true, dir: 'up', warn: 0, danger: 1 }, change: { dir: 'up', flat: 0.05, warn: 0.3, danger: 0.6 } },
+    { id: 'rate_driver', cat: 'rates', name: '금리 변동 주도 요인', sub: '1개월 변화: 실질금리 − 기대인플레, 자동 계산 — +면 실질금리, −면 물가 기대가 주도', unit: '%p', dp: 2, changeMode: 'abs', profile: 'rateDriver',
+      change: { dir: 'both', flat: 0.03, warn: 0.15, danger: 0.3 } },
     { id: 'fed_bs', cat: 'market', name: '연준 총자산', sub: '주간', unit: '조$', dp: 2, changeMode: 'pct', profile: 'fedbs',
       change: { flat: 0.2 } },
+    { id: 'net_liq', cat: 'market', name: '순유동성', sub: '연준 총자산 − 재무부 계좌(TGA) − 역레포, 주간 자동 계산 — 시장에 실제로 풀린 돈', unit: '조$', dp: 2, changeMode: 'pct', profile: 'netLiq',
+      change: { dir: 'both', flat: 0.3, warn: 1.5, danger: 3 } },
     { id: 'm2', cat: 'market', name: '미국 M2 증가율', sub: '전년비', unit: '%', dp: 1, changeMode: 'pp', profile: 'm2',
       level: { fixed: true, dir: 'down', warn: 0, danger: -2 }, change: { flat: 0.2 } },
 
@@ -941,6 +945,8 @@ const CONFIG = {
       level: { seasonal: { warn: -5, danger: -10 }, dir: 'down' }, change: { dir: 'both', flat: 0.5, warn: 3, danger: 6 } },
     { id: 'gasoline_days', cat: 'stocks', name: '휘발유 재고 일수', sub: '재고 ÷ 하루 수요, 자동 계산 — 지금 수요로 며칠 버티나', unit: '일', dp: 1, changeMode: 'pct', profile: 'daysSupply',
       level: { seasonal: { warn: -5, danger: -10 }, dir: 'down' }, change: { dir: 'both', flat: 0.5, warn: 3, danger: 6 } },
+    { id: 'oil_tight', cat: 'stocks', name: '미국 석유 수급 빡빡함', sub: '원유 재고·휘발유·디젤·항공유 재고 일수의 평년 대비 부족 평균, 자동 계산 — +면 평년보다 부족', unit: '%', dp: 1, changeMode: 'pp', profile: 'oilTight', noSeason: true,
+      level: { fixed: true, dir: 'up', warn: 5, danger: 10 }, change: { dir: 'both', flat: 0.3, warn: 1.5, danger: 3 } },
     { id: 'ng_storage', cat: 'stocks', name: '미국 천연가스 저장량', sub: '본토 48개 주, 주간 (EIA)', unit: 'Bcf', dp: 0, changeMode: 'pct', profile: 'gasStorage',
       level: { seasonal: { warn: -5, danger: -10 }, dir: 'down', warn: 2500, danger: 2000 }, change: { flat: 0.5 } },
     { id: 'cushing', cat: 'stocks', name: '쿠싱 원유 재고', sub: 'WTI 인도 지점, 주간 (EIA)', unit: '백만 bbl', dp: 1, changeMode: 'pct', profile: 'cushing',
@@ -1365,6 +1371,26 @@ const COMMENTS = {
     fall: '디젤 마진 축소 → 디젤 수급 여유',
     high: '디젤 마진 높은 구간 → 물류·농업·난방 원가 부담',
     flat: '디젤 마진 보합'
+  },
+  rateDriver: {
+    // 값의 부호가 뜻을 정함 (변화 방향이 아니라): + 실질금리 쪽, − 기대인플레 쪽
+    special: a => !Number.isFinite(a.value) ? '' : Math.abs(a.value) < 0.05 ? '실질금리와 물가 기대가 비슷하게 움직임 → 뚜렷한 주도 요인 없음'
+      : a.value > 0 ? '최근 한 달 금리 움직임은 실질금리 쪽이 주도 → 긴축·성장 기대 변화 (성장주·금에 민감)'
+      : '최근 한 달 금리 움직임은 물가 기대 쪽이 주도 → 유가·물가 걱정 변화 (원자재와 연동)'
+  },
+  netLiq: {
+    surge: '순유동성 급증 → 시장에 풀린 돈이 빠르게 늘어남, 위험자산에 우호적',
+    rise: '순유동성 증가 → 시장에 풀린 돈이 늘어나는 방향',
+    plunge: '순유동성 급감 → 시장에서 돈이 빠르게 빠짐, 위험자산에 부담',
+    fall: '순유동성 감소 → 시장에 풀린 돈이 줄어드는 방향',
+    flat: '순유동성 변화 작음'
+  },
+  oilTight: {
+    high: '재고가 평년보다 크게 부족 → 공급 차질 때 유가·제품 가격이 크게 뛰기 쉬움',
+    warn: '재고가 평년보다 부족한 편 → 수급이 빡빡한 쪽',
+    rise: '수급이 더 빡빡해지는 중 → 재고 부족 폭 확대',
+    fall: '수급이 풀리는 중 → 재고 부족 폭 축소',
+    flat: '수급 여건 변화 작음'
   },
   daysSupply: {
     rise: '재고 일수 증가 → 수요 대비 재고 여유가 늘어남',
@@ -1865,7 +1891,7 @@ function analyze(ind) {
   // ── 수준 신호 ──
   const L = ind.level;
   a.pctl = a.isSample ? null : percentileInfo(ind, a);
-  a.season = a.isSample ? null : seasonalInfo(a);
+  a.season = a.isSample || ind.noSeason ? null : seasonalInfo(a);   // noSeason: 값 자체가 이미 평년 대비인 지표
   a.lvl = 0;
   if (L) {
     if (L.seasonal && a.season) {
@@ -2621,7 +2647,7 @@ const WATCH_PAIRS = [
   ['us10y', 'mortgage', 1], ['bdry', 'iron_ore', 1], ['tanker_fro', 'etf_bwet', 1], ['brent', 'bei10y', 1],
   ['dxy', 'gold', -1], ['copper', 'sp500', 1], ['coking_amr', 'iron_ore', 1], ['fert_cf', 'ttf', 1], ['fert_mos', 'corn', 1],
   ['audusd', 'iron_ore', 1], ['audusd', 'copper', 1], ['ng_storage', 'natgas', -1], ['us_crude', 'wti', -1],
-  ['crack321', 'refinery_util', 1], ['usdkrw', 'etf_ewy', -1], ['gold_etf_gld', 'gold', 1]
+  ['crack321', 'refinery_util', 1], ['usdkrw', 'etf_ewy', -1], ['gold_etf_gld', 'gold', 1], ['net_liq', 'sp500', 1]
 ];
 /** 지금 엇갈린 감시 짝 (render 마다 계산, 상세 화면 ⚠ 표시에도 사용) */
 let DIVERGE = new Map();
