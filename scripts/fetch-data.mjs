@@ -23,6 +23,7 @@ import { dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { SOURCES } from './sources.mjs';
 import { readSheet } from './lib/xlsx.mjs';
+import { obsAsOf, rateDecomp, oilTightness } from './lib/combo.mjs';
 
 const args = process.argv.slice(2);
 const arg = (name, def) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : def; };
@@ -78,7 +79,18 @@ const COMPUTED = {
   jet_days:       { inputs: ['us_jet', 'jet_demand'], label: 'Calc:항공유 재고÷수요', calc: (s, d) => s / d },
   // 비료 구매력 = 비료($/t) ÷ 옥수수($/t), 둘 다 World Bank 월평균 — 높을수록 농가가 비료 사기 어려움
   fert_afford_urea: { inputs: ['fert_urea', 'aux_maize_m'], label: 'Calc:요소÷옥수수', byMonth: true, calc: (f, c) => f / c },
-  fert_afford_dap:  { inputs: ['fert_dap', 'aux_maize_m'], label: 'Calc:DAP÷옥수수', byMonth: true, calc: (f, c) => f / c }
+  fert_afford_dap:  { inputs: ['fert_dap', 'aux_maize_m'], label: 'Calc:DAP÷옥수수', byMonth: true, calc: (f, c) => f / c },
+  // ── 조합 지표 (재료의 발표 시차를 맞춰 계산 — scripts/lib/combo.mjs) ──
+  // 금리 변동 주도 요인 = 1개월 실질금리 변화 − 1개월 기대인플레 변화 (%p). +면 실질금리(긴축·성장 기대), −면 물가 기대가 10년물을 더 움직임
+  //   10년물·실질금리가 둘 다 발표된 날짜만 사용 (한쪽만 먼저 나온 날은 계산하지 않음)
+  rate_driver: { inputs: ['us10y', 'real10y'], label: 'Calc:Δ실질−Δ기대인플레(1개월)', freq: 'D',
+    build: ([us10y, real10y]) => rateDecomp(us10y.obs, real10y.obs).map(x => [x.date, x.driver]) },
+  // 순유동성 = 연준 총자산 − 재무부 일반계정(TGA) − 역레포 (조$). 연준 자산(수요일 기준) 날짜마다 TGA·역레포는 그날 이전 7일 안의 값만 사용
+  net_liq: { inputs: ['fed_bs', 'aux_tga', 'aux_rrp'], label: 'Calc:연준자산−TGA−역레포', asof: true, maxLag: 7, calc: (bs, tga, rrp) => bs - tga - rrp },
+  // 미국 석유 수급 빡빡함 = −평균(원유 재고·휘발유 재고 일수·디젤 재고 일수·항공유 재고 일수의 평년 대비 %). +면 평년보다 부족
+  //   네 재료가 모두 같은 주에 발표된 경우만 계산
+  oil_tight: { inputs: ['us_crude', 'gasoline_days', 'distill_days', 'jet_days'], label: 'Calc:재고 평년 대비 부족 평균', freq: 'W',
+    build: parts => oilTightness(parts.map(x => x.obs)).map(x => [x.date, x.score]) }
 };
 
 /** 날짜 오름차순 obs 에서 date 이전(같은 날 포함) 가장 최근 값 */
@@ -562,7 +574,8 @@ async function main() {
       series[id] = got;
       // 무결성 점검: 직전 관측치 대비 비정상 급변(시세 오류·선물 월물 교체 등) — 값은 그대로 두고 로그로 알림
       const o = got.obs, n = o.length;
-      if (n >= 2 && got.freq === 'D' && o[n - 2][1] && Math.abs(o[n - 1][1] / o[n - 2][1] - 1) > 0.25 && Math.sign(o[n - 1][1]) === Math.sign(o[n - 2][1])) {
+      // 역레포 잔액(aux_rrp)은 규모가 작아 하루 변동률이 원래 커서 급변 점검에서 제외
+      if (n >= 2 && got.freq === 'D' && id !== 'aux_rrp' && o[n - 2][1] && Math.abs(o[n - 1][1] / o[n - 2][1] - 1) > 0.25 && Math.sign(o[n - 1][1]) === Math.sign(o[n - 2][1])) {
         warnings.push(id); console.log(`  ⚠ ${id}: 직전 대비 ${((o[n - 1][1] / o[n - 2][1] - 1) * 100).toFixed(1)}% 급변 (${o[n - 2][0]} ${o[n - 2][1]} → ${o[n - 1][0]} ${o[n - 1][1]}) — 시세 확인 필요`);
       }
       const last = series[id].obs[series[id].obs.length - 1];
@@ -581,14 +594,17 @@ async function main() {
       const parts = def.inputs.map(k => series[k]);
       if (parts.some(x => !x)) throw new Error(`재료 지표 없음 (${def.inputs.filter(k => !series[k]).join(', ')})`);
       let obs;
-      if (def.byMonth) {
+      if (def.build) {
+        obs = def.build(parts).map(([d, v]) => [d, round(v)]).filter(o => Number.isFinite(o[1]));
+      } else if (def.byMonth) {
         // 월 단위로 짝짓기 (월간 지표의 날짜가 1일·말일 등으로 달라도)
         const months = parts.map(x => new Map(x.obs.map(([d, v]) => [d.slice(0, 7), v])));
         obs = parts[0].obs.filter(([d]) => months.every(m => m.has(d.slice(0, 7))))
           .map(([d]) => [d, round(def.calc(...months.map(m => m.get(d.slice(0, 7)))))]).filter(o => Number.isFinite(o[1]));
       } else if (def.asof) {
         obs = parts[0].obs.map(([d, v]) => {
-          const rest = parts.slice(1).map(x => valueAsOf(x.obs, d));
+          // maxLag(일): 그날 기준 너무 오래된 재료 값은 쓰지 않음 (재료 하나가 멈췄는데 최신처럼 계산되는 것 방지)
+          const rest = parts.slice(1).map(x => def.maxLag ? (obsAsOf(x.obs, d, def.maxLag) || [])[1] : valueAsOf(x.obs, d));
           return rest.some(r => r == null) ? null : [d, round(def.calc(v, ...rest))];
         }).filter(o => o && Number.isFinite(o[1]));
       } else {
@@ -597,7 +613,7 @@ async function main() {
           .map(([d]) => [d, round(def.calc(...maps.map(m => m.get(d))))]).filter(o => Number.isFinite(o[1]));
       }
       if (obs.length < 2) throw new Error('겹치는 날짜 부족');
-      series[id] = { source: def.label, freq: parts[0].freq, fetchedAt: new Date().toISOString(), obs };
+      series[id] = { source: def.label, freq: def.freq || parts[0].freq, fetchedAt: new Date().toISOString(), obs };
       console.log(`✓ ${id.padEnd(14)} ${def.label.padEnd(26)} ${obs[obs.length - 1][0]}  ${obs[obs.length - 1][1]}`);
     } catch (e) {
       const prev = previous && previous.series && previous.series[id];

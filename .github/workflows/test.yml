@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # ubuntu-latest(26.04)에는 Playwright 1.56 이 브라우저를 설치하지 못함 — 지원 버전으로 고정
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7

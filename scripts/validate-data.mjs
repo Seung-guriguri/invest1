@@ -42,7 +42,7 @@ export function validateData(data, now = Date.now()) {
       const lim = { D: 10, W: 21, M: 140, Q: 260 }[s.freq] || 30;
       if ((now - Date.parse(s.obs[n - 1][0])) / DAY > lim) stale++;
       const a = s.obs[n - 2][1], b = s.obs[n - 1][1];
-      if (s.freq === 'D' && a && Math.sign(a) === Math.sign(b) && Math.abs(b / a - 1) > 0.25) { spikes++; notes.push(`${id}: 직전 대비 ${((b / a - 1) * 100).toFixed(1)}% 급변 — 검증 필요 (값은 유지)`); }
+      if (s.freq === 'D' && id !== 'aux_rrp' && a && Math.sign(a) === Math.sign(b) && Math.abs(b / a - 1) > 0.25) { spikes++; notes.push(`${id}: 직전 대비 ${((b / a - 1) * 100).toFixed(1)}% 급변 — 검증 필요 (값은 유지)`); }
     }
   }
   if (Array.isArray(data.errors) && data.errors.length) notes.push(`수집 실패 ${data.errors.length}개: ${data.errors.map(e => e.id).join(', ')}`);

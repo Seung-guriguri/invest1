@@ -5,7 +5,7 @@
 
 성격: **실측**(기관·시장이 직접 발표한 값) · **계산**(다른 지표로 계산) · **대용**(직접 지표가 없어 주가·ETF 등으로 대신 봄) · **직접 입력**(자동 소스 없음)
 
-## 금리 (16)
+## 금리 (17)
 
 | ID | 이름 | 단위 | 성격 | 출처 (1순위 → 대체) | 변화 판단 |
 |---|---|---|---|---|---|
@@ -25,6 +25,7 @@
 | `kr_us_base` | 한미 기준금리차 | %p | 계산 | 계산: 한국−미국 기준금리 | pp |
 | `kr_us_10y` | 한미 10년 금리차 | %p | 계산 | 계산: 한국−미국 10년 | pp |
 | `us_real_policy` | 미국 실질 정책금리 | % | 계산 | 계산: FFR−근원PCE | pp |
+| `rate_driver` | 금리 변동 주도 요인 | %p | 계산 | 계산: Δ실질−Δ기대인플레(1개월) | abs |
 
 ## 물가 (5)
 
@@ -53,7 +54,7 @@
 | `cfnai` | 시카고 연은 전미활동지수 |  | 실측 | FRED CFNAIMA3 | abs |
 | `gdp` | 미국 실질 GDP 성장률 | % | 실측 | FRED A191RL1Q225SBEA | pp |
 
-## 시장·신용 (10)
+## 시장·신용 (11)
 
 | ID | 이름 | 단위 | 성격 | 출처 (1순위 → 대체) | 변화 판단 |
 |---|---|---|---|---|---|
@@ -66,6 +67,7 @@
 | `nfci` | 금융여건지수 |  | 실측 | FRED NFCI | abs |
 | `stlfsi` | 금융스트레스지수 |  | 실측 | FRED STLFSI4 | abs |
 | `fed_bs` | 연준 총자산 | 조$ | 실측 | FRED WALCL | pct |
+| `net_liq` | 순유동성 | 조$ | 계산 | 계산: 연준자산−TGA−역레포 | pct |
 | `m2` | 미국 M2 증가율 | % | 실측 | FRED M2SL | pp |
 
 ## 환율 (7)
@@ -134,7 +136,7 @@
 | `lng_spread` | LNG 수출 마진 – 유럽행 (TTF−헨리허브) | $/MMBtu | 계산 | 계산: TTF−HH | abs |
 | `jkm_hh` | LNG 수출 마진 – 아시아행 (JKM−헨리허브) | $/MMBtu | 계산 | 계산: JKM−HH | abs |
 
-## 비축·재고 (18)
+## 비축·재고 (19)
 
 | ID | 이름 | 단위 | 성격 | 출처 (1순위 → 대체) | 변화 판단 |
 |---|---|---|---|---|---|
@@ -148,6 +150,7 @@
 | `jet_demand` | 미국 항공유 수요 | 백만 b/d | 실측 | EIA PET.WKJUPUS2.W | pct |
 | `jet_days` | 항공유 재고 일수 | 일 | 계산 | 계산: 항공유 재고÷수요 | pct |
 | `gasoline_days` | 휘발유 재고 일수 | 일 | 계산 | 계산: 휘발유 재고÷수요 | pct |
+| `oil_tight` | 미국 석유 수급 빡빡함 | % | 계산 | 계산: 재고 평년 대비 부족 평균 | pp |
 | `ng_storage` | 미국 천연가스 저장량 | Bcf | 실측 | EIA NG.NW2_EPG0_SWO_R48_BCF.W | pct |
 | `cushing` | 쿠싱 원유 재고 | 백만 bbl | 실측 | EIA PET.W_EPC0_SAX_YCUOK_MBBL.W | pct |
 | `refinery_util` | 미국 정제 가동률 | % | 실측 | EIA PET.WPULEUS3.W | pp |
@@ -218,8 +221,8 @@
 | `etf_ewy` | EWY | $ | 실측 | Yahoo EWY | pct |
 | `etf_eem` | EEM | $ | 실측 | Yahoo EEM | pct |
 
-## 가이드 전용 시세 (41)
+## 가이드 전용 시세 (43)
 
 카드로 보이지 않고 가이드(유조선·벌크선·석유 밸류체인)의 미니 시세와 관심 종목 후보에만 쓰는 주가입니다.
 
-`aux_jkm_m` (Yahoo JKM=F) · `aux_maize_m` (World Bank 월간 가격표 Maize) · `tk_dht` (Yahoo DHT) · `tk_tnk` (Yahoo TNK) · `tk_nat` (Yahoo NAT) · `tk_eco` (Yahoo ECO) · `tk_hafn` (Yahoo HAFN) · `tk_trmd` (Yahoo TRMD) · `tk_insw` (Yahoo INSW) · `gd_sblk` (Yahoo SBLK) · `gd_gnk` (Yahoo GNK) · `gd_sb` (Yahoo SB) · `gd_ship` (Yahoo SHIP) · `gd_dsx` (Yahoo DSX) · `gd_panl` (Yahoo PANL) · `gd_xop` (Yahoo XOP) · `gd_cop` (Yahoo COP) · `gd_eog` (Yahoo EOG) · `gd_oxy` (Yahoo OXY) · `gd_rig` (Yahoo RIG) · `gd_val` (Yahoo VAL) · `gd_ne` (Yahoo NE) · `gd_sdrl` (Yahoo SDRL) · `gd_borr` (Yahoo BORR) · `gd_fti` (Yahoo FTI) · `gd_tdw` (Yahoo TDW) · `gd_oih` (Yahoo OIH) · `gd_slb` (Yahoo SLB) · `gd_hal` (Yahoo HAL) · `gd_bkr` (Yahoo BKR) · `gd_amlp` (Yahoo AMLP) · `gd_epd` (Yahoo EPD) · `gd_et` (Yahoo ET) · `gd_kmi` (Yahoo KMI) · `gd_wmb` (Yahoo WMB) · `gd_crak` (Yahoo CRAK) · `gd_vlo` (Yahoo VLO) · `gd_mpc` (Yahoo MPC) · `gd_psx` (Yahoo PSX) · `gd_xom` (Yahoo XOM) · `gd_cvx` (Yahoo CVX)
+`aux_tga` (FRED WDTGAL) · `aux_rrp` (FRED RRPONTSYD) · `aux_jkm_m` (Yahoo JKM=F) · `aux_maize_m` (World Bank 월간 가격표 Maize) · `tk_dht` (Yahoo DHT) · `tk_tnk` (Yahoo TNK) · `tk_nat` (Yahoo NAT) · `tk_eco` (Yahoo ECO) · `tk_hafn` (Yahoo HAFN) · `tk_trmd` (Yahoo TRMD) · `tk_insw` (Yahoo INSW) · `gd_sblk` (Yahoo SBLK) · `gd_gnk` (Yahoo GNK) · `gd_sb` (Yahoo SB) · `gd_ship` (Yahoo SHIP) · `gd_dsx` (Yahoo DSX) · `gd_panl` (Yahoo PANL) · `gd_xop` (Yahoo XOP) · `gd_cop` (Yahoo COP) · `gd_eog` (Yahoo EOG) · `gd_oxy` (Yahoo OXY) · `gd_rig` (Yahoo RIG) · `gd_val` (Yahoo VAL) · `gd_ne` (Yahoo NE) · `gd_sdrl` (Yahoo SDRL) · `gd_borr` (Yahoo BORR) · `gd_fti` (Yahoo FTI) · `gd_tdw` (Yahoo TDW) · `gd_oih` (Yahoo OIH) · `gd_slb` (Yahoo SLB) · `gd_hal` (Yahoo HAL) · `gd_bkr` (Yahoo BKR) · `gd_amlp` (Yahoo AMLP) · `gd_epd` (Yahoo EPD) · `gd_et` (Yahoo ET) · `gd_kmi` (Yahoo KMI) · `gd_wmb` (Yahoo WMB) · `gd_crak` (Yahoo CRAK) · `gd_vlo` (Yahoo VLO) · `gd_mpc` (Yahoo MPC) · `gd_psx` (Yahoo PSX) · `gd_xom` (Yahoo XOM) · `gd_cvx` (Yahoo CVX)
