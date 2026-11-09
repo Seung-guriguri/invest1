@@ -9,7 +9,7 @@ import { COMPUTED, clean, guessFreq, trim, valueAsOf, round, parseWorldBank, par
 import { readSheet } from '../scripts/lib/xlsx.mjs';
 import { deflateRawSync } from 'node:zlib';
 import { clean as aiClean, soften, cleanWatch, groundRefs, checkNumbers, stats as aiStats, weeklyBlock, energyLinks, chainLinks, macroLines } from '../scripts/ai-insight.mjs';
-import { obsAsOf, rateDecomp, seasonDevAt, oilTightness } from '../scripts/lib/combo.mjs';
+import { obsAsOf, rateDecomp, seasonDevAt, oilTightness, basketIndex, goldRealGap, yoySameWeek } from '../scripts/lib/combo.mjs';
 import { SOURCES } from '../scripts/sources.mjs';
 import { loadConfig } from '../scripts/lib/config.mjs';
 import { validateData } from '../scripts/validate-data.mjs';
@@ -511,11 +511,59 @@ test('AI 조합 재료: 판정과 기준일이 줄마다 들어감', () => {
   const series = { us10y: { obs: us }, real10y: { obs: real }, us_crude: { obs: mk(90) }, gasoline_days: { obs: mk(90) }, distill_days: { obs: mk(90) }, jet_days: { obs: mk(90) } };
   const rows = [{ id: 'net_liq', value: 5.6, date: '2026-10-28', chg_1m: 2.1 }, { id: 'fed_bs', value: 6.7, date: '2026-10-28', chg_1m: -0.4 }, { id: 'crack321', position: 20 }];
   const { lines, nums } = macroLines(rows, series);
-  assert.equal(lines.length, 3);
+  assert.equal(lines.length, 3);   // 재료가 있는 줄만 (구리÷금·CCC·금은 재료 없음)
   assert.match(lines[0], /금리 분해 \[실질금리 주도\] 미국 10년물 2026-09-10→2026-10-10 \+0\.30%p = 실질금리 \+0\.24%p \+ 기대인플레 \+0\.06%p/);
   assert.match(lines[1], /순유동성 \[연준 자산과 반대 방향\] 5\.6조\$ \(2026-10-28 기준/);
   assert.match(lines[2], /석유 수급 \[크게 빡빡함\].*\+10\.0% 부족 \(2026-10-23 주 기준.*괴리/);
   assert.ok(nums.length >= 4);
   assert.equal(macroLines([], {}).lines.length, 0);
+});
+
+test('바스켓 지수: 모든 종목이 거래된 날만, 동일 비중 수익률', () => {
+  const a = [['2026-01-02', 100], ['2026-01-05', 110], ['2026-01-06', 121], ['2026-01-07', 121]];
+  const b = [['2026-01-02', 50], ['2026-01-05', 50], ['2026-01-07', 55]];          // 1/6 휴장
+  const idx = basketIndex([a, b]);
+  assert.deepEqual(idx.map(o => o[0]), ['2026-01-02', '2026-01-05', '2026-01-07']);   // 1/6 은 건너뜀
+  near(idx[0][1], 100); near(idx[1][1], 105);                                        // (+10% + 0%) / 2
+  near(idx[2][1], 105 * 1.10);                                                       // 1/5→1/7: a +10%, b +10%
+  assert.equal(COMPUTED.tanker_idx.inputs.length, 9);
+  assert.deepEqual(COMPUTED.refiner_idx.inputs, ['gd_vlo', 'gd_mpc', 'gd_psx']);
+});
+test('금의 실질금리 괴리: 공통 날짜만, 금리로 설명되는 부분을 뺀 나머지', () => {
+  // 금 일간 수익률 = −2 × 실질금리 변화(%p) + 0.05% (금리 외 꾸준한 상승)
+  const gold = [], real = []; let g = 1000, r = 2;
+  for (let i = 0; i < 300; i++) {
+    const dr = ((i * 7) % 11 - 5) / 100; r += dr; g *= 1 + (-2 * dr + 0.05) / 100;
+    gold.push([dayIso('2025-06-01', i), g]); real.push([dayIso('2025-06-01', i), r]);
+  }
+  gold.push([dayIso('2025-06-01', 300), g * 2]);   // 금만 먼저 나온 날 — 계산에 들어가면 안 됨
+  const { beta, rows } = goldRealGap(gold, real), last = rows[rows.length - 1];
+  near(beta, -2, 0.01);
+  assert.equal(last.date, dayIso('2025-06-01', 299));
+  near(last.gap, 63 * 0.05, 0.1);                   // 금리 외 상승분 ≈ 3.15%
+  near(last.ret, last.explained + last.gap, 1e-3);
+  assert.equal(goldRealGap(gold.slice(0, 50), real).rows.length, 0);   // 자료가 적으면 계산 안 함
+});
+test('전년 같은 주 대비: 364일 전(±3일) 값이 있을 때만', () => {
+  const obs = [['2025-11-01', 100], ['2026-10-31', 110], ['2026-11-07', 120]];
+  const out = yoySameWeek(obs);
+  assert.deepEqual(out.map(o => o[0]), ['2026-10-31']);                 // 11/7 은 364일 전(2025-11-08) 값이 없어 제외
+  near(out[0][1], 10);
+});
+test('추가 지표 정의: 재료·시차 방식·단위', () => {
+  near(COMPUTED.copper_gold.calc(12000, 4000), 3);
+  near(COMPUTED.ccc_hy.calc(9.5, 3.2), 6.3);
+  near(COMPUTED.kospi_usd.calc(2800, 1400), 2000);
+  assert.equal(COMPUTED.kospi_usd.asof, true); assert.equal(COMPUTED.kospi_usd.maxLag, 4);
+  near(COMPUTED.mfg_avg.calc(10, -5, 4), 3); assert.equal(COMPUTED.mfg_avg.byMonth, true);
+  assert.ok(!COMPUTED.copper_gold.asof && !COMPUTED.ccc_hy.asof, '같은 날짜끼리만 계산');
+  assert.equal(SOURCES.t5y5y[0].fred, 'T5YIFR'); assert.equal(SOURCES.ccc_spread[0].fred, 'BAMLH0A3HYC');
+  assert.equal(SOURCES.crude_exports[0].scale, 0.001); assert.equal(SOURCES.total_demand[0].avg, 4);
+  assert.deepEqual(SOURCES.aux_power_total[0], { eiaGrid: 'TOTAL', avg: 7, scale: 0.001 });
+  const rows = [{ id: 'copper_gold', value: 3.4, date: '2026-11-06', chg_1m: 5 }, { id: 'us10y', value: 5, date: '2026-11-05', chg_1m: -0.2 },
+    { id: 'ccc_hy', value: 6.5, date: '2026-11-05', chg_1m: 0.8 }, { id: 'hy_spread', value: 3.2, date: '2026-11-05', chg_1m: 0.05 }];
+  const { lines } = macroLines(rows, {});
+  assert.match(lines[0], /경기 신호 \[엇갈림\] 구리÷금 3\.4배 \(2026-11-06/);
+  assert.match(lines[1], /신용 깊이 \[최하위 등급만 악화\]/);
 });
 

@@ -751,6 +751,8 @@ const CONFIG = {
       level: { fixed: true, dir: 'down', warn: 0, danger: -15 }, change: { flat: 3 } },
     { id: 'pmi_dallas', cat: 'growth', name: '댈러스 연은 제조업지수', sub: '텍사스 · PMI 대용 · 0 이상 확장', unit: '', dp: 1, changeMode: 'abs', profile: 'regionalPmi',
       level: { fixed: true, dir: 'down', warn: 0, danger: -15 }, change: { flat: 3 } },
+    { id: 'mfg_avg', cat: 'growth', name: '지역 연은 제조업 평균', sub: '필라델피아·뉴욕·댈러스 평균, 자동 계산 — ISM 제조업 대용 · 0 이상 확장', unit: '', dp: 1, changeMode: 'abs', profile: 'regionalPmi',
+      level: { fixed: true, dir: 'down', warn: 0, danger: -15 }, change: { flat: 3 } },
     { id: 'cfnai', cat: 'growth', name: '시카고 연은 전미활동지수', sub: 'CFNAI 3개월 평균 · 0 = 평균 성장', unit: '', dp: 2, changeMode: 'abs', profile: 'cfnai',
       level: { fixed: true, dir: 'down', warn: -0.35, danger: -0.7 }, change: { flat: 0.05 } },
     { id: 'gdp', cat: 'growth', name: '미국 실질 GDP 성장률', sub: '전기비 연율, 분기', unit: '%', dp: 1, changeMode: 'pp', profile: 'gdp',
@@ -763,6 +765,10 @@ const CONFIG = {
       change: { dir: 'down', flat: 0.3, warn: 2.5, danger: 5 } },
     { id: 'kospi', cat: 'market', name: '코스피', unit: '', dp: 2, changeMode: 'pct', profile: 'equity',
       change: { dir: 'down', flat: 0.3, warn: 2, danger: 4 } },
+    { id: 'sox', cat: 'market', name: '필라델피아 반도체 지수', sub: 'SOX — 반도체 업황·코스피 선행', unit: '', dp: 0, changeMode: 'pct', profile: 'equity',
+      change: { dir: 'down', flat: 0.5, warn: 4, danger: 8 } },
+    { id: 'kospi_usd', cat: 'market', name: '달러 환산 코스피', sub: '코스피 ÷ 원/달러 × 1000, 자동 계산 — 외국인 투자자가 보는 코스피', unit: '', dp: 0, changeMode: 'pct', profile: 'equity',
+      change: { dir: 'down', flat: 0.3, warn: 2.5, danger: 5 } },
     { id: 'hy_spread', cat: 'market', name: '하이일드 스프레드', sub: '미국 고수익 회사채', unit: '%p', dp: 2, changeMode: 'pp', profile: 'hy',
       level: { dir: 'up', warn: 4.5, danger: 6.0 }, change: { dir: 'up', flat: 0.05, warn: 0.3, danger: 0.6 } },
     { id: 'ig_spread', cat: 'market', name: '투자등급 스프레드', sub: '미국 회사채', unit: '%p', dp: 2, changeMode: 'pp', profile: 'ig',
@@ -773,10 +779,18 @@ const CONFIG = {
       level: { fixed: true, dir: 'up', warn: 0, danger: 0.5 }, change: { dir: 'up', flat: 0.02, warn: 0.1, danger: 0.2 } },
     { id: 'stlfsi', cat: 'market', name: '금융스트레스지수', sub: '세인트루이스 연은, 0 = 평균', unit: '', dp: 2, changeMode: 'abs', profile: 'stress',
       level: { fixed: true, dir: 'up', warn: 0, danger: 1 }, change: { dir: 'up', flat: 0.05, warn: 0.3, danger: 0.6 } },
+    { id: 't5y5y', cat: 'rates', name: '5년 후 5년 기대인플레이션', sub: '5y5y — 단기 유가 영향을 뺀 장기 물가 기대', unit: '%', dp: 2, changeMode: 'pp', profile: 'breakeven',
+      level: { dir: 'up', warn: 2.5, danger: 3.0 }, change: { dir: 'both', flat: 0.02, warn: 0.1, danger: 0.2 } },
     { id: 'rate_driver', cat: 'rates', name: '금리 변동 주도 요인', sub: '1개월 변화: 실질금리 − 기대인플레, 자동 계산 — +면 실질금리, −면 물가 기대가 주도', unit: '%p', dp: 2, changeMode: 'abs', profile: 'rateDriver',
       change: { dir: 'both', flat: 0.03, warn: 0.15, danger: 0.3 } },
     { id: 'fed_bs', cat: 'market', name: '연준 총자산', sub: '주간', unit: '조$', dp: 2, changeMode: 'pct', profile: 'fedbs',
       change: { flat: 0.2 } },
+    { id: 'ccc_spread', cat: 'market', name: 'CCC 등급 스프레드', sub: '미국 최하위 등급 회사채 — 신용 스트레스가 가장 먼저 드러나는 곳', unit: '%p', dp: 2, changeMode: 'pp', profile: 'hy',
+      level: { dir: 'up', warn: 11, danger: 14 }, change: { dir: 'up', flat: 0.1, warn: 0.6, danger: 1.2 },
+      comments: { rise: 'CCC 스프레드 확대 → 가장 약한 기업부터 자금 조달이 어려워지는 중', fall: 'CCC 스프레드 축소 → 최하위 등급까지 위험 선호 회복', flat: 'CCC 스프레드 보합' } },
+    { id: 'ccc_hy', cat: 'market', name: 'CCC−하이일드 격차', sub: 'CCC 스프레드 − 하이일드 전체, 자동 계산 — 벌어지면 최하위 등급만 따로 악화', unit: '%p', dp: 2, changeMode: 'pp', profile: 'hy',
+      level: { dir: 'up', warn: 7, danger: 9 }, change: { dir: 'up', flat: 0.1, warn: 0.5, danger: 1.0 },
+      comments: { rise: '격차 확대 → 하이일드 전체보다 최하위 등급이 더 나빠지는 중 (초기 신용 경고)', fall: '격차 축소 → 최하위 등급 부담 완화', high: '격차가 큰 구간 → 부실 위험이 약한 기업에 집중', warn: '격차가 벌어진 편 → 최하위 등급 주의', flat: '격차 변화 작음' } },
     { id: 'net_liq', cat: 'market', name: '순유동성', sub: '연준 총자산 − 재무부 계좌(TGA) − 역레포, 주간 자동 계산 — 시장에 실제로 풀린 돈', unit: '조$', dp: 2, changeMode: 'pct', profile: 'netLiq',
       change: { dir: 'both', flat: 0.3, warn: 1.5, danger: 3 } },
     { id: 'm2', cat: 'market', name: '미국 M2 증가율', sub: '전년비', unit: '%', dp: 1, changeMode: 'pp', profile: 'm2',
@@ -793,6 +807,9 @@ const CONFIG = {
       change: { dir: 'both', flat: 0.2, warn: 1.0, danger: 2.0 } },
     { id: 'audusd', cat: 'fx', name: '호주달러/달러 환율', sub: '1호주달러당 달러', unit: '$', dp: 4, changeMode: 'pct', profile: 'audusd',
       change: { dir: 'both', flat: 0.2, warn: 1.0, danger: 2.0 } },
+    { id: 'move', cat: 'fx', name: 'MOVE 지수', sub: '미국 국채 변동성 — VIX 가 못 잡는 금리 불안', unit: '', dp: 1, changeMode: 'pct', profile: 'vix',
+      level: { dir: 'up', warn: 110, danger: 140 }, change: { dir: 'up', flat: 3, warn: 12, danger: 25 },
+      comments: { surge: '국채 변동성 급등 → 금리 불안이 커짐, 주식·신용으로 번지는지 확인', rise: '국채 변동성 상승 → 금리 방향 불확실성 확대', fall: '국채 변동성 하락 → 금리 불안 완화', high: '국채 변동성 높은 구간 → 금리 급변에 취약', warn: '국채 변동성 높은 편', flat: '국채 변동성 보합' } },
     { id: 'usdcny', cat: 'fx', name: '위안/달러 환율', unit: '위안', dp: 4, changeMode: 'pct', profile: 'usdcny',
       level: { dir: 'up', warn: 7.3, danger: 7.4 }, change: { dir: 'both', flat: 0.1, warn: 0.5, danger: 1.0 } },
     { id: 'vix', cat: 'fx', name: 'VIX', sub: 'S&P500 변동성 지수', unit: '', dp: 2, changeMode: 'pct', profile: 'vix',
@@ -815,6 +832,8 @@ const CONFIG = {
       level: { dir: 'up', warn: 15, danger: 20 }, change: { dir: 'both', flat: 1.5, warn: 7, danger: 14 } },
     { id: 'power_gas', cat: 'power', name: '미국 가스 발전 비중', sub: '전체 발전량 중 천연가스, 7일 평균 (EIA-930)', unit: '%', dp: 1, changeMode: 'pp', profile: 'powerGas',
       change: { dir: 'both', flat: 0.5, warn: 3, danger: 5 } },
+    { id: 'power_yoy', cat: 'power', name: '미국 전력 발전량 전년비', sub: '본토 48개 주 7일 평균, 52주 전 같은 주 대비 (EIA-930) — 날씨 영향이 커서 추세로 볼 것', unit: '%', dp: 1, changeMode: 'pp', profile: 'powerYoy',
+      change: { dir: 'both', flat: 0.5, warn: 3, danger: 6 } },
     { id: 'power_coal', cat: 'power', name: '미국 석탄 발전 비중', sub: '전체 발전량 중 석탄, 7일 평균 (EIA-930)', unit: '%', dp: 1, changeMode: 'pp', profile: 'powerCoal',
       change: { dir: 'both', flat: 0.3, warn: 2, danger: 3.5 } },
     { id: 'nuclear_util', cat: 'power', name: '미국 원전 가동률', sub: '전체 원자로 평균 출력, 일간 (NRC)', unit: '%', dp: 1, changeMode: 'pp', profile: 'nuclear',
@@ -855,6 +874,8 @@ const CONFIG = {
       change: { dir: 'both', flat: 0.5, warn: 4, danger: 8 } },
     { id: 'gasoline_crack', cat: 'energy', name: '휘발유 크랙', sub: '휘발유 마진: 휘발유×42 − 브렌트, 자동 계산 — 드라이빙 시즌·소비 수요', unit: '$/bbl', dp: 2, changeMode: 'abs', profile: 'gasolineCrack',
       change: { dir: 'both', flat: 0.5, warn: 4, danger: 8 } },
+    { id: 'refiner_idx', cat: 'energy', name: '정유주 지수', sub: 'VLO·MPC·PSX 동일 비중, 시작=100, 자동 계산 — 정유 마진을 주가가 어떻게 보는지', unit: '', dp: 1, changeMode: 'pct', profile: 'equity',
+      change: { dir: 'both', flat: 0.4, danger: 5, moveOnly: true }, comments: { surge: '정유주 급등', plunge: '정유주 급락', rise: '정유주 상승 → 정유 마진 강세 기대 (크랙 스프레드와 함께 확인)', fall: '정유주 하락 → 정유 마진 약세 걱정 (크랙 스프레드와 함께 확인)', flat: '정유주 보합' } },
     { id: 'jet_fuel', cat: 'energy', name: '항공유', sub: '미국 걸프 연안 현물가, EIA 일간 (약 1주 지연) — 항공사 연료비', unit: '$/gal', dp: 3, changeMode: 'pct', staleDays: 14, profile: 'jetFuel',
       change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
     { id: 'jet_crack', cat: 'energy', name: '항공유 크랙', sub: '항공유 마진: 항공유×42 − 브렌트, 자동 계산 — 항공 수요·정제 병목', unit: '$/bbl', dp: 2, changeMode: 'abs', staleDays: 14, profile: 'jetCrack',
@@ -871,6 +892,8 @@ const CONFIG = {
       level: { dir: 'up', warn: 10, danger: 20 }, change: { flat: 1 } },
     { id: 'tanker_fro', cat: 'freight', name: 'VLCC 원유선 (FRO)', sub: 'Frontline 주가 — 초대형 원유운반선 운임 대용 (운임 지수 아님)', unit: '$', dp: 2, changeMode: 'pct', profile: 'shipping',
       change: { dir: 'both', flat: 0.4, danger: 5, moveOnly: true }, comments: { rise: '원유선사 상승 → VLCC 운임 강세 또는 원유 물동량 증가 기대', fall: '원유선사 하락 → VLCC 운임 약세 또는 물동량 둔화 걱정' } },
+    { id: 'tanker_idx', cat: 'freight', name: '탱커주 지수', sub: '유조선사 9종 동일 비중, 시작=100, 자동 계산 — 개별 종목 잡음을 뺀 탱커 업황 (운임 지수 아님)', unit: '', dp: 1, changeMode: 'pct', profile: 'shipping',
+      change: { dir: 'both', flat: 0.4, danger: 5, moveOnly: true }, comments: { rise: '탱커주 전반 상승 → 유조선 운임 강세 또는 물동량 증가 기대', fall: '탱커주 전반 하락 → 유조선 운임 약세 또는 물동량 둔화 걱정' } },
     { id: 'tanker_stng', cat: 'freight', name: '석유제품선 (STNG)', sub: 'Scorpio Tankers 주가 — 휘발유·디젤 운반선 운임 대용 (운임 지수 아님)', unit: '$', dp: 2, changeMode: 'pct', profile: 'shipping',
       change: { dir: 'both', flat: 0.4, danger: 5, moveOnly: true }, comments: { rise: '제품선사 상승 → 휘발유·디젤 해상 수송 수요↑, 정유 마진 강세와 함께 보기', fall: '제품선사 하락 → 석유제품 물동량·운임 약세' } },
     { id: 'lng_flng', cat: 'freight', name: 'LNG선 (FLNG)', sub: 'Flex LNG 주가 — LNG 운반선 업황 대용 (운임 지수 아님)', unit: '$', dp: 2, changeMode: 'pct', profile: 'shipping',
@@ -885,6 +908,10 @@ const CONFIG = {
       change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
     { id: 'gold', cat: 'metals', name: '금', unit: '$/oz', dp: 1, changeMode: 'pct', profile: 'gold',
       change: { dir: 'both', flat: 0.5, warn: 3, danger: 6 } },
+    { id: 'copper_gold', cat: 'metals', name: '구리÷금 비율', sub: '구리($/t) ÷ 금($/oz), 자동 계산 — 경기 기대 vs 안전자산 선호', unit: '배', dp: 2, changeMode: 'pct', profile: 'copperGold',
+      change: { dir: 'both', flat: 1, warn: 6, danger: 12 } },
+    { id: 'gold_real_gap', cat: 'metals', name: '금의 실질금리 괴리', sub: '3개월 금 수익률 − 실질금리 변화로 설명되는 부분, 자동 계산 — +면 금리 외 수요가 금을 받침', unit: '%', dp: 1, changeMode: 'pp', profile: 'goldGap',
+      change: { dir: 'both', flat: 0.5, warn: 4, danger: 8 } },
     { id: 'gold_etf_gld', cat: 'metals', name: '금 ETF 보유량 (GLD)', sub: '세계 최대 금 ETF가 보관 중인 금, 톤 (SPDR 일별) — 투자 수요 흐름', unit: '톤', dp: 1, changeMode: 'pct', profile: 'goldEtf',
       change: { dir: 'both', flat: 0.2, warn: 1.5, danger: 3 } },
     { id: 'silver', cat: 'metals', name: '은', unit: '$/oz', dp: 2, changeMode: 'pct', profile: 'silver',
@@ -959,6 +986,10 @@ const CONFIG = {
       level: { seasonal: { warn: -4, danger: -8 }, dir: 'down', warn: 8.3, danger: 8.0 }, change: { dir: 'both', flat: 0.5, warn: 3, danger: 6 } },
     { id: 'distill_demand', cat: 'stocks', name: '미국 디젤·난방유 수요', sub: '제품 공급량 4주 평균 (EIA)', unit: '백만 b/d', dp: 2, changeMode: 'pct', profile: 'distillDemand',
       level: { seasonal: { warn: -5, danger: -10 }, dir: 'down', warn: 3.6, danger: 3.3 }, change: { dir: 'both', flat: 0.5, warn: 3, danger: 6 } },
+    { id: 'crude_exports', cat: 'stocks', name: '미국 원유 수출', sub: '주간 (EIA)', unit: '백만 b/d', dp: 2, changeMode: 'pct', profile: 'crudeExports',
+      change: { dir: 'both', flat: 2, warn: 12, danger: 25 } },
+    { id: 'total_demand', cat: 'stocks', name: '미국 석유 총수요', sub: '전체 제품 공급량 4주 평균 (EIA) — 휘발유·디젤·항공유 등 합계', unit: '백만 b/d', dp: 2, changeMode: 'pct', profile: 'totalDemand',
+      level: { seasonal: { warn: -3, danger: -6 }, dir: 'down' }, change: { dir: 'both', flat: 0.4, warn: 2, danger: 4 } },
     { id: 'crude_net_imports', cat: 'stocks', name: '미국 원유 순수입', sub: '주간 (EIA)', unit: '백만 b/d', dp: 2, changeMode: 'abs', profile: 'netImports',
       change: { dir: 'both', flat: 0.1, warn: 0.6, danger: 1.2 } },
     { id: 'eu_oil_stock', cat: 'stocks', name: '독일 비상 석유 비축', sub: '순수입 대비 일수, 월간·수개월 지연 (Eurostat)', unit: '일', dp: 1, changeMode: 'pct', profile: 'stocks',
@@ -1371,6 +1402,37 @@ const COMMENTS = {
     fall: '디젤 마진 축소 → 디젤 수급 여유',
     high: '디젤 마진 높은 구간 → 물류·농업·난방 원가 부담',
     flat: '디젤 마진 보합'
+  },
+  copperGold: {
+    surge: '구리÷금 급등 → 경기 기대가 안전자산 선호를 크게 앞섬',
+    rise: '구리÷금 상승 → 경기 기대 쪽으로 기움 (금리 상승과 함께 가는 편)',
+    plunge: '구리÷금 급락 → 안전자산 선호가 경기 기대를 크게 앞섬',
+    fall: '구리÷금 하락 → 안전자산 선호 쪽으로 기움 (금리 하락과 함께 가는 편)',
+    flat: '구리÷금 보합'
+  },
+  goldGap: {
+    special: a => !Number.isFinite(a.value) ? '' : Math.abs(a.value) < 3 ? '금 움직임이 실질금리 변화로 대체로 설명됨'
+      : a.value > 0 ? '실질금리로 설명되지 않는 금 강세 → 중앙은행 매입·지정학 등 금리 외 수요가 받치는 중'
+      : '실질금리가 시사하는 것보다 금이 약함 → 금리 외 수요가 빠지는 중'
+  },
+  powerYoy: {
+    rise: '전력 발전량 전년비 확대 → 전력 수요 증가 (날씨·데이터센터 수요 구분 필요)',
+    fall: '전력 발전량 전년비 축소 → 전력 수요 둔화 (온화한 날씨일 수 있음)',
+    flat: '전력 발전량 전년비 변화 작음'
+  },
+  crudeExports: {
+    surge: '원유 수출 급증 → 해외 수요가 미국 재고를 끌어감, 재고 감소 요인',
+    rise: '원유 수출 증가 → 재고 감소 요인, 브렌트−WTI 가격차 확대와 함께 가는 편',
+    plunge: '원유 수출 급감 → 재고가 쌓이기 쉬움 (주간 변동이 큰 지표)',
+    fall: '원유 수출 감소 → 재고 증가 요인',
+    flat: '원유 수출 변화 작음'
+  },
+  totalDemand: {
+    high: '석유 총수요가 같은 시기 평년보다 크게 적음 → 소비 둔화 신호',
+    warn: '석유 총수요가 같은 시기 평년보다 적은 편',
+    rise: '석유 총수요 증가 → 소비·운송 활동 견조',
+    fall: '석유 총수요 감소 → 소비·운송 활동 둔화',
+    flat: '석유 총수요 안정'
   },
   rateDriver: {
     // 값의 부호가 뜻을 정함 (변화 방향이 아니라): + 실질금리 쪽, − 기대인플레 쪽
@@ -2647,7 +2709,8 @@ const WATCH_PAIRS = [
   ['us10y', 'mortgage', 1], ['bdry', 'iron_ore', 1], ['tanker_fro', 'etf_bwet', 1], ['brent', 'bei10y', 1],
   ['dxy', 'gold', -1], ['copper', 'sp500', 1], ['coking_amr', 'iron_ore', 1], ['fert_cf', 'ttf', 1], ['fert_mos', 'corn', 1],
   ['audusd', 'iron_ore', 1], ['audusd', 'copper', 1], ['ng_storage', 'natgas', -1], ['us_crude', 'wti', -1],
-  ['crack321', 'refinery_util', 1], ['usdkrw', 'etf_ewy', -1], ['gold_etf_gld', 'gold', 1], ['net_liq', 'sp500', 1]
+  ['crack321', 'refinery_util', 1], ['usdkrw', 'etf_ewy', -1], ['gold_etf_gld', 'gold', 1], ['net_liq', 'sp500', 1],
+  ['copper_gold', 'us10y', 1], ['crack321', 'refiner_idx', 1], ['tanker_idx', 'etf_bwet', 1], ['sox', 'kospi', 1]
 ];
 /** 지금 엇갈린 감시 짝 (render 마다 계산, 상세 화면 ⚠ 표시에도 사용) */
 let DIVERGE = new Map();

@@ -25,7 +25,7 @@ import { pathToFileURL } from 'node:url';
 import '../season.js';   // globalThis.SEASON 등록
 import { SOURCES } from './sources.mjs';
 import { closes, retAfter, retSoFar } from './watch-perf.mjs';
-import { rateDecomp, oilTightness } from './lib/combo.mjs';
+import { rateDecomp, oilTightness, goldRealGap } from './lib/combo.mjs';
 
 const args = process.argv.slice(2);
 const arg = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
@@ -353,7 +353,7 @@ function chainLinks(rows) {
   return out;
 }
 const CHAIN_LABEL = { food: '식량 체인 (가스→비료→곡물)', steel: '중국 철강 체인 (철광석·원료탄·호주달러·위안화)', korea: '한국 수입 부담 (원화 기준 에너지)' };
-/* ---------- 조합 재료: 금리 분해·순유동성·석유 수급 (코드가 계산, 재료마다 기준일을 맞춤) ---------- */
+/* ---------- 조합 재료: 금리 분해·순유동성·석유 수급·경기 신호·신용 깊이·금 괴리 (코드가 계산, 재료마다 기준일을 맞춤) ---------- */
 let macroKnown = [];   // 조합 재료에 나온 숫자 (본문 숫자 대조에 포함)
 /** series = latest.series. 각 줄에 기준일을 넣어 AI 가 시차를 그대로 쓰게 함 */
 function macroLines(rows, series) {
@@ -387,6 +387,26 @@ function macroLines(rows, series) {
         : t.score >= 5 && c && c.position != null && c.position >= 70 ? ' — 재고 부족이 정유 마진에 반영된 상태' : '';
       out.push(`석유 수급 [${t.score >= 10 ? '크게 빡빡함' : t.score >= 5 ? '빡빡함' : t.score <= -5 ? '여유' : '평년 수준'}] 재고가 평년보다 평균 ${f(t.score, '%', 1)} 부족 (${t.date} 주 기준 · 평년 대비: 원유 ${f(t.devs[0], '%', 1)}, 휘발유 일수 ${f(t.devs[1], '%', 1)}, 디젤 일수 ${f(t.devs[2], '%', 1)}, 항공유 일수 ${f(t.devs[3], '%', 1)})${gap}`);
       nums.push(t.score, ...t.devs);
+    }
+  }
+  // ④ 경기 신호: 구리÷금과 10년물은 보통 같은 방향 — 1개월 방향이 엇갈리면 표시 (둘 다 의미 있게 움직였을 때만)
+  if (R.copper_gold && R.us10y && R.copper_gold.chg_1m != null && R.us10y.chg_1m != null) {
+    const c = R.copper_gold, u = R.us10y, big = Math.abs(c.chg_1m) >= 3 && Math.abs(u.chg_1m) >= 0.1;
+    out.push(`경기 신호 [${!big ? '변화 작음' : Math.sign(c.chg_1m) === Math.sign(u.chg_1m) ? '같은 방향' : '엇갈림'}] 구리÷금 ${c.value}배 (${c.date}, 1개월 ${f(c.chg_1m, '%', 1)}) · 미국 10년물 ${u.value}% (${u.date}, 1개월 ${f(u.chg_1m, '%p')})` +
+      (big && Math.sign(c.chg_1m) !== Math.sign(u.chg_1m) ? ' — 원자재와 채권이 경기를 다르게 보는 중' : ''));
+  }
+  // ⑤ 신용 깊이: 하이일드 전체는 조용한데 CCC 와의 격차만 벌어지면 초기 경고
+  if (R.ccc_hy && R.hy_spread && R.ccc_hy.chg_1m != null && R.hy_spread.chg_1m != null) {
+    const g = R.ccc_hy, h = R.hy_spread;
+    const st = g.chg_1m >= 0.5 && h.chg_1m < 0.15 ? '최하위 등급만 악화' : g.chg_1m >= 0.5 ? '하이일드 전체와 함께 악화' : g.chg_1m <= -0.5 ? '완화' : '변화 작음';
+    out.push(`신용 깊이 [${st}] CCC−하이일드 격차 ${g.value}%p (${g.date}, 1개월 ${f(g.chg_1m, '%p')}) · 하이일드 스프레드 ${h.value}%p (${h.date}, 1개월 ${f(h.chg_1m, '%p')})`);
+  }
+  // ⑥ 금의 실질금리 괴리: 금·실질금리가 모두 발표된 마지막 날짜 기준 3개월
+  if (series.gold && series.real10y) {
+    const gr = goldRealGap(series.gold.obs, series.real10y.obs), g = gr.rows[gr.rows.length - 1];
+    if (g) {
+      out.push(`금 괴리 [${Math.abs(g.gap) < 3 ? '금리로 대체로 설명됨' : g.gap > 0 ? '금리 외 수요가 받침' : '금리가 시사하는 것보다 약함'}] 금 ${g.base}→${g.date} ${f(g.ret, '%', 1)} 중 실질금리 변화(${f(g.dReal, '%p')})로 설명되는 부분 ${f(g.explained, '%', 1)}, 나머지 ${f(g.gap, '%', 1)}`);
+      nums.push(g.ret, g.dReal, g.explained, g.gap);
     }
   }
   return { lines: out, nums };

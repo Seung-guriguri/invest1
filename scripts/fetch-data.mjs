@@ -23,7 +23,7 @@ import { dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { SOURCES } from './sources.mjs';
 import { readSheet } from './lib/xlsx.mjs';
-import { obsAsOf, rateDecomp, oilTightness } from './lib/combo.mjs';
+import { obsAsOf, rateDecomp, oilTightness, basketIndex, goldRealGap, yoySameWeek } from './lib/combo.mjs';
 
 const args = process.argv.slice(2);
 const arg = (name, def) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : def; };
@@ -90,7 +90,24 @@ const COMPUTED = {
   // 미국 석유 수급 빡빡함 = −평균(원유 재고·휘발유 재고 일수·디젤 재고 일수·항공유 재고 일수의 평년 대비 %). +면 평년보다 부족
   //   네 재료가 모두 같은 주에 발표된 경우만 계산
   oil_tight: { inputs: ['us_crude', 'gasoline_days', 'distill_days', 'jet_days'], label: 'Calc:재고 평년 대비 부족 평균', freq: 'W',
-    build: parts => oilTightness(parts.map(x => x.obs)).map(x => [x.date, x.score]) }
+    build: parts => oilTightness(parts.map(x => x.obs)).map(x => [x.date, x.score]) },
+  // 구리÷금 비율 ($/t ÷ $/oz): 경기 기대(구리)와 안전자산 선호(금)의 상대 강도 — 둘 다 거래된 날짜만
+  copper_gold: { inputs: ['copper', 'gold'], label: 'Calc:구리÷금', calc: (c, g) => c / g },
+  // 금의 실질금리 괴리 = 최근 3개월(63거래일) 금 수익률 − β×실질금리 변화 (%). +면 실질금리로 설명되지 않는 금 강세
+  gold_real_gap: { inputs: ['gold', 'real10y'], label: 'Calc:금 수익률−β×Δ실질금리(3개월)', freq: 'D',
+    build: ([gold, real]) => goldRealGap(gold.obs, real.obs).rows.map(x => [x.date, x.gap]) },
+  // 정유주·탱커주 지수: 동일 비중, 시작 = 100, 모든 종목이 거래된 날짜만
+  refiner_idx: { inputs: ['gd_vlo', 'gd_mpc', 'gd_psx'], label: 'Calc:정유주 3종 동일 비중', freq: 'D', build: parts => basketIndex(parts.map(x => x.obs)) },
+  tanker_idx: { inputs: ['tanker_fro', 'tanker_stng', 'tk_dht', 'tk_tnk', 'tk_nat', 'tk_eco', 'tk_hafn', 'tk_trmd', 'tk_insw'], label: 'Calc:유조선주 9종 동일 비중', freq: 'D',
+    build: parts => basketIndex(parts.map(x => x.obs)) },
+  // 지역 연은 제조업 평균: 세 지수가 모두 발표된 달만 (댈러스가 가장 늦게 나옴)
+  mfg_avg: { inputs: ['pmi_philly', 'pmi_empire', 'pmi_dallas'], label: 'Calc:지역 연은 3곳 평균', byMonth: true, calc: (a, b, c) => (a + b + c) / 3 },
+  // 달러 환산 코스피 = 코스피 ÷ 원/달러 × 1000: 코스피 거래일 기준, 환율은 그날 이전 4일 안의 값
+  kospi_usd: { inputs: ['kospi', 'usdkrw'], label: 'Calc:코스피÷원/달러×1000', asof: true, maxLag: 4, calc: (k, fx) => k / fx * 1000 },
+  // CCC−하이일드 격차 (%p): 같은 날짜끼리. 벌어지면 최하위 등급만 따로 나빠지는 중
+  ccc_hy: { inputs: ['ccc_spread', 'hy_spread'], label: 'Calc:CCC−HY', calc: (c, h) => c - h },
+  // 미국 전력 발전량 전년비 (%): 7일 평균을 52주 전 7일 평균과 비교 (요일 구성을 맞춤)
+  power_yoy: { inputs: ['aux_power_total'], label: 'Calc:발전량 7일 평균 전년비', freq: 'D', build: ([p]) => yoySameWeek(p.obs) }
 };
 
 /** 날짜 오름차순 obs 에서 date 이전(같은 날 포함) 가장 최근 값 */
@@ -351,7 +368,9 @@ async function fetchEiaGrid(src) {
   if (!gridCache) gridCache = loadGrid();
   let days;
   try { days = await gridCache; } catch (e) { gridCache = null; throw e; }
-  let obs = days.map(([d, f, total]) => [d, f[src.eiaGrid] == null ? NaN : f[src.eiaGrid] / total * 100]).filter(o => Number.isFinite(o[1]));
+  // TOTAL: 비중이 아니라 그날 전체 발전량 (MWh)
+  let obs = (src.eiaGrid === 'TOTAL' ? days.map(([d, , total]) => [d, total])
+    : days.map(([d, f, total]) => [d, f[src.eiaGrid] == null ? NaN : f[src.eiaGrid] / total * 100])).filter(o => Number.isFinite(o[1]));
   if (!obs.length) throw new Error(`발전원 ${src.eiaGrid} 없음 (있는 발전원: ${Object.keys((days[days.length - 1] || [])[1] || {}).join(',')})`);
   if (src.avg) {
     const n = src.avg;

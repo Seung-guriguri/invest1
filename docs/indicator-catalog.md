@@ -5,7 +5,7 @@
 
 성격: **실측**(기관·시장이 직접 발표한 값) · **계산**(다른 지표로 계산) · **대용**(직접 지표가 없어 주가·ETF 등으로 대신 봄) · **직접 입력**(자동 소스 없음)
 
-## 금리 (17)
+## 금리 (18)
 
 | ID | 이름 | 단위 | 성격 | 출처 (1순위 → 대체) | 변화 판단 |
 |---|---|---|---|---|---|
@@ -25,6 +25,7 @@
 | `kr_us_base` | 한미 기준금리차 | %p | 계산 | 계산: 한국−미국 기준금리 | pp |
 | `kr_us_10y` | 한미 10년 금리차 | %p | 계산 | 계산: 한국−미국 10년 | pp |
 | `us_real_policy` | 미국 실질 정책금리 | % | 계산 | 계산: FFR−근원PCE | pp |
+| `t5y5y` | 5년 후 5년 기대인플레이션 | % | 실측 | FRED T5YIFR | pp |
 | `rate_driver` | 금리 변동 주도 요인 | %p | 계산 | 계산: Δ실질−Δ기대인플레(1개월) | abs |
 
 ## 물가 (5)
@@ -37,7 +38,7 @@
 | `us_ppi` | 미국 PPI | % | 실측 | FRED PPIFIS | pp |
 | `kr_cpi` | 한국 CPI 상승률 | % | 실측 | 한국은행 901Y009/0 → FRED KORCPIALLMINMEI | pp |
 
-## 경기 (12)
+## 경기 (13)
 
 | ID | 이름 | 단위 | 성격 | 출처 (1순위 → 대체) | 변화 판단 |
 |---|---|---|---|---|---|
@@ -51,26 +52,31 @@
 | `pmi_philly` | 필라델피아 연은 제조업지수 |  | 실측 | FRED GACDFSA066MSFRBPHI | abs |
 | `pmi_empire` | 뉴욕 연은 제조업지수 |  | 실측 | FRED GACDISA066MSFRBNY → FRED GACDINA066MNFRBNY | abs |
 | `pmi_dallas` | 댈러스 연은 제조업지수 |  | 실측 | FRED BACTSAMFRBDAL | abs |
+| `mfg_avg` | 지역 연은 제조업 평균 |  | 계산 | 계산: 지역 연은 3곳 평균 | abs |
 | `cfnai` | 시카고 연은 전미활동지수 |  | 실측 | FRED CFNAIMA3 | abs |
 | `gdp` | 미국 실질 GDP 성장률 | % | 실측 | FRED A191RL1Q225SBEA | pp |
 
-## 시장·신용 (11)
+## 시장·신용 (15)
 
 | ID | 이름 | 단위 | 성격 | 출처 (1순위 → 대체) | 변화 판단 |
 |---|---|---|---|---|---|
 | `sp500` | S&P 500 |  | 실측 | Yahoo ^GSPC → FRED SP500 | pct |
 | `nasdaq` | 나스닥 종합 |  | 실측 | Yahoo ^IXIC → FRED NASDAQCOM | pct |
 | `kospi` | 코스피 |  | 실측 | Yahoo ^KS11 | pct |
+| `sox` | 필라델피아 반도체 지수 |  | 실측 | Yahoo ^SOX | pct |
+| `kospi_usd` | 달러 환산 코스피 |  | 계산 | 계산: 코스피÷원/달러×1000 | pct |
 | `hy_spread` | 하이일드 스프레드 | %p | 실측 | FRED BAMLH0A0HYM2 | pp |
 | `ig_spread` | 투자등급 스프레드 | %p | 실측 | FRED BAMLC0A0CM | pp |
 | `hy_ig` | 저신용 추가 웃돈 | %p | 계산 | 계산: HY−IG | pp |
 | `nfci` | 금융여건지수 |  | 실측 | FRED NFCI | abs |
 | `stlfsi` | 금융스트레스지수 |  | 실측 | FRED STLFSI4 | abs |
 | `fed_bs` | 연준 총자산 | 조$ | 실측 | FRED WALCL | pct |
+| `ccc_spread` | CCC 등급 스프레드 | %p | 실측 | FRED BAMLH0A3HYC | pp |
+| `ccc_hy` | CCC−하이일드 격차 | %p | 계산 | 계산: CCC−HY | pp |
 | `net_liq` | 순유동성 | 조$ | 계산 | 계산: 연준자산−TGA−역레포 | pct |
 | `m2` | 미국 M2 증가율 | % | 실측 | FRED M2SL | pp |
 
-## 환율 (7)
+## 환율 (8)
 
 | ID | 이름 | 단위 | 성격 | 출처 (1순위 → 대체) | 변화 판단 |
 |---|---|---|---|---|---|
@@ -79,10 +85,11 @@
 | `usdjpy` | 엔/달러 환율 | 엔 | 실측 | Yahoo JPY=X → FRED DEXJPUS | pct |
 | `eurusd` | 유로/달러 환율 | $ | 실측 | Yahoo EURUSD=X → FRED DEXUSEU | pct |
 | `audusd` | 호주달러/달러 환율 | $ | 실측 | Yahoo AUDUSD=X → FRED DEXUSAL | pct |
+| `move` | MOVE 지수 |  | 실측 | Yahoo ^MOVE | pct |
 | `usdcny` | 위안/달러 환율 | 위안 | 실측 | Yahoo CNY=X → FRED DEXCHUS | pct |
 | `vix` | VIX |  | 실측 | Yahoo ^VIX → FRED VIXCLS | pct |
 
-## 에너지 (18)
+## 에너지 (19)
 
 | ID | 이름 | 단위 | 성격 | 출처 (1순위 → 대체) | 변화 판단 |
 |---|---|---|---|---|---|
@@ -101,15 +108,17 @@
 | `crack321` | 3-2-1 크랙 스프레드 | $/bbl | 계산 | 계산: 2RB+HO−3CL | abs |
 | `diesel_crack` | 디젤 크랙 | $/bbl | 계산 | 계산: HO×42−브렌트 | abs |
 | `gasoline_crack` | 휘발유 크랙 | $/bbl | 계산 | 계산: RB×42−브렌트 | abs |
+| `refiner_idx` | 정유주 지수 |  | 계산 | 계산: 정유주 3종 동일 비중 | pct |
 | `jet_fuel` | 항공유 | $/gal | 실측 | FRED DJFUELUSGULF → EIA PET.EER_EPJK_PF4_RGC_DPG.D | pct |
 | `jet_crack` | 항공유 크랙 | $/bbl | 계산 | 계산: 항공유×42−브렌트 | abs |
 | `jet_diesel` | 항공유−디젤 가격차 | $/bbl | 계산 | 계산: (항공유−디젤)×42 | abs |
 
-## 전력 (13)
+## 전력 (14)
 
 | ID | 이름 | 단위 | 성격 | 출처 (1순위 → 대체) | 변화 판단 |
 |---|---|---|---|---|---|
 | `power_gas` | 미국 가스 발전 비중 | % | 실측 | EIA-930 NG | pp |
+| `power_yoy` | 미국 전력 발전량 전년비 | % | 계산 | 계산: 발전량 7일 평균 전년비 | pp |
 | `power_coal` | 미국 석탄 발전 비중 | % | 실측 | EIA-930 COL | pp |
 | `nuclear_util` | 미국 원전 가동률 | % | 실측 | NRC 원자로 출력 | pp |
 | `us_coal_cons` | 미국 석탄 소비량 | 백만 t | 실측 | EIA TOTAL.CLTCPUS.M | pct · 전년 동월 대비 |
@@ -123,7 +132,7 @@
 | `gas_pw_chn` | 중국 가스 발전 비중 | % | 실측 | Ember CHN/Gas | pp · 전년 동월 대비 |
 | `gas_pw_eu` | EU 가스 발전 비중 | % | 실측 | Ember EU/Gas | pp · 전년 동월 대비 |
 
-## 운임 (8)
+## 운임 (9)
 
 | ID | 이름 | 단위 | 성격 | 출처 (1순위 → 대체) | 변화 판단 |
 |---|---|---|---|---|---|
@@ -131,12 +140,13 @@
 | `scfi` | 컨테이너 운임 SCFI |  | 직접 입력 | — | pct |
 | `freight_ppi` | 미국 원양 화물운송 PPI | % | 실측 | FRED PCU483111483111 | pp |
 | `tanker_fro` | VLCC 원유선 (FRO) | $ | 실측 | Yahoo FRO | pct |
+| `tanker_idx` | 탱커주 지수 |  | 계산 | 계산: 유조선주 9종 동일 비중 | pct |
 | `tanker_stng` | 석유제품선 (STNG) | $ | 실측 | Yahoo STNG | pct |
 | `lng_flng` | LNG선 (FLNG) | $ | 실측 | Yahoo FLNG | pct |
 | `lng_spread` | LNG 수출 마진 – 유럽행 (TTF−헨리허브) | $/MMBtu | 계산 | 계산: TTF−HH | abs |
 | `jkm_hh` | LNG 수출 마진 – 아시아행 (JKM−헨리허브) | $/MMBtu | 계산 | 계산: JKM−HH | abs |
 
-## 비축·재고 (19)
+## 비축·재고 (21)
 
 | ID | 이름 | 단위 | 성격 | 출처 (1순위 → 대체) | 변화 판단 |
 |---|---|---|---|---|---|
@@ -157,15 +167,19 @@
 | `us_crude_prod` | 미국 원유 생산 | 백만 b/d | 실측 | EIA PET.WCRFPUS2.W | pct |
 | `gasoline_demand` | 미국 휘발유 수요 | 백만 b/d | 실측 | EIA PET.WGFUPUS2.W | pct |
 | `distill_demand` | 미국 디젤·난방유 수요 | 백만 b/d | 실측 | EIA PET.WDIUPUS2.W | pct |
+| `crude_exports` | 미국 원유 수출 | 백만 b/d | 실측 | EIA PET.WCREXUS2.W | pct |
+| `total_demand` | 미국 석유 총수요 | 백만 b/d | 실측 | EIA PET.WRPUPUS2.W | pct |
 | `crude_net_imports` | 미국 원유 순수입 | 백만 b/d | 실측 | EIA PET.WCRNTUS2.W | abs |
 | `eu_oil_stock` | 독일 비상 석유 비축 | 일 | 실측 | Eurostat nrg_stk_oem | pct |
 
-## 금속 (9)
+## 금속 (11)
 
 | ID | 이름 | 단위 | 성격 | 출처 (1순위 → 대체) | 변화 판단 |
 |---|---|---|---|---|---|
 | `copper` | 구리 | $/t | 실측 | Yahoo HG=F → FRED PCOPPUSDM | pct |
 | `gold` | 금 | $/oz | 실측 | Yahoo GC=F | pct |
+| `copper_gold` | 구리÷금 비율 | 배 | 계산 | 계산: 구리÷금 | pct |
+| `gold_real_gap` | 금의 실질금리 괴리 | % | 계산 | 계산: 금 수익률−β×Δ실질금리(3개월) | pp |
 | `gold_etf_gld` | 금 ETF 보유량 (GLD) | 톤 | 실측 | SPDR 공식 일별 기록 GLD 보유 톤 | pct |
 | `silver` | 은 | $/oz | 실측 | Yahoo SI=F | pct |
 | `gold_silver` | 금/은 비율 | 배 | 계산 | 계산: 금÷은 | pct |
@@ -221,8 +235,8 @@
 | `etf_ewy` | EWY | $ | 실측 | Yahoo EWY | pct |
 | `etf_eem` | EEM | $ | 실측 | Yahoo EEM | pct |
 
-## 가이드 전용 시세 (43)
+## 가이드 전용 시세 (44)
 
 카드로 보이지 않고 가이드(유조선·벌크선·석유 밸류체인)의 미니 시세와 관심 종목 후보에만 쓰는 주가입니다.
 
-`aux_tga` (FRED WDTGAL) · `aux_rrp` (FRED RRPONTSYD) · `aux_jkm_m` (Yahoo JKM=F) · `aux_maize_m` (World Bank 월간 가격표 Maize) · `tk_dht` (Yahoo DHT) · `tk_tnk` (Yahoo TNK) · `tk_nat` (Yahoo NAT) · `tk_eco` (Yahoo ECO) · `tk_hafn` (Yahoo HAFN) · `tk_trmd` (Yahoo TRMD) · `tk_insw` (Yahoo INSW) · `gd_sblk` (Yahoo SBLK) · `gd_gnk` (Yahoo GNK) · `gd_sb` (Yahoo SB) · `gd_ship` (Yahoo SHIP) · `gd_dsx` (Yahoo DSX) · `gd_panl` (Yahoo PANL) · `gd_xop` (Yahoo XOP) · `gd_cop` (Yahoo COP) · `gd_eog` (Yahoo EOG) · `gd_oxy` (Yahoo OXY) · `gd_rig` (Yahoo RIG) · `gd_val` (Yahoo VAL) · `gd_ne` (Yahoo NE) · `gd_sdrl` (Yahoo SDRL) · `gd_borr` (Yahoo BORR) · `gd_fti` (Yahoo FTI) · `gd_tdw` (Yahoo TDW) · `gd_oih` (Yahoo OIH) · `gd_slb` (Yahoo SLB) · `gd_hal` (Yahoo HAL) · `gd_bkr` (Yahoo BKR) · `gd_amlp` (Yahoo AMLP) · `gd_epd` (Yahoo EPD) · `gd_et` (Yahoo ET) · `gd_kmi` (Yahoo KMI) · `gd_wmb` (Yahoo WMB) · `gd_crak` (Yahoo CRAK) · `gd_vlo` (Yahoo VLO) · `gd_mpc` (Yahoo MPC) · `gd_psx` (Yahoo PSX) · `gd_xom` (Yahoo XOM) · `gd_cvx` (Yahoo CVX)
+`aux_tga` (FRED WDTGAL) · `aux_rrp` (FRED RRPONTSYD) · `aux_power_total` (EIA-930 TOTAL) · `aux_jkm_m` (Yahoo JKM=F) · `aux_maize_m` (World Bank 월간 가격표 Maize) · `tk_dht` (Yahoo DHT) · `tk_tnk` (Yahoo TNK) · `tk_nat` (Yahoo NAT) · `tk_eco` (Yahoo ECO) · `tk_hafn` (Yahoo HAFN) · `tk_trmd` (Yahoo TRMD) · `tk_insw` (Yahoo INSW) · `gd_sblk` (Yahoo SBLK) · `gd_gnk` (Yahoo GNK) · `gd_sb` (Yahoo SB) · `gd_ship` (Yahoo SHIP) · `gd_dsx` (Yahoo DSX) · `gd_panl` (Yahoo PANL) · `gd_xop` (Yahoo XOP) · `gd_cop` (Yahoo COP) · `gd_eog` (Yahoo EOG) · `gd_oxy` (Yahoo OXY) · `gd_rig` (Yahoo RIG) · `gd_val` (Yahoo VAL) · `gd_ne` (Yahoo NE) · `gd_sdrl` (Yahoo SDRL) · `gd_borr` (Yahoo BORR) · `gd_fti` (Yahoo FTI) · `gd_tdw` (Yahoo TDW) · `gd_oih` (Yahoo OIH) · `gd_slb` (Yahoo SLB) · `gd_hal` (Yahoo HAL) · `gd_bkr` (Yahoo BKR) · `gd_amlp` (Yahoo AMLP) · `gd_epd` (Yahoo EPD) · `gd_et` (Yahoo ET) · `gd_kmi` (Yahoo KMI) · `gd_wmb` (Yahoo WMB) · `gd_crak` (Yahoo CRAK) · `gd_vlo` (Yahoo VLO) · `gd_mpc` (Yahoo MPC) · `gd_psx` (Yahoo PSX) · `gd_xom` (Yahoo XOM) · `gd_cvx` (Yahoo CVX)
