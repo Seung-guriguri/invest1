@@ -22,20 +22,20 @@ const WHY = {
   'usdkrw|kospi': '원화 약세 때 외국인 자금 이탈', 'hy_spread|sp500': '신용 불안이 커지면 주가 하락', 'us10y|mortgage': '모기지 금리는 10년물을 따라감',
   'bdry|iron_ore': '철광석 물동량이 벌크선 운임을 좌우', 'tanker_fro|etf_bwet': '둘 다 유조선 운임을 반영', 'brent|bei10y': '유가가 물가 기대를 움직임',
   'dxy|gold': '달러 강세는 금 가격에 부담', 'copper|sp500': '둘 다 경기 기대를 반영', 'coking_amr|iron_ore': '원료탄·철광석은 함께 철강 생산에 쓰임',
-  'fert_cf|ttf': '유럽 가스가 비싸면 미국 질소비료 기업이 유리', 'fert_mos|corn': '곡물값이 오르면 비료 수요 증가', 'audusd|iron_ore': '호주는 철광석 수출국',
+  'fert_cf|ttf': '유럽 가스가 비싸면 미국 질소비료 기업이 유리', 'audusd|iron_ore': '호주는 철광석 수출국',
   'audusd|copper': '호주달러는 원자재 통화', 'ng_storage|natgas': '저장량이 많으면 가스 가격 하락', 'us_crude|wti': '재고가 쌓이면 유가 하락',
   'crack321|refinery_util': '마진이 좋으면 정유소가 더 가동', 'usdkrw|etf_ewy': 'EWY 는 달러로 본 한국 주식', 'gold_etf_gld|gold': 'ETF 자금 유입이 금값을 밀어 올림',
-  'net_liq|sp500': '시장에 풀린 돈이 주가를 받침', 'copper_gold|us10y': '구리÷금과 금리 모두 경기 기대를 반영', 'crack321|refiner_idx': '정유 마진이 정유사 이익을 좌우',
+  'copper_gold|us10y': '구리÷금과 금리 모두 경기 기대를 반영', 'crack321|refiner_idx': '정유 마진이 정유사 이익을 좌우',
   'tanker_idx|etf_bwet': '둘 다 유조선 운임을 반영', 'sox|kospi': '코스피는 반도체 비중이 큼'
 };
 
 /** 판정 방식: 목록에 없으면 price. season: A 를 평년 대비 % 로 바꿈 (재고·저장량) */
 const KIND = {
-  'gold|real10y': 'trend', 'dxy|gold': 'trend', 'gold_etf_gld|gold': 'trend', 'net_liq|sp500': 'trend',
+  'gold|real10y': 'trend', 'dxy|gold': 'trend', 'gold_etf_gld|gold': 'trend',
   'copper|us10y': 'trend', 'copper_gold|us10y': 'trend', 'us10y|mortgage': 'trend',
   'us_crude|wti': 'trend', 'ng_storage|natgas': 'trend',
   'crack321|refinery_util': 'trend', 'crack321|refiner_idx': 'trend',
-  'bdry|iron_ore': 'trend', 'coking_amr|iron_ore': 'trend', 'audusd|iron_ore': 'trend', 'fert_cf|ttf': 'trend', 'fert_mos|corn': 'trend'
+  'bdry|iron_ore': 'trend', 'coking_amr|iron_ore': 'trend', 'audusd|iron_ore': 'trend', 'fert_cf|ttf': 'trend'
 };
 const SEASON_A = new Set(['us_crude|wti', 'ng_storage|natgas']);
 const PRICE_MIN_R = 0.35, TREND_MIN_R = 0.3, H = 13, TREND_YEARS = 3, MOVE_SD = 0.75;
