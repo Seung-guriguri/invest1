@@ -69,7 +69,8 @@ function linkHealth(series, meta, pairs, { history = 12 } = {}) {
     const lead = p && p.lead ? { first: p.lead.lag > 0 ? a : b, lag: Math.abs(p.lead.lag), unit: p.unit, r: Math.round(p.lead.r * 100) / 100 } : null;
     const r2 = v => (v == null ? null : Math.round(v * 100) / 100);
     out.push({ ...base, state, r1: d ? r2(d.r1) : null, rr: d ? r2(d.rr) : null, n: d ? d.n : null, unit: d ? d.unit : null,
-      moveA: d ? r2(d.ca) : null, moveB: d ? r2(d.cb) : null, modeA: ma.mode, modeB: mb.mode, streak, streakUnit: step === 30 ? '개월' : '주', change, lead });
+      // corr.js 의 변화율은 소수(0.02 = 2%) → % 로 바꿔 표시
+      moveA: d ? r2(ma.mode === 'pct' ? d.ca * 100 : d.ca) : null, moveB: d ? r2(mb.mode === 'pct' ? d.cb * 100 : d.cb) : null, modeA: ma.mode, modeB: mb.mode, streak, streakUnit: step === 30 ? '개월' : '주', change, lead });
   }
   return out;
 }

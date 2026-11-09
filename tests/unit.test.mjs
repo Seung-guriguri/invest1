@@ -588,7 +588,7 @@ test('연결 고리 점검: 화면과 같은 짝 목록, 깨짐·지속 기간·
   const brokenNow = mkPair(8);
   const h = linkHealth({ x: { freq: 'W', obs: brokenNow.A }, y: { freq: 'W', obs: brokenNow.B } }, meta, [['x', 'y', 1]])[0];
   assert.equal(h.state, '깨짐'); assert.ok(h.r1 >= 0.9 && h.rr < 0);
-  assert.ok(h.streak >= 1 && h.moveA > 0 && h.moveB < 0);
+  assert.ok(h.streak >= 1 && h.moveA > 15 && h.moveB < -15, '최근 8주 누적 움직임은 % 단위 (주당 약 ±2.5%)');
   const ok = mkPair(0);
   const h2 = linkHealth({ x: { freq: 'W', obs: ok.A }, y: { freq: 'W', obs: ok.B } }, meta, [['x', 'y', 1]])[0];
   assert.equal(h2.state, '정상'); assert.equal(h2.streak, 0); assert.equal(h2.change, null);
