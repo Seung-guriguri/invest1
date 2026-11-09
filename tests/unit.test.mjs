@@ -9,6 +9,7 @@ import { COMPUTED, clean, guessFreq, trim, valueAsOf, round, parseWorldBank, par
 import { readSheet } from '../scripts/lib/xlsx.mjs';
 import { deflateRawSync } from 'node:zlib';
 import { clean as aiClean, soften, cleanWatch, groundRefs, checkNumbers, stats as aiStats, weeklyBlock, energyLinks, chainLinks, macroLines } from '../scripts/ai-insight.mjs';
+import { readPairs, linkHealth, linkBlock, linkTelegram, summary as linkSummary, WHY } from '../scripts/lib/link-health.mjs';
 import { obsAsOf, rateDecomp, seasonDevAt, oilTightness, basketIndex, goldRealGap, yoySameWeek } from '../scripts/lib/combo.mjs';
 import { SOURCES } from '../scripts/sources.mjs';
 import { loadConfig } from '../scripts/lib/config.mjs';
@@ -565,5 +566,45 @@ test('추가 지표 정의: 재료·시차 방식·단위', () => {
   const { lines } = macroLines(rows, {});
   assert.match(lines[0], /경기 신호 \[엇갈림\] 구리÷금 3\.4배 \(2026-11-06/);
   assert.match(lines[1], /신용 깊이 \[최하위 등급만 악화\]/);
+});
+
+/* ---------- 연결 고리 건강 점검 ---------- */
+test('연결 고리 점검: 화면과 같은 짝 목록, 깨짐·지속 기간·회복·오래된 재료 처리', async () => {
+  const pairs = await readPairs();
+  assert.ok(pairs.length >= 29, '감시 짝을 index.html 에서 읽음');
+  for (const [a, b] of pairs) assert.ok(WHY[`${a}|${b}`], `${a}|${b} 의 이유 문장`);
+  // 주간 80주: 평소엔 같은 방향(같은 충격), 마지막 8주는 A 꾸준히 상승 · B 꾸준히 하락
+  const mkPair = (breakWeeks) => {
+    const A = [], B = []; let a = 100, b = 100;
+    for (let i = 0; i < 80; i++) {
+      const sh = ((i * 37) % 13 - 6) / 2;   // −3 ~ +3 %
+      const recent = i >= 80 - breakWeeks;
+      a *= 1 + (recent ? 2.5 + sh / 6 : sh) / 100; b *= 1 + (recent ? -2.5 - sh / 6 : sh) / 100;
+      A.push([dayIso('2025-05-02', i * 7), a]); B.push([dayIso('2025-05-02', i * 7), b]);
+    }
+    return { A, B };
+  };
+  const meta = { x: { name: '가', mode: 'pct' }, y: { name: '나', mode: 'pct' } };
+  const brokenNow = mkPair(8);
+  const h = linkHealth({ x: { freq: 'W', obs: brokenNow.A }, y: { freq: 'W', obs: brokenNow.B } }, meta, [['x', 'y', 1]])[0];
+  assert.equal(h.state, '깨짐'); assert.ok(h.r1 >= 0.9 && h.rr < 0);
+  assert.ok(h.streak >= 1 && h.moveA > 15 && h.moveB < -15, '최근 8주 누적 움직임은 % 단위 (주당 약 ±2.5%)');
+  const ok = mkPair(0);
+  const h2 = linkHealth({ x: { freq: 'W', obs: ok.A }, y: { freq: 'W', obs: ok.B } }, meta, [['x', 'y', 1]])[0];
+  assert.equal(h2.state, '정상'); assert.equal(h2.streak, 0); assert.equal(h2.change, null);
+  // 한쪽 재료가 한 달 넘게 멈췄으면 판정하지 않음
+  const stale = linkHealth({ x: { freq: 'W', obs: brokenNow.A }, y: { freq: 'W', obs: brokenNow.B.slice(0, -6) } }, meta, [['x', 'y', 1]])[0];
+  assert.equal(stale.state, '데이터 부족'); assert.equal(stale.stale, true);
+  // 재료가 없는 짝은 건너뜀
+  assert.equal(linkHealth({ x: { freq: 'W', obs: ok.A } }, meta, [['x', 'y', 1]]).length, 0);
+  const block = linkBlock([h, h2]);
+  assert.match(block, /점검 2개: 정상 1 · 경계 0 · 깨짐 1/);
+  assert.match(block, /\[깨진 고리\]\n- 가 · 나 \(평소 같은 방향/);
+  assert.match(block, /기준일 \d{4}-\d\d-\d\d\/\d{4}-\d\d-\d\d/);
+  assert.match(linkBlock([h2]), /\[깨진 고리\] 없음/);
+  const tg = linkTelegram([h, h2]);
+  assert.match(tg[0], /🔗 연결 고리 점검 — 2개 중 깨짐 1/); assert.match(tg[1], /평소 같이 움직이는데 최근 8주 동안 가 \+/);
+  assert.deepEqual(linkTelegram([h2]), []);
+  assert.deepEqual(linkSummary([h, h2, stale]), { total: 3, ok: 1, warn: 0, broken: 1, weak: 0, nodata: 1 });
 });
 
