@@ -88,7 +88,7 @@ jobs:
         run: node scripts/validate-data.mjs _site/data/latest.json
 
       - name: 연결 고리 건강 점검 (기록만 — 감시 짝이 지금도 평소처럼 움직이는지, 실패해도 계속)
-        run: node scripts/link-check.mjs --data _site/data/latest.json || true
+        run: node scripts/link-check.mjs --data _site/data/latest.json --out _site/data/links.json || true
 
       - name: 긴급 경고 판단 (정제 가동률·하이일드 스프레드·VIX, 텔레그램 알림은 설정 시에만)
         env:

@@ -7,7 +7,7 @@
  *       공유 이미지 그리기 · 공유 링크(#ind=) · 경고 모아보기 · 직접 입력 백업→복원 왕복 · 가로 넘침 없음(360px)
  * 실패하면 exit 1
  * ===================================================================== */
-import { mkdtemp, cp, mkdir, writeFile } from 'node:fs/promises';
+import { mkdtemp, cp, mkdir, writeFile, unlink } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { join, extname } from 'node:path';
@@ -142,6 +142,16 @@ async function main() {
       await page.evaluate(() => { document.querySelector('#editSheet').close(); CORR.divergence = window.__div; render(); });
       if (process.env.SHOT_DIR) { await page.evaluate(() => { CORR.divergence = () => ({ on: true, r1: 0.8, rr: -0.3, n: 8, unit: '주', ca: 0.05, cb: -0.04, basis: 'W' }); render(); document.querySelector('#divWrap').open = true; document.querySelector('#divWrap').scrollIntoView(); }); await page.screenshot({ path: `${process.env.SHOT_DIR}/diverge-${ui}-${scheme}.png` }); await page.evaluate(() => { CORR.divergence = window.__div; render(); }); }
       check(dv1.items === 1 && dv1.txt && dv2.open && dv2.pick === 'etf_xle' && dv2.tab === 'roll', `엇갈림 감지 → 오늘 볼 것 → 비교 열기 ${JSON.stringify({ ...dv1, ...dv2 })}`);
+      // 연결 고리 점검 결과(data/links.json)가 있으면 화면이 그 판정을 그대로 씀 (13주 추세 방식 표시 포함)
+      await writeFile(join(dir, 'data/links.json'), JSON.stringify({ generatedAt: '2026-11-09T00:00:00Z', summary: {}, items: [
+        { a: 'us_crude', b: 'wti', expect: -1, kind: 'trend', state: '깨짐', r1: -0.45, rr: null, n: 13, unit: '주', moveA: 6.2, moveB: 8.5, modeA: 'season', modeB: 'pct', streak: 3, streakUnit: '주', change: null, why: '재고가 쌓이면 유가 하락' },
+        { a: 'wti', b: 'etf_xle', expect: 1, kind: 'price', state: '정상', r1: 0.42, rr: 0.88, n: 8, unit: '주', moveA: 1.2, moveB: 2.3, modeA: 'pct', modeB: 'pct', streak: 0, streakUnit: '주', change: null }] }));
+      const lj = await page.evaluate(async () => { await DataStore.loadRemote(); setView('today'); render();
+        const t = document.querySelector('#divList').textContent;
+        return { rows: document.querySelectorAll('#divList .div-row').length, count: document.querySelector('#divCount').textContent, trend: /13주 추세/.test(t) && /평년 대비 \+6\.2%p/.test(t) && /3주째/.test(t),
+          chk: /원유 재고/.test(document.querySelector('#checklist').innerText) && /13주 추세/.test(document.querySelector('#checklist').innerText) }; });
+      await unlink(join(dir, 'data/links.json'));
+      check(lj.rows === 2 && lj.count === '2쌍 · 엇갈림 1' && lj.trend && lj.chk, `연결 고리 점검(links.json) → 엇갈림 감시·오늘 볼 것 ${JSON.stringify(lj)}`);
       if (process.env.SHOT_DIR) { await page.evaluate(() => { openEdit('coal_jkm'); }); await page.waitForTimeout(200); await page.screenshot({ path: `${process.env.SHOT_DIR}/coaljkm-${ui}-${scheme}.png` }); await page.evaluate(() => document.querySelector('#editSheet').close()); }
       check(await page.evaluate(() => { openEdit('coal_jkm'); const ok = [...document.querySelectorAll('#chartHost .th-label.ref')].length === 2; document.querySelector('#editSheet').close(); return ok; }), '석탄÷가스 상대가격: 7·16 기준선 표시');
       const shared = await page.evaluate(() => ['wti', 'us_cpi', 'coal_pw_jpn', 'scfi'].map(id => { try { return Share.render(id).canvas.width; } catch (e) { return id + ':' + e.message; } }));

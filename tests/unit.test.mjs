@@ -9,7 +9,7 @@ import { COMPUTED, clean, guessFreq, trim, valueAsOf, round, parseWorldBank, par
 import { readSheet } from '../scripts/lib/xlsx.mjs';
 import { deflateRawSync } from 'node:zlib';
 import { clean as aiClean, soften, cleanWatch, groundRefs, checkNumbers, stats as aiStats, weeklyBlock, energyLinks, chainLinks, macroLines } from '../scripts/ai-insight.mjs';
-import { readPairs, linkHealth, linkBlock, linkTelegram, summary as linkSummary, WHY } from '../scripts/lib/link-health.mjs';
+import { readPairs, linkHealth, linkBlock, linkTelegram, linkJson, summary as linkSummary, WHY, KIND, weekly, trendChanges, trendJudge } from '../scripts/lib/link-health.mjs';
 import { obsAsOf, rateDecomp, seasonDevAt, oilTightness, basketIndex, goldRealGap, yoySameWeek } from '../scripts/lib/combo.mjs';
 import { SOURCES } from '../scripts/sources.mjs';
 import { loadConfig } from '../scripts/lib/config.mjs';
@@ -606,5 +606,58 @@ test('연결 고리 점검: 화면과 같은 짝 목록, 깨짐·지속 기간·
   assert.match(tg[0], /🔗 연결 고리 점검 — 2개 중 깨짐 1/); assert.match(tg[1], /평소 같이 움직이는데 최근 8주 동안 가 \+/);
   assert.deepEqual(linkTelegram([h2]), []);
   assert.deepEqual(linkSummary([h, h2, stale]), { total: 3, ok: 1, warn: 0, broken: 1, weak: 0, nodata: 1 });
+});
+test('연결 고리 점검 — 13주 추세 방식: 평소 3년 13주 변화 상관, 최근 13주가 반대면 깨짐', () => {
+  // 주간 4년: 평소엔 A·B 가 같은 큰 흐름(사인파)을 따라감, 마지막 13주는 A 상승 · B 하락
+  const mk = (breakNow) => {
+    const A = [], B = [];
+    for (let i = 0; i < 210; i++) {
+      const base = 100 + 20 * Math.sin(i / 9), noise = ((i * 37) % 11 - 5) / 5;
+      const tail = breakNow && i >= 197 ? (i - 196) * 5 : 0;   // 13주 ±65 — 평소 13주 변화폭보다 확실히 큼
+      A.push([dayIso('2022-11-04', i * 7), base + noise + tail]); B.push([dayIso('2022-11-04', i * 7), base - noise / 2 - tail]);
+    }
+    return { A, B };
+  };
+  const wk = weekly([['2026-11-03', 1], ['2026-11-06', 2], ['2026-11-09', 3]]);
+  assert.deepEqual(wk, [['2026-11-02', 2], ['2026-11-09', 3]], '주간 = 그 주 월요일 키 · 마지막 값');
+  const br = mk(true), ok = mk(false);
+  const chB = trendChanges(weekly(br.A), weekly(br.B), 'pct', 'pct');
+  const dB = trendJudge(chB, 1), dOk = trendJudge(trendChanges(weekly(ok.A), weekly(ok.B), 'pct', 'pct'), 1);
+  assert.ok(dOk.r1 > 0.8 && !dOk.on && !dOk.mismatch, '평소대로면 정상');
+  assert.ok(dB.r1 > 0.8 && dB.on && dB.ca > 0 && dB.cb < 0, '최근 13주 반대로 크게 움직이면 깨짐');
+  assert.equal(dB.n, 13); assert.equal(dB.rr, null);
+  assert.equal(trendJudge(chB.slice(-40), 1), null, '평소 3년치 표본이 부족하면 판정 안 함');
+  // 짝 정의: 재고·유가는 추세 방식, 가격 짝은 주간 방식
+  assert.equal(KIND['us_crude|wti'], 'trend'); assert.equal(KIND['net_liq|sp500'], 'trend'); assert.equal(KIND['wti|etf_xle'], undefined);
+  const meta = { x: { name: '가', mode: 'pct' }, y: { name: '나', mode: 'pct' } };
+  // linkHealth 로 돌리면 KIND 에 없는 짝은 price 방식 → 같은 데이터라도 결과 형식이 다름 (rr 있음)
+  const hp = linkHealth({ x: { freq: 'W', obs: br.A }, y: { freq: 'W', obs: br.B } }, meta, [['x', 'y', 1]])[0];
+  assert.equal(hp.kind, 'price');
+  const j = linkJson([hp]);
+  assert.equal(j.items.length, 1); assert.deepEqual(Object.keys(j.summary), ['total', 'ok', 'warn', 'broken', 'weak', 'nodata']);
+  assert.ok(!('nameA' in j.items[0]), '이름은 화면이 붙임');
+});
+test('연결 고리 점검 — 재고는 평년 대비로 바꿔 유가와 비교 (계절 패턴 제거)', () => {
+  // 재고: 매년 같은 계절 패턴 + 올해만 평년보다 10% 많음 / 유가: 올해 13주 상승 → 반대 방향 고리(재고↑ 유가↓)가 깨짐
+  const crude = [], wti = [];
+  for (let i = 0; i < 6 * 52 + 1; i++) {
+    const d = dayIso('2020-11-06', i * 7), season = 400 + 20 * Math.sin(2 * Math.PI * i / 52);
+    // 최근 13주만 평년보다 10% 많음 (13주 전 기준점은 평년 수준)
+    const thisYear = i > 6 * 52 - 13 ? 1.10 : 1, drift = ((i * 13) % 7 - 3) / 3;
+    crude.push([d, season * thisYear + drift]);
+    wti.push([d, 70 + 8 * Math.sin(i / 11) + (i > 6 * 52 - 13 ? (i - (6 * 52 - 13)) * 0.8 : 0)]);
+  }
+  const series = { us_crude: { freq: 'W', obs: crude }, wti: { freq: 'D', obs: wti } };
+  const meta = { us_crude: { name: '원유 재고', mode: 'pct' }, wti: { name: 'WTI', mode: 'pct' } };
+  const h = linkHealth(series, meta, [['us_crude', 'wti', -1]])[0];
+  assert.equal(h.kind, 'trend'); assert.equal(h.modeA, 'season');
+  assert.ok(h.moveA > 5, `재고는 평년 대비 %p 로 표시 (${h.moveA})`);
+  assert.match(linkBlock([h]), /평소|데이터/);
+});
+test('연결 고리 점검 — 지표 단위 표시 (% 가 아닌 지표는 단위를 붙임)', () => {
+  const x = { a: 'crack321', b: 'refiner_idx', expect: 1, kind: 'trend', state: '깨짐', nameA: '크랙', nameB: '정유주', unitA: '$/bbl', unitB: '',
+    r1: 0.48, rr: null, n: 13, unit: '주', moveA: -16.76, moveB: 20.97, modeA: 'abs', modeB: 'pct', streak: 2, streakUnit: '주', change: null, why: '', dateA: '2026-11-09', dateB: '2026-11-06' };
+  assert.match(linkBlock([x]), /크랙 −16\.76 \$\/bbl · 정유주 \+21\.0%/);
+  assert.match(linkTelegram([x])[1], /크랙 −16\.76 \$\/bbl, 정유주 \+21\.0%/);
 });
 

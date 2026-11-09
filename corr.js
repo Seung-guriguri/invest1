@@ -222,7 +222,8 @@
 
   /** 엇갈림: 평소(최근 직전 순위 기간) 상관이 강한데 최근 recent 기간 상관이 반대 부호이고, 둘 다 의미 있게 움직였을 때 */
   const RECENT = { W: 8, M: 4 };
-  function divergence(A, B, expect = 1) {
+  /** minR: '평소 관계가 있다'고 볼 최소 상관 (화면 기본 0.5, 연결 고리 점검의 가격 고리는 0.35) */
+  function divergence(A, B, expect = 1, minR = 0.5) {
     const basis = basisOf(A, B), pa = prep(A, basis), pb = prep(B, basis);
     const n = RECENT[basis];
     // 평소 = 최근 n 기간 직전의 순위 기간 (최근 엇갈림이 평소 값을 깎지 않게)
@@ -238,7 +239,7 @@
     const moved = (xs, ref) => Math.abs(cum(xs)) >= 1.5 * sdOf(ref);
     const ca = cum(rec.xs), cb = cum(rec.ys);
     const dirMismatch = expect > 0 ? Math.sign(ca) !== Math.sign(cb) : Math.sign(ca) === Math.sign(cb);
-    const on = expect * r1 >= 0.5 && rr != null && expect * rr < 0 && dirMismatch && moved(rec.xs, all.xs) && moved(rec.ys, all.ys);
+    const on = expect * r1 >= minR && rr != null && expect * rr < 0 && dirMismatch && moved(rec.xs, all.xs) && moved(rec.ys, all.ys);
     return { on, r1, rr, n: rec.xs.length, unit: basis === 'M' ? '개월' : '주', ca, cb, basis };
   }
 
