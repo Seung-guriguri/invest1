@@ -26,6 +26,7 @@ import '../season.js';   // globalThis.SEASON 등록
 import { SOURCES } from './sources.mjs';
 import { closes, retAfter, retSoFar } from './watch-perf.mjs';
 import { rateDecomp, oilTightness, goldRealGap } from './lib/combo.mjs';
+import { readPairs, linkHealth, linkBlock, linkTelegram, summary as linkSummary } from './lib/link-health.mjs';
 
 const args = process.argv.slice(2);
 const arg = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
@@ -484,7 +485,7 @@ async function contentFailed(label, why) {
   } catch (e) { /* 알림도 못 보내면 로그만 */ }
 }
 
-async function sendBriefingTelegram(b, sections, kst, energy = {}, chains = {}) {
+async function sendBriefingTelegram(b, sections, kst, energy = {}, chains = {}, linkLines = []) {
   if (!TG_TOKEN || !TG_DEST) { console.log('  (텔레그램 미설정 — 브리핑 전송 건너뜀)'); return; }
   const lines = [`${ED.icon} ${ED.brief} · ${kst}`, '', `📌 ${b.headline || ''}`];
   if (b.top3 && b.top3.length) lines.push('', `✅ ${ED.top}`, ...b.top3.map((x, i) => `${i + 1}. ${x}`));
@@ -510,6 +511,8 @@ async function sendBriefingTelegram(b, sections, kst, energy = {}, chains = {}) 
     if (c && c.body) chainLines.push('', `${t}${c.headline ? ' — ' + c.headline : ''}`, c.body, ...(c.counter ? [`   반대 신호: ${c.counter}`] : []));
   }
   lines.push(...chainLines);
+  // 연결 고리 점검 (코드가 만든 문장): 주간판은 깨진 고리 전체 요약, 평일은 새로 깨진 고리가 있을 때만
+  if (linkLines.length) lines.push('', ...linkLines);
   const secs = CATS.filter(c => sections[c] && sections[c].headline && !(hasEnergy && c === 'energy')).map(c => `• ${CAT_LABEL[c]} — ${sections[c].headline}`);
   if (secs.length) lines.push('', '분류별 한 줄', ...secs);
   const revs = CATS.filter(c => sections[c] && sections[c].review).map(c => `• ${CAT_LABEL[c]} — ${sections[c].review}`);
@@ -1004,6 +1007,10 @@ async function main() {
   const prevAt = prevAI && prevAI.generatedAt && prevAI.briefing ? { at: prevAI.generatedAt, asOf: prevAI.asOf || null } : null;
   const rows = Object.entries(latest.series).filter(([id]) => meta[id]).map(([id, s]) => stats(id, s, meta[id], prevAt)).filter(Boolean);
   const prevBlock = prevAt ? previousBlock(prevAI, rows) : null;
+  // 연결 고리 건강 점검: 경제적 이유가 있는 감시 짝이 지금도 성립하는지 (실패해도 브리핑은 계속)
+  let health = [];
+  try { health = linkHealth(latest.series, meta, await readPairs()); const s = linkSummary(health); console.log(`연결 고리 점검: ${s.total}개 · 정상 ${s.ok} · 경계 ${s.warn} · 깨짐 ${s.broken} · 약함 ${s.weak} · 데이터 부족 ${s.nodata}`); }
+  catch (e) { console.log(`  (연결 고리 점검 실패: ${e.message})`); }
   const targets = pickTargets(rows);
   const kstDate = new Date(Date.now() + 9 * 3600000);
   const kst = `${kstDate.toISOString().slice(0, 16).replace('T', ' ')} (${'일월화수목금토'[kstDate.getUTCDay()]})`;
@@ -1017,6 +1024,7 @@ async function main() {
     .replace('{{energy}}', energyBlock(rows))
     .replace('{{chains}}', chainBlock(rows))
     .replace('{{macro}}', macroBlock(rows, latest.series))
+    .replace('{{links}}', linkBlock(health))
     .replace('{{previous}}', prevBlock || '없음 (지난 브리핑 없음 — sections 의 review 는 빈 문자열로)')
     .replace('{{data}}', rows.map(r => JSON.stringify(r)).join('\n'));
   if (WEEKLY) console.log('  월요일 주간판: 지난주 정리 + 이번 주 볼 것');
@@ -1126,7 +1134,8 @@ async function main() {
   // 브리핑을 먼저 보내고, 이어서 칼럼 생성 (칼럼이 실패해도 브리핑은 그대로)
   const report = cleanReport(parsed.report);
   console.log(report ? `  리서치 리포트: 핵심 결론 ${report.summary.length} · 인사이트 ${report.insights.length} · 상충 ${report.conflicts.length} · 시나리오 ${report.scenarios.length}` : '  리서치 리포트: 없음');
-  await sendBriefingTelegram(briefing, sections, kst, energy, chains);
+  const linkLines = WEEKLY ? linkTelegram(health) : linkTelegram(health.filter(x => x.change === '새로 깨짐'), { max: 2 });
+  await sendBriefingTelegram(briefing, sections, kst, energy, chains, linkLines);
   if (report) {
     await sendTelegramLong(reportShortText(report), '리서치 리포트 요약');
   }
@@ -1174,7 +1183,7 @@ async function main() {
   // asOf: 이번 브리핑이 본 지표별 마지막 기준일 → 다음 브리핑의 '지난 브리핑 이후 새 데이터' 판단에 사용
   const asOf = Object.fromEntries(rows.map(r => [r.id, r.date]));
   const briefHistory = [...((prevAI && prevAI.briefHistory) || []).filter(x => x && x.date !== kstToday), { date: kstToday, headline: briefing.headline, top3: briefing.top3, ...(WEEKLY ? { weekly: true } : {}) }].slice(-8);
-  const out = { generatedAt: new Date().toISOString(), model: used, ...(WEEKLY ? { edition: 'weekly' } : {}), briefing, sections, ...(energy.oil || energy.gas || energy.coal ? { energy } : {}), ...(Object.keys(chains).length ? { chains } : {}), indicators: ordered, targets, ...(report ? { report } : {}), ...(column ? { column } : {}), columnHistory: column ? [...columnHistory, { date: kstToday, title: column.title }].slice(-7) : columnHistory, briefHistory, asOf };
+  const out = { generatedAt: new Date().toISOString(), model: used, ...(WEEKLY ? { edition: 'weekly' } : {}), briefing, sections, ...(energy.oil || energy.gas || energy.coal ? { energy } : {}), ...(Object.keys(chains).length ? { chains } : {}), ...(health.length ? { links: { summary: linkSummary(health), broken: health.filter(x => x.state === '깨짐').map(({ a, b, expect, r1, rr, n, unit, streak, streakUnit, change }) => ({ a, b, expect, r1, rr, n, unit, streak, streakUnit, change })) } } : {}), indicators: ordered, targets, ...(report ? { report } : {}), ...(column ? { column } : {}), columnHistory: column ? [...columnHistory, { date: kstToday, title: column.title }].slice(-7) : columnHistory, briefHistory, asOf };
   await mkdir(dirname(OUT), { recursive: true });
   await writeFile(OUT, JSON.stringify(out));
   const u = resp.usageMetadata || {};
@@ -1201,7 +1210,7 @@ async function main() {
 }
 
 // 테스트에서 문장 다듬기 함수만 가져다 쓸 수 있게 내보냄. 직접 실행할 때만 생성 시작
-export { clean, cleanWatch, soften, BANNED, groundRefs, checkNumbers, stats, weeklyBlock, energyLinks, chainLinks, macroLines, sendColumnTelegram, sendWatchlistTelegram, sendTelegramLong };
+export { readIndicatorMeta, clean, cleanWatch, soften, BANNED, groundRefs, checkNumbers, stats, weeklyBlock, energyLinks, chainLinks, macroLines, sendColumnTelegram, sendWatchlistTelegram, sendTelegramLong };
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch(e => keepPrevious(`오류: ${e.message}`, { fail: true })).then(() => process.exit(0));
 }
