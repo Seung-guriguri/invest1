@@ -574,7 +574,8 @@ async function main() {
       series[id] = got;
       // 무결성 점검: 직전 관측치 대비 비정상 급변(시세 오류·선물 월물 교체 등) — 값은 그대로 두고 로그로 알림
       const o = got.obs, n = o.length;
-      if (n >= 2 && got.freq === 'D' && o[n - 2][1] && Math.abs(o[n - 1][1] / o[n - 2][1] - 1) > 0.25 && Math.sign(o[n - 1][1]) === Math.sign(o[n - 2][1])) {
+      // 역레포 잔액(aux_rrp)은 규모가 작아 하루 변동률이 원래 커서 급변 점검에서 제외
+      if (n >= 2 && got.freq === 'D' && id !== 'aux_rrp' && o[n - 2][1] && Math.abs(o[n - 1][1] / o[n - 2][1] - 1) > 0.25 && Math.sign(o[n - 1][1]) === Math.sign(o[n - 2][1])) {
         warnings.push(id); console.log(`  ⚠ ${id}: 직전 대비 ${((o[n - 1][1] / o[n - 2][1] - 1) * 100).toFixed(1)}% 급변 (${o[n - 2][0]} ${o[n - 2][1]} → ${o[n - 1][0]} ${o[n - 1][1]}) — 시세 확인 필요`);
       }
       const last = series[id].obs[series[id].obs.length - 1];
