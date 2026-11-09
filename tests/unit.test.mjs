@@ -571,8 +571,12 @@ test('추가 지표 정의: 재료·시차 방식·단위', () => {
 /* ---------- 연결 고리 건강 점검 ---------- */
 test('연결 고리 점검: 화면과 같은 짝 목록, 깨짐·지속 기간·회복·오래된 재료 처리', async () => {
   const pairs = await readPairs();
-  assert.ok(pairs.length >= 29, '감시 짝을 index.html 에서 읽음');
+  assert.ok(pairs.length >= 27, '감시 짝을 index.html 에서 읽음');
   for (const [a, b] of pairs) assert.ok(WHY[`${a}|${b}`], `${a}|${b} 의 이유 문장`);
+  // 화면이 실제로 실행하는 배열과 점검이 읽는 목록이 같아야 함 (쉼표 하나 빠지면 화면에서 짝이 사라짐)
+  const html = await (await import('node:fs/promises')).readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const live = new Function('return ' + html.match(/const WATCH_PAIRS = (\[[\s\S]*?\n\]);/)[1])();
+  assert.deepEqual(live, pairs, 'WATCH_PAIRS 가 올바른 배열');
   // 주간 80주: 평소엔 같은 방향(같은 충격), 마지막 8주는 A 꾸준히 상승 · B 꾸준히 하락
   const mkPair = (breakWeeks) => {
     const A = [], B = []; let a = 100, b = 100;
@@ -628,7 +632,7 @@ test('연결 고리 점검 — 13주 추세 방식: 평소 3년 13주 변화 상
   assert.equal(dB.n, 13); assert.equal(dB.rr, null);
   assert.equal(trendJudge(chB.slice(-40), 1), null, '평소 3년치 표본이 부족하면 판정 안 함');
   // 짝 정의: 재고·유가는 추세 방식, 가격 짝은 주간 방식
-  assert.equal(KIND['us_crude|wti'], 'trend'); assert.equal(KIND['net_liq|sp500'], 'trend'); assert.equal(KIND['wti|etf_xle'], undefined);
+  assert.equal(KIND['us_crude|wti'], 'trend'); assert.equal(KIND['gold|real10y'], 'trend'); assert.equal(KIND['wti|etf_xle'], undefined);
   const meta = { x: { name: '가', mode: 'pct' }, y: { name: '나', mode: 'pct' } };
   // linkHealth 로 돌리면 KIND 에 없는 짝은 price 방식 → 같은 데이터라도 결과 형식이 다름 (rr 있음)
   const hp = linkHealth({ x: { freq: 'W', obs: br.A }, y: { freq: 'W', obs: br.B } }, meta, [['x', 'y', 1]])[0];
