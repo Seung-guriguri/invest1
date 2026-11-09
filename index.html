@@ -2682,7 +2682,7 @@ function corrSectionHTML(id) {
   if (!me) return `<section class="ind-corr" aria-label="상관관계"><h3>🔗 상관관계</h3><p class="corr-note">이력이 짧아 계산할 수 없습니다 (관측치 10개 이상 필요).</p></section>`;
   const list = CONFIG.indicators.map(i => corrSeries(i.id)).filter(Boolean);
   const t = CORR.top(id, list);
-  const chip = (x, cls) => { const dv = DIVERGE.get(id + '|' + x.id); return `<button type="button" class="${cls}" data-edit="${x.id}" title="표본 ${x.n}${x.basis === 'M' ? '개월' : '주'}${dv ? ` · 최근 ${dv.n}${dv.unit} 엇갈림 (${fmtR(dv.rr)})` : ''}">${dv ? '⚠ ' : ''}${esc(IND[x.id].name)}<b>${fmtR(x.r)}</b></button>`; };
+  const chip = (x, cls) => { const dv = DIVERGE.get(id + '|' + x.id); return `<button type="button" class="${cls}" data-edit="${x.id}" title="표본 ${x.n}${x.basis === 'M' ? '개월' : '주'}${dv ? ` · 최근 ${dv.n}${dv.unit} 엇갈림${dv.rr != null ? ` (${fmtR(dv.rr)})` : ''}` : ''}">${dv ? '⚠ ' : ''}${esc(IND[x.id].name)}<b>${fmtR(x.r)}</b></button>`; };
   const saved = (DataStore.getSettings().corrPick || {})[id];
   // 처음 열 때 기본 비교 상대: 정해 둔 짝(금 ETF 보유량 ↔ 금 등) → 없으면 상관 1위
   const DEFAULT_PAIR = { gold_etf_gld: 'gold', gold: 'gold_etf_gld' };
@@ -2712,10 +2712,25 @@ const WATCH_PAIRS = [
   ['crack321', 'refinery_util', 1], ['usdkrw', 'etf_ewy', -1], ['gold_etf_gld', 'gold', 1], ['net_liq', 'sp500', 1],
   ['copper_gold', 'us10y', 1], ['crack321', 'refiner_idx', 1], ['tanker_idx', 'etf_bwet', 1], ['sox', 'kospi', 1]
 ];
-/** 지금 엇갈린 감시 짝 (render 마다 계산, 상세 화면 ⚠ 표시에도 사용) */
+/** 지금 엇갈린 감시 짝 (render 마다 계산, 상세 화면 ⚠ 표시에도 사용)
+ *  수집 때 만든 연결 고리 점검(data/links.json)이 있으면 그 판정을 그대로 씀 — 고리 성격별 방식(주간 가격 / 13주 추세)이 AI·텔레그램과 같음.
+ *  없으면(첫 배포 전·파일 누락) 예전처럼 화면에서 주간 상관으로 계산 */
 let DIVERGE = new Map();
+const LINK_STATE = { '깨짐': ['⚠ 엇갈림', 's2'], '경계': ['경계 (움직임 작음)', 's1'], '정상': ['정상', 's0'], '평소 관계 약함': ['평소 관계 약함', 'sn'], '데이터 부족': ['데이터 부족', 'sn'] };
+const linkMove = (v, mode, id) => v == null || !Number.isFinite(v) ? '—'
+  : mode === 'season' ? `평년 대비 ${fmtSigned(v, 1)}%p` : mode === 'pct' ? fmtSigned(v, Math.abs(v) < 1 ? 2 : 1) + '%' : chgFmt(v, id, mode);
+function linkItems() {
+  const L = DataStore.getLinks && DataStore.getLinks();
+  return L ? L.items.filter(x => IND[x.a] && IND[x.b]) : null;
+}
 function computeDivergences() {
   DIVERGE = new Map();
+  const items = linkItems();
+  if (items) {
+    const out = items.filter(x => x.state === '깨짐').map(x => ({ ...x, ca: x.moveA, cb: x.moveB }));
+    out.forEach(x => { DIVERGE.set(x.a + '|' + x.b, x); DIVERGE.set(x.b + '|' + x.a, x); });
+    return out.sort((p, q) => (q.change ? 1 : 0) - (p.change ? 1 : 0) || q.streak - p.streak);
+  }
   if (!window.CORR) return [];
   const out = [];
   for (const [a, b, expect] of WATCH_PAIRS) {
@@ -2728,6 +2743,21 @@ function computeDivergences() {
 }
 /** 감시 짝 전체 현황 (오늘 화면 '엇갈림 감시' 접힘 목록) — 지금 상태와 이유 */
 function divergenceStatusHTML() {
+  const items = linkItems();
+  if (items) {
+    let on = 0;
+    const rows = items.map(x => {
+      const [st, cls] = LINK_STATE[x.state] || [x.state, 'sn'];
+      if (x.state === '깨짐') on++;
+      const how = x.kind === 'trend' ? '13주 추세' : '주간';
+      const nums = x.r1 == null ? (x.stale ? '재료가 오래됨' : '이력 부족')
+        : x.kind === 'trend' ? `${how} · 평소 ${fmtR(x.r1)} · 최근 13주 ${linkMove(x.moveA, x.modeA, x.a)} / ${linkMove(x.moveB, x.modeB, x.b)}`
+        : `${how} · 평소 ${fmtR(x.r1)} → 최근 ${x.n}${x.unit} ${x.rr == null ? '—' : fmtR(x.rr)}`;
+      const extra = x.state === '깨짐' ? ` · ${x.streak}${x.streakUnit}째${x.change ? ' (' + x.change + ')' : ''}` : x.change === '회복' ? ' · 회복' : '';
+      return `<button type="button" class="div-row" data-edit="${x.a}" data-corrwith="${x.b}" title="${esc(x.why || '')}"><span class="nm">${esc(IND[x.a].name)} · ${esc(IND[x.b].name)} <small>${x.expect > 0 ? '같은 방향' : '반대 방향'}</small></span><span class="st ${LINK_STATE[x.state] ? cls : 'sn'}">${st}</span><span class="nums">${nums}${extra}</span></button>`;
+    });
+    return { count: `${rows.length}쌍 · 엇갈림 ${on}`, html: rows.join('') + '<p class="corr-note">고리 성격에 따라 두 방식으로 판정 — <b>주간</b>: 가격끼리 매일 같이 움직이는 짝. 평소(최근 8주 직전 1년) 주간 변화 상관이 ±0.35 이상인데 최근 8주 상관이 반대 부호이고 둘이 반대로 의미 있게 움직이면 엇갈림. <b>13주 추세</b>: 재고·유동성·실질금리처럼 몇 달에 걸쳐 연결된 짝. 평소(최근 13주 직전 3년) 13주 변화 상관이 ±0.3 이상인데 최근 13주에 기대와 반대로 둘 다 평소 변화폭의 0.75배 넘게 움직이면 엇갈림 (재고는 평년 대비로 비교) · 재료가 오래된 짝은 판정 안 함 · 누르면 그 짝의 추이 보기</p>' };
+  }
   if (!window.CORR) return { count: '', html: '' };
   let on = 0;
   const rows = WATCH_PAIRS.filter(([a, b]) => IND[a] && IND[b]).map(([a, b, expect]) => {
@@ -2804,7 +2834,9 @@ function regimeHTML() {
 function divergenceChecks() {
   return computeDivergences().slice(0, 2).map(d => ({
     text: `⚠ ${IND[d.a].name}·${IND[d.b].name} — 평소 ${d.expect > 0 ? '같은 방향' : '반대 방향'}인데 최근 ${d.n}${d.unit} 엇갈림`,
-    why: `1년 상관 ${fmtR(d.r1)} → 최근 ${fmtR(d.rr)} · ${IND[d.a].name} ${chgFmt(d.ca, d.a, corrSeries(d.a).mode)} / ${IND[d.b].name} ${chgFmt(d.cb, d.b, corrSeries(d.b).mode)} (최근 ${d.n}${d.unit} 누적)`,
+    why: d.kind === 'trend' ? `13주 추세 · 평소 13주 변화 상관 ${fmtR(d.r1)} · 최근 13주 ${IND[d.a].name} ${linkMove(d.moveA, d.modeA, d.a)} / ${IND[d.b].name} ${linkMove(d.moveB, d.modeB, d.b)}${d.streak ? ` · ${d.streak}${d.streakUnit}째` : ''}`
+      : d.kind ? `1년 상관 ${fmtR(d.r1)} → 최근 ${fmtR(d.rr)} · ${IND[d.a].name} ${linkMove(d.moveA, d.modeA, d.a)} / ${IND[d.b].name} ${linkMove(d.moveB, d.modeB, d.b)} (최근 ${d.n}${d.unit} 누적)`
+      : `1년 상관 ${fmtR(d.r1)} → 최근 ${fmtR(d.rr)} · ${IND[d.a].name} ${chgFmt(d.ca, d.a, corrSeries(d.a).mode)} / ${IND[d.b].name} ${chgFmt(d.cb, d.b, corrSeries(d.b).mode)} (최근 ${d.n}${d.unit} 누적)`,
     pair: [d.a, d.b]
   }));
 }
