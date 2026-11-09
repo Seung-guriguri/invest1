@@ -125,7 +125,7 @@ function linkHealth(series, meta, pairs, { history = 12 } = {}) {
   for (const [a, b, expect] of pairs) {
     const sa = series[a], sb = series[b], ma = meta[a], mb = meta[b];
     if (!sa || !sb || !ma || !mb) continue;
-    const base = { a, b, expect, nameA: ma.name, nameB: mb.name, why: WHY[`${a}|${b}`] || '', dateA: sa.obs[sa.obs.length - 1][0], dateB: sb.obs[sb.obs.length - 1][0] };
+    const base = { a, b, expect, nameA: ma.name, nameB: mb.name, unitA: ma.unit || '', unitB: mb.unit || '', why: WHY[`${a}|${b}`] || '', dateA: sa.obs[sa.obs.length - 1][0], dateB: sb.obs[sb.obs.length - 1][0] };
     // 재료가 오래됐으면 판정하지 않음 (멈춘 지표로 '깨짐'을 만들지 않게): 일간·주간 21일, 월간·분기 100일
     const now = Math.max(Date.parse(base.dateA), Date.parse(base.dateB));
     const limit = s => (/^[MQ]$/.test(s.freq || '') ? 100 : 21) * DAY;
@@ -163,8 +163,8 @@ function linkHealth(series, meta, pairs, { history = 12 } = {}) {
 }
 
 const sgn = v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(2);
-const mv = (v, mode) => mode === 'season' ? `평년 대비 ${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(1)}%p`
-  : `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(mode === 'pct' ? 1 : 2)}${mode === 'pct' ? '%' : mode === 'pp' ? '%p' : ''}`;
+const mv = (v, mode, unit = '') => mode === 'season' ? `평년 대비 ${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(1)}%p`
+  : `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(mode === 'pct' ? 1 : 2)}${mode === 'pct' ? '%' : mode === 'pp' ? '%p' : unit ? ' ' + unit : ''}`;
 /** 평소 관계 설명: price = 주간 변화 상관, trend = 13주 변화 상관 */
 const usualText = x => x.kind === 'trend' ? `평소 13주 변화 상관 ${sgn(x.r1)}` : `평소 상관 ${sgn(x.r1)} → 최근 ${x.n}${x.unit} ${sgn(x.rr)}`;
 const title = x => `${x.nameA} · ${x.nameB}`;
@@ -175,7 +175,7 @@ function summary(health) {
 /** 깨진 고리 한 줄 (AI 재료·텔레그램 공용) */
 function brokenLine(x) {
   return `${title(x)} (평소 ${x.expect > 0 ? '같은' : '반대'} 방향 — ${x.why || '경제적 연결'}): ${usualText(x)}, ` +
-    `최근 ${x.n}${x.unit} ${x.nameA} ${mv(x.moveA, x.modeA)} · ${x.nameB} ${mv(x.moveB, x.modeB)} · ${x.streak}${x.streakUnit}째${x.change ? ' (' + x.change + ')' : ''} · 기준일 ${x.dateA}/${x.dateB}`;
+    `최근 ${x.n}${x.unit} ${x.nameA} ${mv(x.moveA, x.modeA, x.unitA)} · ${x.nameB} ${mv(x.moveB, x.modeB, x.unitB)} · ${x.streak}${x.streakUnit}째${x.change ? ' (' + x.change + ')' : ''} · 기준일 ${x.dateA}/${x.dateB}`;
 }
 /** AI 프롬프트 블록 */
 function linkBlock(health) {
@@ -187,7 +187,7 @@ function linkBlock(health) {
   const L = [`점검 ${s.total}개: 정상 ${s.ok} · 경계 ${s.warn} · 깨짐 ${s.broken} · 평소 관계 약함 ${s.weak} · 데이터 부족 ${s.nodata}`];
   L.push(broken.length ? '[깨진 고리]' : '[깨진 고리] 없음');
   broken.forEach(x => L.push('- ' + brokenLine(x)));
-  if (recovered.length) { L.push('[이번에 회복된 고리]'); recovered.forEach(x => L.push(`- ${title(x)}: 평소 관계로 돌아옴 (최근 ${x.n}${x.unit} ${x.nameA} ${mv(x.moveA, x.modeA)} · ${x.nameB} ${mv(x.moveB, x.modeB)})`)); }
+  if (recovered.length) { L.push('[이번에 회복된 고리]'); recovered.forEach(x => L.push(`- ${title(x)}: 평소 관계로 돌아옴 (최근 ${x.n}${x.unit} ${x.nameA} ${mv(x.moveA, x.modeA, x.unitA)} · ${x.nameB} ${mv(x.moveB, x.modeB, x.unitB)})`)); }
   if (leads.length) { L.push('[한쪽이 먼저 움직이는 고리 (정상 작동 중)]'); leads.forEach(x => L.push(`- ${title(x)}: ${x.lead.first === x.a ? x.nameA : x.nameB} 이(가) 약 ${x.lead.lag}${x.lead.unit} 먼저 (시차 상관 ${sgn(x.lead.r)})`)); }
   return L.join('\n');
 }
@@ -198,7 +198,7 @@ function linkTelegram(health, { max = 4 } = {}) {
   if (!broken.length && !recovered.length) return [];
   const s = summary(health);
   const L = [`🔗 연결 고리 점검 — ${s.total}개 중 깨짐 ${s.broken} · 경계 ${s.warn}`];
-  broken.slice(0, max).forEach(x => L.push(`• ${title(x)}: 평소 ${x.expect > 0 ? '같이' : '반대로'} 움직이는데 최근 ${x.n}${x.unit} 동안 ${x.nameA} ${mv(x.moveA, x.modeA)}, ${x.nameB} ${mv(x.moveB, x.modeB)} (${x.streak}${x.streakUnit}째${x.change ? ', ' + x.change : ''})`));
+  broken.slice(0, max).forEach(x => L.push(`• ${title(x)}: 평소 ${x.expect > 0 ? '같이' : '반대로'} 움직이는데 최근 ${x.n}${x.unit} 동안 ${x.nameA} ${mv(x.moveA, x.modeA, x.unitA)}, ${x.nameB} ${mv(x.moveB, x.modeB, x.unitB)} (${x.streak}${x.streakUnit}째${x.change ? ', ' + x.change : ''})`));
   if (broken.length > max) L.push(`  외 ${broken.length - max}개는 앱 '엇갈림 감시'에서`);
   recovered.slice(0, 2).forEach(x => L.push(`• 회복: ${title(x)}`));
   return L;

@@ -654,4 +654,10 @@ test('연결 고리 점검 — 재고는 평년 대비로 바꿔 유가와 비�
   assert.ok(h.moveA > 5, `재고는 평년 대비 %p 로 표시 (${h.moveA})`);
   assert.match(linkBlock([h]), /평소|데이터/);
 });
+test('연결 고리 점검 — 지표 단위 표시 (% 가 아닌 지표는 단위를 붙임)', () => {
+  const x = { a: 'crack321', b: 'refiner_idx', expect: 1, kind: 'trend', state: '깨짐', nameA: '크랙', nameB: '정유주', unitA: '$/bbl', unitB: '',
+    r1: 0.48, rr: null, n: 13, unit: '주', moveA: -16.76, moveB: 20.97, modeA: 'abs', modeB: 'pct', streak: 2, streakUnit: '주', change: null, why: '', dateA: '2026-11-09', dateB: '2026-11-06' };
+  assert.match(linkBlock([x]), /크랙 −16\.76 \$\/bbl · 정유주 \+21\.0%/);
+  assert.match(linkTelegram([x])[1], /크랙 −16\.76 \$\/bbl, 정유주 \+21\.0%/);
+});
 
