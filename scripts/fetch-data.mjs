@@ -155,9 +155,9 @@ function guessFreq(obs) {
   return g <= 4 ? 'D' : g <= 10 ? 'W' : g <= 45 ? 'M' : 'Q';
 }
 
-/** 주기별 보관 기간: 일간 2년, 주간 6년(평년 5년 비교용), 월간·분기 10년 */
+/** 주기별 보관 기간: 일간 2년, 주간 9년(평년 5년 비교 + 연도별 겹쳐 보기), 월간·분기 10년 */
 function trim(obs, freq) {
-  const keepYears = freq === 'D' ? 2 : freq === 'W' ? 6 : 10;
+  const keepYears = freq === 'D' ? 2 : freq === 'W' ? 9 : 10;
   const from = iso(yearsAgo(keepYears));
   return obs.filter(o => o[0] >= from);
 }

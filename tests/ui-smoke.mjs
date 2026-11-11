@@ -27,7 +27,7 @@ function fixture(cfg) {
   const series = {};
   const ids = [...Object.keys(SOURCES), ...Object.keys(COMPUTED)];
   ids.forEach((id, k) => {
-    const freq = monthly.has(id) || /cpi|ppi|pce|unemp|payems|indpro|retail|m2|coal$|nickel|umcsent|cfnai|pmi_|sahm|us_coal_cons/.test(id) ? 'M' : /^(us_crude|us_gasoline|us_distill|us_spr|ng_storage|cushing|refinery_util|us_crude_prod|gasoline_demand|distill_demand|crude_net_imports|claims|nfci|stlfsi|fed_bs)$/.test(id) ? 'W' : 'D';
+    const freq = monthly.has(id) || /cpi|ppi|pce|unemp|payems|indpro|retail|m2|coal$|nickel|umcsent|cfnai|pmi_|sahm|us_coal_cons/.test(id) ? 'M' : /^(us_crude|us_gasoline|us_distill|us_spr|ng_storage|cushing|refinery_util|us_crude_prod|gasoline_demand|distill_demand|crude_net_imports|total_demand|aux_total_demand_w|claims|nfci|stlfsi|fed_bs)$/.test(id) ? 'W' : 'D';
     const n = freq === 'M' ? 72 : freq === 'W' ? 300 : 500, step = freq === 'M' ? 30.4 : freq === 'W' ? 7 : 1;
     const base = 10 + (k % 17) * 7;
     const obs = [];
@@ -153,6 +153,14 @@ async function main() {
       await unlink(join(dir, 'data/links.json'));
       check(lj.rows === 2 && lj.count === '2쌍 · 엇갈림 1' && lj.trend && lj.chk, `연결 고리 점검(links.json) → 엇갈림 감시·오늘 볼 것 ${JSON.stringify(lj)}`);
       if (process.env.SHOT_DIR) { await page.evaluate(() => { openEdit('coal_jkm'); }); await page.waitForTimeout(200); await page.screenshot({ path: `${process.env.SHOT_DIR}/coaljkm-${ui}-${scheme}.png` }); await page.evaluate(() => document.querySelector('#editSheet').close()); }
+      const yr = await page.evaluate(() => { const r = {};
+        for (const id of ['us_crude', 'total_demand', 'us_cpi', 'wti']) { openEdit(id); const sec = document.querySelector('#editSheet .ind-years');
+          r[id] = sec ? { lines: sec.querySelectorAll('polyline').length, legend: sec.querySelectorAll('.yr').length, cur: !!sec.querySelector('.yr.cur'), label: /주간 원값/.test(sec.textContent), sum: /같은 시기 과거/.test(sec.textContent) } : null;
+          document.querySelector('#editSheet').close(); }
+        return r; });
+      if (process.env.SHOT_DIR) { await page.evaluate(() => { openEdit('total_demand'); document.querySelector('#editSheet .ind-years').scrollIntoView(); }); await page.waitForTimeout(200); await page.screenshot({ path: `${process.env.SHOT_DIR}/years-${ui}-${scheme}.png` }); await page.evaluate(() => document.querySelector('#editSheet').close()); }
+      check(yr.us_crude && yr.us_crude.lines >= 5 && yr.us_crude.lines === yr.us_crude.legend && yr.us_crude.cur && yr.us_crude.sum && yr.total_demand && yr.total_demand.label && yr.us_cpi && yr.us_cpi.lines >= 5 && yr.wti === null,
+        `연도별 비교 차트 (주간·월간만, 총수요는 주간 원값) ${JSON.stringify(yr)}`);
       check(await page.evaluate(() => { openEdit('coal_jkm'); const ok = [...document.querySelectorAll('#chartHost .th-label.ref')].length === 2; document.querySelector('#editSheet').close(); return ok; }), '석탄÷가스 상대가격: 7·16 기준선 표시');
       const shared = await page.evaluate(() => ['wti', 'us_cpi', 'coal_pw_jpn', 'scfi'].map(id => { try { return Share.render(id).canvas.width; } catch (e) { return id + ':' + e.message; } }));
       check(shared.every(w => w === 1080), `공유 이미지 그리기 ${JSON.stringify(shared)}`);

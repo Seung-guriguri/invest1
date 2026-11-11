@@ -168,7 +168,8 @@ export const SOURCES = {
   jet_demand:      [{ eia: 'PET.WKJUPUS2.W', scale: 0.001, avg: 4 }],     // 항공유 수요, 4주 평균
   crude_net_imports: [{ eia: 'PET.WCRNTUS2.W', scale: 0.001 }],
   crude_exports: [{ eia: 'PET.WCREXUS2.W', scale: 0.001 }],               // 원유 수출 (백만 배럴/일)
-  total_demand:  [{ eia: 'PET.WRPUPUS2.W', scale: 0.001, avg: 4 }],       // 석유제품 전체 공급 = 총수요, 4주 평균 (백만 배럴/일)           // 원유 순수입 (백만 배럴/일)
+  total_demand:  [{ eia: 'PET.WRPUPUS2.W', scale: 0.001, avg: 4 }],       // 석유제품 전체 공급 = 총수요, 4주 평균 (백만 배럴/일)
+  aux_total_demand_w: [{ eia: 'PET.WRPUPUS2.W', scale: 0.001 }],         // 같은 지표 주간 원값 (카드 없음 — 상세 화면 연도별 비교 차트용)           // 원유 순수입 (백만 배럴/일)
   // 독일 비상 석유 비축 (월간, 수개월 지연). EU 합계는 데이터셋에 없어 독일을 대표로 사용
   // stk_flow STK_EUE_DIR = EU 지침에 따른 비상 비축 (일수 환산), unit NR = 일수
   eu_oil_stock: [{ eurostat: 'nrg_stk_oem', filters: { geo: 'DE' }, prefer: { stk_flow: /^STK_EUE_DIR$/, unit: /^NR$/ } }],

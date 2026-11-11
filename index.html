@@ -433,6 +433,15 @@
   .chart svg:focus { outline: none; }
   .chart svg:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
   .chart .grid { stroke: var(--border); stroke-width: 1; }
+  .ind-years { margin-top: 14px; }
+  .ind-years h3 { font-size: 14px; margin: 0 0 6px; }
+  .ind-years h3 small { font-weight: 400; color: var(--text-2); font-size: 12px; }
+  .years-chart svg { width: 100%; height: auto; display: block; }
+  .yr-legend { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12px; color: var(--text-2); margin-top: 4px; }
+  .yr-legend .yr { display: inline-flex; align-items: center; gap: 4px; font-variant-numeric: tabular-nums; }
+  .yr-legend .yr i { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+  .yr-legend .yr.cur { color: var(--text); font-weight: 700; }
+  .yr-legend .yr.cur i { height: 4px; }
   .chart .tick { fill: var(--text-2); font-size: 11px; font-variant-numeric: tabular-nums; }
   .chart .line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
   .chart .area { fill: var(--accent); opacity: .1; }
@@ -988,7 +997,7 @@ const CONFIG = {
       level: { seasonal: { warn: -5, danger: -10 }, dir: 'down', warn: 3.6, danger: 3.3 }, change: { dir: 'both', flat: 0.5, warn: 3, danger: 6 } },
     { id: 'crude_exports', cat: 'stocks', name: '미국 원유 수출', sub: '주간 (EIA)', unit: '백만 b/d', dp: 2, changeMode: 'pct', profile: 'crudeExports',
       change: { dir: 'both', flat: 2, warn: 12, danger: 25 } },
-    { id: 'total_demand', cat: 'stocks', name: '미국 석유 총수요', sub: '전체 제품 공급량 4주 평균 (EIA) — 휘발유·디젤·항공유 등 합계', unit: '백만 b/d', dp: 2, changeMode: 'pct', profile: 'totalDemand',
+    { id: 'total_demand', cat: 'stocks', name: '미국 석유 총수요', sub: '전체 제품 공급량 4주 평균 (EIA) — 휘발유·디젤·항공유 등 합계', unit: '백만 b/d', dp: 2, changeMode: 'pct', profile: 'totalDemand', yearsSrc: { id: 'aux_total_demand_w', label: '주간 원값 (카드 값은 4주 평균)' },
       level: { seasonal: { warn: -3, danger: -6 }, dir: 'down' }, change: { dir: 'both', flat: 0.4, warn: 2, danger: 4 } },
     { id: 'crude_net_imports', cat: 'stocks', name: '미국 원유 순수입', sub: '주간 (EIA)', unit: '백만 b/d', dp: 2, changeMode: 'abs', profile: 'netImports',
       change: { dir: 'both', flat: 0.1, warn: 0.6, danger: 1.2 } },
@@ -2997,6 +3006,7 @@ function openEdit(id) {
 
   const body = $('#editBody');
   body.innerHTML = `${head}${rangeHTML}
+    ${a.isSample ? '' : yearsSectionHTML(ind, a)}
     ${noteHTML(a)}
     ${a.isSample ? '' : corrSectionHTML(id)}
     <div class="thresholds">${thresholdText(ind, a)}</div>
@@ -3041,6 +3051,59 @@ function openEdit(id) {
       renderCorrPair(id, cp.value);
     };
   }
+}
+
+/* ---------- 연도별 겹쳐 보기 (계절 차트): 주간·월간 지표를 1~12월 축에 해마다 한 선으로 ----------
+ *  올해는 굵은 빨간 선, 지난해들은 얇은 선 (가장 오래된 두 해는 점선). 같은 주 과거 평균·범위와 비교하는 한 줄 요약.
+ *  ind.yearsSrc = { id, label } 이면 카드 값 대신 그 시계열로 그림 (예: 총수요는 4주 평균 대신 주간 원값) */
+const YEAR_COLORS = ['#4f7fd9', '#e8893a', '#9aa0a8', '#d9b100', '#45a6d6', '#4cae5b', '#2b3f8f', '#9c5a2e'];
+function yearsData(ind, a) {
+  const srcId = ind.yearsSrc && ind.yearsSrc.id;
+  const meta = srcId ? DataStore.getMeta(srcId) : null;
+  const freq = srcId ? (meta && meta.freq) : a.freq;
+  if (freq !== 'W' && freq !== 'M') return null;
+  const hist = (srcId ? DataStore.getHistory(srcId) : a.history).filter(e => e.source !== 'sample' && Number.isFinite(e.value)).slice().reverse();
+  if (hist.length < 10) return null;
+  const by = new Map();
+  for (const e of hist) { const y = +e.date.slice(0, 4); if (!by.has(y)) by.set(y, []); by.get(y).push(e); }
+  const years = [...by.keys()].sort((p, q) => p - q).slice(-9).filter(y => by.get(y).length >= (freq === 'M' ? 2 : 3));
+  if (years.length < 2) return null;
+  return { freq, years, by, hist, label: srcId ? ind.yearsSrc.label : '' };
+}
+function yearsSectionHTML(ind, a) {
+  const D = yearsData(ind, a);
+  if (!D) return '';
+  const { freq, years, by, hist } = D;
+  const W = 340, H = 200, padL = 4, padR = 40, padT = 10, padB = 20;
+  const xOf = d => { const t = new Date(d + 'T00:00:00Z'), y0 = Date.UTC(t.getUTCFullYear(), 0, 1);
+    return freq === 'M' ? (t.getUTCMonth() + 0.5) / 12 : Math.min(1, (t - y0) / DAY / 365); };
+  const vals = years.flatMap(y => by.get(y).map(e => e.value));
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  if (hi === lo) { hi += 1; lo -= 1; }
+  const step = niceStep(hi - lo, 4); lo = Math.floor(lo / step) * step; hi = Math.ceil(hi / step) * step;
+  const X = f => padL + f * (W - padL - padR), Y = v => padT + (hi - v) / (hi - lo) * (H - padT - padB);
+  const cur = years[years.length - 1], past = years.slice(0, -1);
+  const color = y => (y === cur ? 'var(--red)' : YEAR_COLORS[(past.length - 1 - past.indexOf(y)) % YEAR_COLORS.length]);
+  const dash = y => (y !== cur && past.length >= 5 && past.indexOf(y) < 2 ? ' stroke-dasharray="2 3"' : '');
+  let g = '';
+  for (let v = lo; v <= hi + step / 2; v += step) g += `<line class="grid" x1="${padL}" x2="${W - padR}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}"/><text class="tick" x="${W - padR + 5}" y="${(Y(v) + 4).toFixed(1)}">${tickLabel(v, step)}</text>`;
+  [1, 3, 5, 7, 9, 11].forEach(m => { g += `<text class="tick" x="${X((m - 0.5) / 12).toFixed(1)}" y="${H - 5}" text-anchor="middle">${m}월</text>`; });
+  const line = y => { const pts = by.get(y).map(e => `${X(xOf(e.date)).toFixed(1)},${Y(e.value).toFixed(1)}`).join(' ');
+    return `<polyline points="${pts}" fill="none" stroke="${color(y)}" stroke-width="${y === cur ? 3 : 1.3}" stroke-linejoin="round" stroke-linecap="round"${dash(y)}${y === cur ? '' : ' opacity=".85"'}/>`; };
+  const lastPt = by.get(cur)[by.get(cur).length - 1];
+  const svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(ind.name)} 연도별 비교 ${years[0]}–${cur}">${g}${past.map(line).join('')}${line(cur)}<circle cx="${X(xOf(lastPt.date)).toFixed(1)}" cy="${Y(lastPt.value).toFixed(1)}" r="3.5" fill="var(--red)"/></svg>`;
+  const legend = years.map(y => `<span class="yr${y === cur ? ' cur' : ''}"><i style="background:${color(y)}"></i>${y}</span>`).join('');
+  // 같은 시기 과거와 비교: 주간은 364일 간격 ±4일, 월간은 같은 달
+  const same = past.map(y => { const tgt = Date.parse(lastPt.date) - (cur - y) * 364 * DAY;
+    const e = freq === 'M' ? (by.get(y) || []).find(x => x.date.slice(5, 7) === lastPt.date.slice(5, 7))
+      : (by.get(y) || []).concat(by.get(y + 1) || []).find(x => Math.abs(Date.parse(x.date) - tgt) <= 4 * DAY); return e ? e.value : null; }).filter(v => v != null);
+  const recent = same.slice(-5);
+  const avg = recent.length ? recent.reduce((s, v) => s + v, 0) / recent.length : null;
+  const sum = recent.length >= 2 ? `최근 값 <b>${fmt(lastPt.value, ind.dp)}</b> (${esc(fmtObsDate(lastPt.date, freq))}) · 같은 시기 과거 ${recent.length}년 평균 ${fmt(avg, ind.dp)}`
+    + ` (${fmtSigned((lastPt.value - avg) / Math.abs(avg) * 100, 1)}%) · 범위 ${fmt(Math.min(...same), ind.dp)}~${fmt(Math.max(...same), ind.dp)}`
+    + (lastPt.value > Math.max(...same) ? ' — <b>같은 시기 최고</b>' : lastPt.value < Math.min(...same) ? ' — <b>같은 시기 최저</b>' : '') : '';
+  return `<section class="ind-years" aria-label="연도별 비교"><h3>📅 연도별 비교 <small>${years[0]}–${cur}${D.label ? ' · ' + esc(D.label) : ''}</small></h3>
+    <div class="chart years-chart">${svg}</div><div class="yr-legend">${legend}</div>${sum ? `<p class="corr-note">${sum}</p>` : ''}</section>`;
 }
 
 function drawDetailChart(ind, asc, freq, levelLines) {
