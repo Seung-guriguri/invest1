@@ -1072,6 +1072,15 @@ async function main() {
     const r = await tryModel(m);
     if (r === 'quota') { quotaDead.add(m); quotaHit++; }
   }
+  // 모든 모델이 혼잡(503 등)이었으면 포기 전에 2분 쉬고 Flash → Flash-Lite 를 한 번씩 더 (혼잡은 보통 몇 분 안에 풀림)
+  if (!resp && anyBusy) {
+    const again = [main.find(m => !quotaDead.has(m)), lite.find(m => !quotaDead.has(m))].filter(Boolean);
+    if (again.length) {
+      console.log('  모든 모델 혼잡 → 2분 뒤 마지막으로 다시 시도');
+      await new Promise(r => setTimeout(r, 120000));
+      for (const m of again) { if (await tryModel(m) === 'ok') break; }
+    }
+  }
   if (!resp) return keepPrevious(quotaHit && quotaHit === models.length ? '모든 모델 무료 한도 초과 (429)' : `호출 실패: ${lastErr && lastErr.message}`, { fail: true });
   if (quotaHit) console.log(`  한도 초과 모델 ${quotaHit}개 건너뛰고 ${used} 사용`);
 
