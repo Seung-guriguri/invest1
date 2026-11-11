@@ -185,10 +185,20 @@ async function fetchFred(src) {
 /* ---------- Yahoo Finance (비공식) ---------- */
 async function fetchYahoo(src) {
   // range·interval: 기본은 2년 일봉, 계산용 보조 시계열은 10년 월봉 등으로 따로 받을 수 있음
-  const path = `/v8/finance/chart/${encodeURIComponent(src.yahoo)}?range=${src.range || '2y'}&interval=${src.interval || '1d'}&includePrePost=false&events=div%2Csplit`;
+  const pathOf = range => `/v8/finance/chart/${encodeURIComponent(src.yahoo)}?range=${range}&interval=${src.interval || '1d'}&includePrePost=false&events=div%2Csplit`;
+  const path = pathOf(src.range || '2y');
+  const okCount = j => { const q = j && j.chart && j.chart.result && j.chart.result[0];
+    const c = q && q.indicators && q.indicators.quote && q.indicators.quote[0] && q.indicators.quote[0].close; return c ? c.filter(v => v != null).length : 0; };
   let j;
   try { j = await getJSON('https://query1.finance.yahoo.com' + path); }
   catch (e) { j = await getJSON('https://query2.finance.yahoo.com' + path); }
+  // 응답은 왔는데 값이 거의 없는 경우(Yahoo 가 가끔 TTF=F 등에 빈 이력을 줌): 다른 서버 → 짧은 기간 순으로 다시 받기
+  if (okCount(j) < 10) {
+    for (const [host, range] of [['query2', src.range || '2y'], ['query1', '1y'], ['query2', '1y']]) {
+      try { const k = await getJSON(`https://${host}.finance.yahoo.com` + pathOf(range)); if (okCount(k) > okCount(j)) j = k; } catch (e) { /* 다음 시도 */ }
+      if (okCount(j) >= 10) { console.log(`  · ${src.yahoo}: 첫 응답 값 부족 → ${host} ${range} 로 다시 받음`); break; }
+    }
+  }
   const r = j && j.chart && j.chart.result && j.chart.result[0];
   if (!r || !r.timestamp) throw new Error((j && j.chart && j.chart.error && j.chart.error.description) || '응답 없음');
   const offset = (r.meta && r.meta.gmtoffset) || 0;   // 거래소 현지 날짜 기준
