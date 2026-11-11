@@ -183,6 +183,19 @@ async function fetchFred(src) {
 }
 
 /* ---------- Yahoo Finance (비공식) ---------- */
+/** 근월물 선물 티커 (예: TTF 2026-11-11 → TTFZ26.NYM). 다음 달 인도분, 매월 rollDay 일부터는 그다음 달 */
+function frontTicker(root, suffix, now = new Date(), rollDay = 26) {
+  const add = now.getUTCDate() >= rollDay ? 2 : 1;
+  const t = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + add, 1));
+  return `${root}${'FGHJKMNQUVXZ'[t.getUTCMonth()]}${String(t.getUTCFullYear()).slice(2)}${suffix}`;
+}
+/** 최근 구간만 받은 경우: 예전 연속 이력 + 새 최근 구간 (새 구간이 시작하는 날짜부터는 새 값) */
+function spliceRecent(prevObs, recentObs) {
+  if (!recentObs.length) return prevObs || [];
+  const from = recentObs[0][0];
+  return (prevObs || []).filter(o => o[0] < from).concat(recentObs);
+}
+
 async function fetchYahoo(src) {
   // range·interval: 기본은 2년 일봉, 계산용 보조 시계열은 10년 월봉 등으로 따로 받을 수 있음
   const pathOf = range => `/v8/finance/chart/${encodeURIComponent(src.yahoo)}?range=${range}&interval=${src.interval || '1d'}&includePrePost=false&events=div%2Csplit`;
@@ -199,6 +212,16 @@ async function fetchYahoo(src) {
       if (okCount(j) >= 10) { console.log(`  · ${src.yahoo}: 첫 응답 값 부족 → ${host} ${range} 로 다시 받음`); break; }
     }
   }
+  // 그래도 부족하고 근월물 정보가 있으면(연속 선물 TTF=F 가 가끔 하루치만 줌): 근월물 계약의 최근 1개월만 받아
+  // 예전 연속 이력 뒤에 이어 붙이게 표시 (근월물 2년치를 그대로 쓰면 예전 구간이 원월물 가격이라 이력이 틀어짐)
+  let recentOnly = false;
+  if (okCount(j) < 2 && src.front) {
+    const sym = frontTicker(src.front.root, src.front.suffix);
+    try {
+      const k = await getJSON('https://query1.finance.yahoo.com' + `/v8/finance/chart/${encodeURIComponent(sym)}?range=1mo&interval=1d&includePrePost=false`);
+      if (okCount(k) >= 2) { j = k; recentOnly = true; console.log(`  · ${src.yahoo}: 연속 선물 값 부족 → 근월물 ${sym} 최근 1개월로 이어 붙임`); }
+    } catch (e) { /* 근월물도 실패하면 아래에서 원래 오류 */ }
+  }
   const r = j && j.chart && j.chart.result && j.chart.result[0];
   if (!r || !r.timestamp) throw new Error((j && j.chart && j.chart.error && j.chart.error.description) || '응답 없음');
   const offset = (r.meta && r.meta.gmtoffset) || 0;   // 거래소 현지 날짜 기준
@@ -214,6 +237,7 @@ async function fetchYahoo(src) {
   const reg = r.meta && r.meta.currentTradingPeriod && r.meta.currentTradingPeriod.regular;
   const now = Date.now() / 1000;
   if (!h24 && reg && now >= reg.start && now < reg.end && r.timestamp[r.timestamp.length - 1] >= reg.start) rows = rows.slice(0, -1);
+  if (recentOnly) rows.recentOnly = true;
   return rows;
 }
 
@@ -545,11 +569,12 @@ async function collect(id, sources) {
     const kind = Object.keys(FETCHERS).find(k => src[k]);
     try {
       const raw = await FETCHERS[kind](src);
+      const recentOnly = !!(raw && raw.recentOnly);
       let obs = clean(raw, src.scale);
       if (obs.length < 2) throw new Error('관측치 부족');
       const freq = guessFreq(obs);
       obs = trim(obs, freq);
-      return { source: sourceLabel(src), freq, fetchedAt: new Date().toISOString(), obs, ...(idx > 0 ? { fallbackReason: reasons.join(' / ') } : {}) };
+      return { source: sourceLabel(src), freq, fetchedAt: new Date().toISOString(), obs, ...(recentOnly ? { recentOnly } : {}), ...(idx > 0 ? { fallbackReason: reasons.join(' / ') } : {}) };
     } catch (e) {
       reasons.push(`${sourceLabel(src)} → ${e.message}`);
     }
@@ -594,6 +619,11 @@ async function main() {
         return;
       }
       delete got.fallbackReason;
+      // 최근 구간만 받은 경우(근월물 대체): 이전에 받아 둔 연속 이력 뒤에 이어 붙임
+      if (got.recentOnly) {
+        delete got.recentOnly;
+        if (prev && prev.obs && prev.obs.length) { got.obs = trim(spliceRecent(prev.obs, got.obs), prev.freq || got.freq); got.freq = prev.freq || got.freq; }
+      }
       // 같은 출처인데 이번 응답이 이전보다 최근 날짜가 빠져 있으면(Yahoo 등 일시적 누락) 이전의 더 새 관측치를 이어 붙임
       if (prev && prev.obs && prev.obs.length && prev.source === got.source) {
         const lastNew = got.obs[got.obs.length - 1][0];
@@ -665,7 +695,7 @@ async function main() {
 }
 
 // 테스트(tests/)에서 계산·정리 함수만 가져다 쓸 수 있게 내보냄. 직접 실행할 때만 수집 시작
-export { COMPUTED, clean, guessFreq, trim, valueAsOf, round, parseWorldBank, parseSpdr };
+export { COMPUTED, clean, guessFreq, trim, valueAsOf, round, parseWorldBank, parseSpdr, frontTicker, spliceRecent };
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch(e => { console.error(e); process.exit(1); });
 }

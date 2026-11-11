@@ -5,7 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
-import { COMPUTED, clean, guessFreq, trim, valueAsOf, round, parseWorldBank, parseSpdr } from '../scripts/fetch-data.mjs';
+import { COMPUTED, clean, guessFreq, trim, valueAsOf, round, parseWorldBank, parseSpdr, frontTicker, spliceRecent } from '../scripts/fetch-data.mjs';
 import { readSheet } from '../scripts/lib/xlsx.mjs';
 import { deflateRawSync } from 'node:zlib';
 import { clean as aiClean, soften, cleanWatch, groundRefs, checkNumbers, stats as aiStats, weeklyBlock, energyLinks, chainLinks, macroLines } from '../scripts/ai-insight.mjs';
@@ -663,5 +663,16 @@ test('연결 고리 점검 — 지표 단위 표시 (% 가 아닌 지표는 단�
     r1: 0.48, rr: null, n: 13, unit: '주', moveA: -16.76, moveB: 20.97, modeA: 'abs', modeB: 'pct', streak: 2, streakUnit: '주', change: null, why: '', dateA: '2026-11-09', dateB: '2026-11-06' };
   assert.match(linkBlock([x]), /크랙 −16\.76 \$\/bbl · 정유주 \+21\.0%/);
   assert.match(linkTelegram([x])[1], /크랙 −16\.76 \$\/bbl, 정유주 \+21\.0%/);
+});
+
+test('TTF 근월물 대체: 근월물 티커 계산과 최근 구간 이어 붙이기', () => {
+  assert.equal(frontTicker('TTF', '.NYM', new Date('2026-11-11T10:00:00Z')), 'TTFZ26.NYM');
+  assert.equal(frontTicker('TTF', '.NYM', new Date('2026-11-27T10:00:00Z')), 'TTFF27.NYM');   // 월말엔 그다음 달
+  assert.equal(frontTicker('TTF', '.NYM', new Date('2026-12-05T10:00:00Z')), 'TTFF27.NYM');   // 해가 바뀜
+  const prev = [['2026-11-05', 80], ['2026-11-06', 81], ['2026-11-09', 82], ['2026-11-10', 83]];
+  const recent = [['2026-11-09', 82.5], ['2026-11-10', 83.5], ['2026-11-11', 86.9]];
+  assert.deepEqual(spliceRecent(prev, recent), [['2026-11-05', 80], ['2026-11-06', 81], ['2026-11-09', 82.5], ['2026-11-10', 83.5], ['2026-11-11', 86.9]]);
+  assert.deepEqual(spliceRecent(null, recent), recent);
+  assert.deepEqual(SOURCES.ttf[0].front, { root: 'TTF', suffix: '.NYM' });
 });
 

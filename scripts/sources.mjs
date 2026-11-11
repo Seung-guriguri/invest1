@@ -87,7 +87,7 @@ export const SOURCES = {
   wti:    [{ yahoo: 'CL=F' }, { fred: 'DCOILWTICO' }],
   brent:  [{ yahoo: 'BZ=F' }, { fred: 'DCOILBRENTEU' }],
   natgas: [{ yahoo: 'NG=F' }, { fred: 'DHHNGSP' }],
-  ttf: [{ yahoo: 'TTF=F' }],                                 // 유럽 천연가스 TTF (€/MWh)
+  ttf: [{ yahoo: 'TTF=F', front: { root: 'TTF', suffix: '.NYM' } }],   // 연속 선물이 가끔 하루치만 줄 때 근월물(TTFZ26.NYM 등)로 최근 구간 보충                                 // 유럽 천연가스 TTF (€/MWh)
   jkm: [{ yahoo: 'JKM=F' }],                                 // 아시아 LNG 현물 JKM ($/MMBtu, Platts 기준 선물 근월물)
   power_gas:  [{ eiaGrid: 'NG', avg: 7 }],                  // 미국 발전량 중 천연가스 비중 (%, 7일 평균, EIA-930)
   // 전력 발전량 전년비 계산용 보조 (카드 없음): 본토 48개 주 전체 발전량 7일 평균 (MWh → GWh)
