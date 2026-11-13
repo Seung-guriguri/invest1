@@ -412,6 +412,49 @@ function macroLines(rows, series) {
   }
   return { lines: out, nums };
 }
+/* ---------- 핵심 점검 지표: 그동안 추가한 지표 중 브리핑에서 놓치기 쉬운 것들 (분류별, [주목] 판정은 코드) ----------
+ *  해설 대상 상위 15개(이상치 순)에 못 들면 AI 가 아예 안 보던 지표들 — 분류별로 묶어 매일 재료로 줌 */
+const FOCUS = [
+  'crack321', 'gasoline_crack', 'diesel_crack', 'jet_crack', 'jet_diesel', 'refiner_idx',              // 정제 마진·정유주
+  'oil_tight', 'total_demand', 'gasoline_days', 'distill_days', 'jet_days', 'crude_exports',            // 석유 수급
+  'jkm_hh', 'lng_spread',                                                                                 // LNG 수출 마진
+  'rate_driver', 't5y5y', 'move',                                                                         // 금리
+  'net_liq', 'ccc_spread', 'ccc_hy', 'sox', 'kospi_usd',                                                 // 시장·신용
+  'copper_gold', 'gold_real_gap', 'gold_etf_gld',                                                         // 금속
+  'mfg_avg', 'power_yoy', 'tanker_idx', 'fert_afford_urea', 'fert_afford_dap'                            // 경기·전력·운임·비료
+];
+/** [주목]: 평소 변동의 1.5배 이상 움직임, 최근 기간 중 상·하위 10%, 평년 대비 ±5% 이상 */
+function focusFlag(r) {
+  const why = [];
+  if (r.z_1m != null && Math.abs(r.z_1m) >= 1.5) why.push(`평소 변동의 ${Math.abs(r.z_1m)}배`);
+  if (r.position != null && r.position >= 90) why.push(`최근 기간 상위 ${Math.max(1, 100 - r.position)}%`);
+  if (r.position != null && r.position <= 10) why.push(`최근 기간 하위 ${Math.max(1, r.position)}%`);
+  if (r.season_dev != null && Math.abs(r.season_dev) >= 5) why.push(`평년 대비 ${r.season_dev > 0 ? '+' : ''}${r.season_dev}%`);
+  return why;
+}
+function focusLines(rows) {
+  const R = Object.fromEntries(rows.map(r => [r.id, r]));
+  const f = (v, u) => (v == null || !Number.isFinite(v) ? '—' : `${v > 0 ? '+' : ''}${Math.round(v * 100) / 100}${u || ''}`);
+  const line = r => {
+    const why = focusFlag(r), mo = r.freq === 'M' || r.freq === 'Q';
+    return `${why.length ? '[주목] ' : ''}${r.name.split(' (')[0]} ${r.value}${r.unit || ''} (${mo ? r.date.slice(0, 7) + ' 기준' : r.date}, 1개월 ${f(r.chg_1m, r.chg_unit)}` +
+      `${r.position != null ? `, 최근 기간 위치 ${r.position}` : ''}${r.season_dev != null ? `, 평년 대비 ${f(r.season_dev, '%')}` : ''})${why.length ? ' — ' + why.join(', ') : ''}`;
+  };
+  const byCat = new Map();
+  for (const id of FOCUS) { const r = R[id]; if (!r) continue; if (!byCat.has(r.cat)) byCat.set(r.cat, []); byCat.get(r.cat).push(line(r)); }
+  const out = [];
+  for (const [cat, ls] of byCat) out.push(`(${CAT_LABEL[cat] || cat})`, ...ls.map(x => '- ' + x));
+  // 정제 마진 비교: 3-2-1 하나로 뭉뚱그리지 않게 제품별 크랙을 한 줄에 — 최근 기간 위치로 강·약 판정
+  const cr = [['휘발유', R.gasoline_crack], ['디젤', R.diesel_crack], ['항공유', R.jet_crack]].filter(([, r]) => r && r.position != null);
+  if (cr.length >= 2) {
+    const s = cr.slice().sort((a, b) => b[1].position - a[1].position), hi = s[0], lo = s[s.length - 1];
+    const gap = hi[1].position - lo[1].position;
+    out.push('(정제 마진 비교 — 제품별)',
+      `- ${s.map(([n, r]) => `${n} 크랙 ${r.value}$/bbl (${r.date}, 1개월 ${f(r.chg_1m, r.chg_unit)}, 위치 ${r.position})`).join(' · ')}${R.crack321 ? ` · 3-2-1 ${R.crack321.value}$/bbl (1개월 ${f(R.crack321.chg_1m, R.crack321.chg_unit)})` : ''}`,
+      `- 판정: ${gap >= 40 ? `[제품별 엇갈림] ${hi[0]} 강세(위치 ${hi[1].position}) · ${lo[0]} 약세(위치 ${lo[1].position}) — 3-2-1 하나로는 가려지는 차이` : `제품별 차이 작음 (위치 ${lo[1].position}~${hi[1].position})`}`);
+  }
+  return out;
+}
 function macroBlock(rows, series) {
   const { lines, nums } = macroLines(rows, series);
   macroKnown = nums.filter(Number.isFinite).map(Math.abs);
@@ -1025,6 +1068,7 @@ async function main() {
     .replace('{{chains}}', chainBlock(rows))
     .replace('{{macro}}', macroBlock(rows, latest.series))
     .replace('{{links}}', linkBlock(health))
+    .replace('{{focus}}', focusLines(rows).join('\n') || '- 데이터 없음')
     .replace('{{previous}}', prevBlock || '없음 (지난 브리핑 없음 — sections 의 review 는 빈 문자열로)')
     .replace('{{data}}', rows.map(r => JSON.stringify(r)).join('\n'));
   if (WEEKLY) console.log('  월요일 주간판: 지난주 정리 + 이번 주 볼 것');
@@ -1219,7 +1263,7 @@ async function main() {
 }
 
 // 테스트에서 문장 다듬기 함수만 가져다 쓸 수 있게 내보냄. 직접 실행할 때만 생성 시작
-export { readIndicatorMeta, clean, cleanWatch, soften, BANNED, groundRefs, checkNumbers, stats, weeklyBlock, energyLinks, chainLinks, macroLines, sendColumnTelegram, sendWatchlistTelegram, sendTelegramLong };
+export { readIndicatorMeta, clean, cleanWatch, soften, BANNED, groundRefs, checkNumbers, stats, weeklyBlock, energyLinks, chainLinks, macroLines, focusLines, sendColumnTelegram, sendWatchlistTelegram, sendTelegramLong };
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch(e => keepPrevious(`오류: ${e.message}`, { fail: true })).then(() => process.exit(0));
 }

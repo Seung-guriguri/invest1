@@ -8,7 +8,7 @@ import vm from 'node:vm';
 import { COMPUTED, clean, guessFreq, trim, valueAsOf, round, parseWorldBank, parseSpdr, frontTicker, spliceRecent } from '../scripts/fetch-data.mjs';
 import { readSheet } from '../scripts/lib/xlsx.mjs';
 import { deflateRawSync } from 'node:zlib';
-import { clean as aiClean, soften, cleanWatch, groundRefs, checkNumbers, stats as aiStats, weeklyBlock, energyLinks, chainLinks, macroLines } from '../scripts/ai-insight.mjs';
+import { clean as aiClean, soften, cleanWatch, groundRefs, checkNumbers, stats as aiStats, weeklyBlock, energyLinks, chainLinks, macroLines, focusLines } from '../scripts/ai-insight.mjs';
 import { readPairs, linkHealth, linkBlock, linkTelegram, linkJson, summary as linkSummary, WHY, KIND, weekly, trendChanges, trendJudge } from '../scripts/lib/link-health.mjs';
 import { obsAsOf, rateDecomp, seasonDevAt, oilTightness, basketIndex, goldRealGap, yoySameWeek } from '../scripts/lib/combo.mjs';
 import { SOURCES } from '../scripts/sources.mjs';
@@ -674,5 +674,31 @@ test('TTF 근월물 대체: 근월물 티커 계산과 최근 구간 이어 붙�
   assert.deepEqual(spliceRecent(prev, recent), [['2026-11-05', 80], ['2026-11-06', 81], ['2026-11-09', 82.5], ['2026-11-10', 83.5], ['2026-11-11', 86.9]]);
   assert.deepEqual(spliceRecent(null, recent), recent);
   assert.deepEqual(SOURCES.ttf[0].front, { root: 'TTF', suffix: '.NYM' });
+});
+
+test('핵심 점검 지표: 분류별 묶음, [주목] 판정, 정제 마진 제품별 비교', () => {
+  const r = (id, name, cat, value, x = {}) => ({ id, name, cat, value, unit: '$/bbl', date: '2026-11-12', freq: 'D', chg_1m: 0, chg_unit: '$/bbl', position: 50, z_1m: 0.3, ...x });
+  const rows = [
+    r('crack321', '3-2-1 크랙 스프레드', 'energy', 22, { position: 30 }),
+    r('gasoline_crack', '휘발유 크랙', 'energy', 12, { position: 8, chg_1m: -6 }),
+    r('diesel_crack', '디젤 크랙', 'energy', 38, { position: 92 }),
+    r('jet_crack', '항공유 크랙', 'energy', 30, { position: 70, date: '2026-11-07' }),
+    r('ccc_hy', 'CCC−하이일드 격차', 'market', 9.7, { unit: '%p', z_1m: 2.1 }),
+    r('oil_tight', '미국 석유 수급 빡빡함', 'stocks', 4.6, { unit: '%', freq: 'W', season_dev: null }),
+    r('mfg_avg', '지역 연은 제조업 평균', 'growth', 19.9, { unit: '', freq: 'M', date: '2026-10-01' }),
+    r('wti', 'WTI', 'energy', 80)   // 핵심 목록에 없는 지표는 넣지 않음
+  ];
+  const L = focusLines(rows), txt = L.join('\n');
+  assert.ok(L.includes('(에너지)') && L.includes('(시장·신용)') && L.includes('(비축·재고)'), '분류별 묶음');
+  assert.ok(!/WTI/.test(txt), '목록 밖 지표 제외');
+  assert.match(txt, /\[주목\] 휘발유 크랙 12\$\/bbl .*최근 기간 하위 8%/);
+  assert.match(txt, /\[주목\] 디젤 크랙 .*상위 8%/);
+  assert.match(txt, /\[주목\] CCC−하이일드 격차 .*평소 변동의 2\.1배/);
+  assert.match(txt, /- 미국 석유 수급 빡빡함 4\.6%/, '주목 아님');
+  assert.match(txt, /지역 연은 제조업 평균 19\.9 \(2026-10 기준/, '월간은 기준월');
+  assert.match(txt, /디젤 크랙 38\$\/bbl .*· 항공유 크랙 30\$\/bbl \(2026-11-07.*· 휘발유 크랙 12/, '위치 순서');
+  assert.match(txt, /\[제품별 엇갈림\] 디젤 강세\(위치 92\) · 휘발유 약세\(위치 8\)/);
+  const calm = focusLines(rows.map(x => x.id === 'gasoline_crack' ? { ...x, position: 70 } : x.id === 'diesel_crack' ? { ...x, position: 80 } : x)).join('\n');
+  assert.match(calm, /제품별 차이 작음 \(위치 70~80\)/);
 });
 
