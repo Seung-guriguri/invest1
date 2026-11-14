@@ -497,10 +497,18 @@ async function post(model, body) {
   return j;
 }
 
+/** 이름 규칙(gemini-숫자-flash)에 안 맞는 새 세대 Flash급 모델 — 목록에 있으면 맨 앞에 (Gemini 4 는 코드명으로 나옴)
+ *  hydrogen = Gemini 4 Flash급 (2026-11 목록 확인, 출력 65536). argon(최상위)·carbon(성격 미확인)은 넣지 않음 */
+const PREFERRED = ['gemini-4-hydrogen'];
+/** 모델 목록 → 시도 순서: 선호 새 모델 → 번호가 가장 높은 Flash → gemini-flash-latest → 번호가 가장 높은 Flash-Lite → gemini-flash-lite-latest */
+function modelOrder(names) {
+  const ver = n => Number((n.match(/^gemini-(\d+(?:\.\d+)?)-/) || [])[1] || 0);
+  const flash = names.filter(n => /^gemini-\d+(\.\d+)?-flash$/.test(n)).sort((x, y) => ver(y) - ver(x));
+  const lite = names.filter(n => /^gemini-\d+(\.\d+)?-flash-lite$/.test(n)).sort((x, y) => ver(y) - ver(x));
+  return [...new Set([...PREFERRED.filter(n => names.includes(n)), ...flash.slice(0, 1), 'gemini-flash-latest', ...lite.slice(0, 1), 'gemini-flash-lite-latest'])];
+}
 /** 사용 가능한 Flash 계열 모델 이름 고르기 */
 async function autoModels() {
-  // 우선순위: 번호가 가장 높은 Flash → gemini-flash-latest → 번호가 가장 높은 Flash-Lite → gemini-flash-lite-latest
-  const ver = n => Number((n.match(/^gemini-(\d+(?:\.\d+)?)-/) || [])[1] || 0);
   let names = [];
   try {
     const res = await fetch(`${API}/models?pageSize=200`, { headers: { 'x-goog-api-key': KEY }, signal: AbortSignal.timeout(20000) });
@@ -508,9 +516,7 @@ async function autoModels() {
     names = (j.models || []).filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
       .map(m => m.name.replace(/^models\//, ''));
   } catch (e) { /* 목록을 못 받으면 별칭만 사용 */ }
-  const flash = names.filter(n => /^gemini-\d+(\.\d+)?-flash$/.test(n)).sort((x, y) => ver(y) - ver(x));
-  const lite = names.filter(n => /^gemini-\d+(\.\d+)?-flash-lite$/.test(n)).sort((x, y) => ver(y) - ver(x));
-  return [...new Set([...flash.slice(0, 1), 'gemini-flash-latest', ...lite.slice(0, 1), 'gemini-flash-lite-latest'])];
+  return modelOrder(names);
 }
 
 const CAT_LABEL = { rates: '금리', inflation: '물가', growth: '경기', market: '시장·신용', fx: '환율', energy: '에너지', power: '전력', freight: '운임', stocks: '비축·재고', metals: '금속', grains: '곡물', fert: '비료', etf: 'ETF' };
@@ -1263,7 +1269,7 @@ async function main() {
 }
 
 // 테스트에서 문장 다듬기 함수만 가져다 쓸 수 있게 내보냄. 직접 실행할 때만 생성 시작
-export { readIndicatorMeta, clean, cleanWatch, soften, BANNED, groundRefs, checkNumbers, stats, weeklyBlock, energyLinks, chainLinks, macroLines, focusLines, sendColumnTelegram, sendWatchlistTelegram, sendTelegramLong };
+export { modelOrder, readIndicatorMeta, clean, cleanWatch, soften, BANNED, groundRefs, checkNumbers, stats, weeklyBlock, energyLinks, chainLinks, macroLines, focusLines, sendColumnTelegram, sendWatchlistTelegram, sendTelegramLong };
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch(e => keepPrevious(`오류: ${e.message}`, { fail: true })).then(() => process.exit(0));
 }

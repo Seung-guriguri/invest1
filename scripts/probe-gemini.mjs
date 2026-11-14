@@ -19,11 +19,9 @@ console.log(`generateContent 가능 모델 ${gen.length}개 (전체 ${all.length
 for (const m of gen.sort((a, b) => (a.name < b.name ? -1 : 1))) {
   console.log(`- ${m.name.replace(/^models\//, '').padEnd(40)} ${String(m.displayName || '').padEnd(32)} 입력 ${m.inputTokenLimit ?? '?'} · 출력 ${m.outputTokenLimit ?? '?'}${m.thinking ? ' · thinking' : ''}`);
 }
-// 대시보드 자동 선택 규칙으로 고르면 무엇이 되는지
+// 대시보드 자동 선택 규칙으로 고르면 무엇이 되는지 (ai-insight.mjs 와 같은 함수)
+const { modelOrder } = await import('./ai-insight.mjs');
 const names = gen.map(m => m.name.replace(/^models\//, ''));
-const ver = n => Number((n.match(/^gemini-(\d+(?:\.\d+)?)-/) || [])[1] || 0);
-const flash = names.filter(n => /^gemini-\d+(\.\d+)?-flash$/.test(n)).sort((x, y) => ver(y) - ver(x));
-const lite = names.filter(n => /^gemini-\d+(\.\d+)?-flash-lite$/.test(n)).sort((x, y) => ver(y) - ver(x));
-console.log(`\n현재 자동 선택 순서: ${[...new Set([...flash.slice(0, 1), 'gemini-flash-latest', ...lite.slice(0, 1), 'gemini-flash-lite-latest'])].join(' → ')}`);
-const other = names.filter(n => /flash/i.test(n) && !/^gemini-\d+(\.\d+)?-flash(-lite)?$/.test(n) && !/latest$/.test(n));
-if (other.length) console.log(`자동 선택 규칙에 안 걸리는 flash 계열 이름: ${other.join(', ')}`);
+console.log(`\n현재 자동 선택 순서: ${modelOrder(names).join(' → ')}`);
+const other = names.filter(n => /^gemini-\d/.test(n) && !/^gemini-\d+(\.\d+)?-flash(-lite)?$/.test(n) && !/(image|tts|transcribe|preview|computer-use|robotics)/.test(n) && !modelOrder(names).includes(n));
+if (other.length) console.log(`자동 선택에 안 들어가는 새 이름 (확인 필요): ${other.join(', ')}`);
