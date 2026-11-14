@@ -497,10 +497,18 @@ async function post(model, body) {
   return j;
 }
 
+/** 이름 규칙(gemini-숫자-flash)에 안 맞는 새 세대 Flash급 모델 — 목록에 있으면 맨 앞에 (Gemini 4 는 코드명으로 나옴)
+ *  hydrogen = Gemini 4 Flash급 (2026-11 목록 확인, 출력 65536). argon(최상위)·carbon(성격 미확인)은 넣지 않음 */
+const PREFERRED = ['gemini-4-hydrogen'];
+/** 모델 목록 → 시도 순서: 선호 새 모델 → 번호가 가장 높은 Flash → gemini-flash-latest → 번호가 가장 높은 Flash-Lite → gemini-flash-lite-latest */
+function modelOrder(names) {
+  const ver = n => Number((n.match(/^gemini-(\d+(?:\.\d+)?)-/) || [])[1] || 0);
+  const flash = names.filter(n => /^gemini-\d+(\.\d+)?-flash$/.test(n)).sort((x, y) => ver(y) - ver(x));
+  const lite = names.filter(n => /^gemini-\d+(\.\d+)?-flash-lite$/.test(n)).sort((x, y) => ver(y) - ver(x));
+  return [...new Set([...PREFERRED.filter(n => names.includes(n)), ...flash.slice(0, 1), 'gemini-flash-latest', ...lite.slice(0, 1), 'gemini-flash-lite-latest'])];
+}
 /** 사용 가능한 Flash 계열 모델 이름 고르기 */
 async function autoModels() {
-  // 우선순위: 번호가 가장 높은 Flash → gemini-flash-latest → 번호가 가장 높은 Flash-Lite → gemini-flash-lite-latest
-  const ver = n => Number((n.match(/^gemini-(\d+(?:\.\d+)?)-/) || [])[1] || 0);
   let names = [];
   try {
     const res = await fetch(`${API}/models?pageSize=200`, { headers: { 'x-goog-api-key': KEY }, signal: AbortSignal.timeout(20000) });
@@ -508,9 +516,7 @@ async function autoModels() {
     names = (j.models || []).filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
       .map(m => m.name.replace(/^models\//, ''));
   } catch (e) { /* 목록을 못 받으면 별칭만 사용 */ }
-  const flash = names.filter(n => /^gemini-\d+(\.\d+)?-flash$/.test(n)).sort((x, y) => ver(y) - ver(x));
-  const lite = names.filter(n => /^gemini-\d+(\.\d+)?-flash-lite$/.test(n)).sort((x, y) => ver(y) - ver(x));
-  return [...new Set([...flash.slice(0, 1), 'gemini-flash-latest', ...lite.slice(0, 1), 'gemini-flash-lite-latest'])];
+  return modelOrder(names);
 }
 
 const CAT_LABEL = { rates: '금리', inflation: '물가', growth: '경기', market: '시장·신용', fx: '환율', energy: '에너지', power: '전력', freight: '운임', stocks: '비축·재고', metals: '금속', grains: '곡물', fert: '비료', etf: 'ETF' };
@@ -613,7 +619,7 @@ async function generateColumn(models, first, material) {
   const body = schema => ({
     systemInstruction: { parts: [{ text: system }] },
     contents: [{ role: 'user', parts: [{ text: user }] }],
-    generationConfig: { temperature: 0.6, maxOutputTokens: 8192, responseMimeType: 'application/json', ...(schema ? { responseSchema: COLUMN_SCHEMA } : {}) }
+    generationConfig: { temperature: 0.6, maxOutputTokens: 32768, responseMimeType: 'application/json', ...(schema ? { responseSchema: COLUMN_SCHEMA } : {}) }
   });
   const byId = new Map((material.allRows || material.rows).map(r => [r.id, r]));   // 근거 지표: 해설 대상 밖 지표도 허용
   const order = [first, ...models.filter(m => m !== first)];
@@ -751,7 +757,7 @@ async function generateWatchlist(models, first, material, universe) {
   const body = schema => ({
     systemInstruction: { parts: [{ text: system }] },
     contents: [{ role: 'user', parts: [{ text: user }] }],
-    generationConfig: { temperature: 0.5, maxOutputTokens: 4096, responseMimeType: 'application/json', ...(schema ? { responseSchema: watchSchema() } : {}) }
+    generationConfig: { temperature: 0.5, maxOutputTokens: 16384, responseMimeType: 'application/json', ...(schema ? { responseSchema: watchSchema() } : {}) }
   });
   for (const m of [first, ...models.filter(x => x !== first)]) {
     if (quotaDead.has(m)) continue;
@@ -1077,7 +1083,8 @@ async function main() {
   const body = schema => ({
     systemInstruction: { parts: [{ text: system }] },
     contents: [{ role: 'user', parts: [{ text: user }] }],
-    generationConfig: { temperature: 0.4, maxOutputTokens: 16384, responseMimeType: 'application/json', ...(schema ? { responseSchema: SCHEMA } : {}) }
+    generationConfig: { temperature: 0.4, maxOutputTokens: 65536,   // 새 모델은 생각(thinking) 토큰도 출력 한도에 포함 — 16384 에서 잘림(MAX_TOKENS)
+      responseMimeType: 'application/json', ...(schema ? { responseSchema: SCHEMA } : {}) }
   });
 
   const models = MODEL ? [MODEL] : await autoModels();
@@ -1087,7 +1094,19 @@ async function main() {
   // 모두 혼잡이었으면 30초 쉬고 첫 모델을 한 번 더.
   const tryModel = async m => {
     for (const withSchema of [true, false]) {
-      try { resp = await post(m, body(withSchema)); used = m; return 'ok'; }
+      try {
+        const r = await post(m, body(withSchema));
+        // 응답은 왔지만 잘렸거나(MAX_TOKENS) JSON 이 아니면 이 모델은 실패로 보고 다음 모델로 (전체 실패로 끝내지 않음)
+        const c = r.candidates && r.candidates[0], t = c && c.content && (c.content.parts || []).map(p => p.text || '').join('');
+        try { JSON.parse(String(t).replace(/^```(?:json)?\s*|\s*```$/g, '')); }
+        catch (pe) {
+          const u = r.usageMetadata || {};
+          lastErr = new Error(`응답 JSON 해석 실패 (finishReason: ${c && c.finishReason}, 출력 ${u.candidatesTokenCount ?? '?'} · 생각 ${u.thoughtsTokenCount ?? '?'} 토큰)`);
+          console.log(`  ${m} → ${lastErr.message}`);
+          return 'skip';
+        }
+        resp = r; used = m; return 'ok';
+      }
       catch (e) {
         lastErr = e; console.log(`  ${m}${withSchema ? '' : ' (형식 지정 없이)'} → ${e.message}`);
         if (e.status === 429) return 'quota';
@@ -1240,7 +1259,7 @@ async function main() {
   await mkdir(dirname(OUT), { recursive: true });
   await writeFile(OUT, JSON.stringify(out));
   const u = resp.usageMetadata || {};
-  console.log(`✓ AI 인사이트 생성 (${used}) — 입력 ${u.promptTokenCount ?? '?'} · 출력 ${u.candidatesTokenCount ?? '?'} · 합계 ${u.totalTokenCount ?? '?'} 토큰, 분류 브리핑 ${Object.keys(sections).length}개, 지표 해설 ${Object.keys(indicators).length}개`);
+  console.log(`✓ AI 인사이트 생성 (${used}) — 입력 ${u.promptTokenCount ?? '?'} · 출력 ${u.candidatesTokenCount ?? '?'}${u.thoughtsTokenCount ? ` · 생각 ${u.thoughtsTokenCount}` : ''} · 합계 ${u.totalTokenCount ?? '?'} 토큰, 분류 브리핑 ${Object.keys(sections).length}개, 지표 해설 ${Object.keys(indicators).length}개`);
   // 검토용 로그 (Actions 로그에서 그대로 읽을 수 있게)
   const len = x => (x || '').length;
   const warn = [];
@@ -1263,7 +1282,7 @@ async function main() {
 }
 
 // 테스트에서 문장 다듬기 함수만 가져다 쓸 수 있게 내보냄. 직접 실행할 때만 생성 시작
-export { readIndicatorMeta, clean, cleanWatch, soften, BANNED, groundRefs, checkNumbers, stats, weeklyBlock, energyLinks, chainLinks, macroLines, focusLines, sendColumnTelegram, sendWatchlistTelegram, sendTelegramLong };
+export { modelOrder, readIndicatorMeta, clean, cleanWatch, soften, BANNED, groundRefs, checkNumbers, stats, weeklyBlock, energyLinks, chainLinks, macroLines, focusLines, sendColumnTelegram, sendWatchlistTelegram, sendTelegramLong };
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch(e => keepPrevious(`오류: ${e.message}`, { fail: true })).then(() => process.exit(0));
 }

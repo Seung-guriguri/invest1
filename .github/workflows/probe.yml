@@ -19,6 +19,10 @@ on:
       find:
         description: '받은 내용에서 찾을 정규식 (예: api\.[a-z.]+/api/[^"]+ — 페이지 속 데이터 주소 찾기)'
         default: ''
+      gemini:
+        description: 'Gemini 사용 가능 모델 목록 보기 (생성 호출 없음)'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -57,3 +61,8 @@ jobs:
           IFS=',' read -ra ES <<< "$EIA_ROUTES"
           for e in "${ES[@]}"; do e="$(echo "$e" | xargs)"; [ -n "$e" ] && args+=(--eia "$e"); done
           node scripts/probe-url.mjs "${args[@]}"
+      - name: Gemini 모델 목록
+        if: inputs.gemini
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: node scripts/probe-gemini.mjs

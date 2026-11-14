@@ -8,7 +8,7 @@ import vm from 'node:vm';
 import { COMPUTED, clean, guessFreq, trim, valueAsOf, round, parseWorldBank, parseSpdr, frontTicker, spliceRecent } from '../scripts/fetch-data.mjs';
 import { readSheet } from '../scripts/lib/xlsx.mjs';
 import { deflateRawSync } from 'node:zlib';
-import { clean as aiClean, soften, cleanWatch, groundRefs, checkNumbers, stats as aiStats, weeklyBlock, energyLinks, chainLinks, macroLines, focusLines } from '../scripts/ai-insight.mjs';
+import { clean as aiClean, soften, cleanWatch, groundRefs, checkNumbers, stats as aiStats, weeklyBlock, energyLinks, chainLinks, macroLines, focusLines, modelOrder } from '../scripts/ai-insight.mjs';
 import { readPairs, linkHealth, linkBlock, linkTelegram, linkJson, summary as linkSummary, WHY, KIND, weekly, trendChanges, trendJudge } from '../scripts/lib/link-health.mjs';
 import { obsAsOf, rateDecomp, seasonDevAt, oilTightness, basketIndex, goldRealGap, yoySameWeek } from '../scripts/lib/combo.mjs';
 import { SOURCES } from '../scripts/sources.mjs';
@@ -700,5 +700,12 @@ test('핵심 점검 지표: 분류별 묶음, [주목] 판정, 정제 마진 제
   assert.match(txt, /\[제품별 엇갈림\] 디젤 강세\(위치 92\) · 휘발유 약세\(위치 8\)/);
   const calm = focusLines(rows.map(x => x.id === 'gasoline_crack' ? { ...x, position: 70 } : x.id === 'diesel_crack' ? { ...x, position: 80 } : x)).join('\n');
   assert.match(calm, /제품별 차이 작음 \(위치 70~80\)/);
+});
+
+test('Gemini 모델 순서: 새 세대 Flash급(코드명) → 번호 최고 Flash → 별칭 → Flash-Lite', () => {
+  const names = ['gemini-3.6-flash', 'gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-4-argon', 'gemini-4-carbon', 'gemini-4-hydrogen', 'gemini-3.8-flash-tts'];
+  assert.deepEqual(modelOrder(names), ['gemini-4-hydrogen', 'gemini-3.8-flash', 'gemini-flash-latest', 'gemini-3.5-flash-lite', 'gemini-flash-lite-latest']);
+  assert.deepEqual(modelOrder(['gemini-3.8-flash']), ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-flash-lite-latest'], '새 모델이 없으면 예전 순서');
+  assert.deepEqual(modelOrder([]), ['gemini-flash-latest', 'gemini-flash-lite-latest'], '목록을 못 받으면 별칭만');
 });
 
