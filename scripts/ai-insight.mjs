@@ -619,7 +619,7 @@ async function generateColumn(models, first, material) {
   const body = schema => ({
     systemInstruction: { parts: [{ text: system }] },
     contents: [{ role: 'user', parts: [{ text: user }] }],
-    generationConfig: { temperature: 0.6, maxOutputTokens: 8192, responseMimeType: 'application/json', ...(schema ? { responseSchema: COLUMN_SCHEMA } : {}) }
+    generationConfig: { temperature: 0.6, maxOutputTokens: 32768, responseMimeType: 'application/json', ...(schema ? { responseSchema: COLUMN_SCHEMA } : {}) }
   });
   const byId = new Map((material.allRows || material.rows).map(r => [r.id, r]));   // 근거 지표: 해설 대상 밖 지표도 허용
   const order = [first, ...models.filter(m => m !== first)];
@@ -757,7 +757,7 @@ async function generateWatchlist(models, first, material, universe) {
   const body = schema => ({
     systemInstruction: { parts: [{ text: system }] },
     contents: [{ role: 'user', parts: [{ text: user }] }],
-    generationConfig: { temperature: 0.5, maxOutputTokens: 4096, responseMimeType: 'application/json', ...(schema ? { responseSchema: watchSchema() } : {}) }
+    generationConfig: { temperature: 0.5, maxOutputTokens: 16384, responseMimeType: 'application/json', ...(schema ? { responseSchema: watchSchema() } : {}) }
   });
   for (const m of [first, ...models.filter(x => x !== first)]) {
     if (quotaDead.has(m)) continue;
@@ -1083,7 +1083,8 @@ async function main() {
   const body = schema => ({
     systemInstruction: { parts: [{ text: system }] },
     contents: [{ role: 'user', parts: [{ text: user }] }],
-    generationConfig: { temperature: 0.4, maxOutputTokens: 16384, responseMimeType: 'application/json', ...(schema ? { responseSchema: SCHEMA } : {}) }
+    generationConfig: { temperature: 0.4, maxOutputTokens: 65536,   // 새 모델은 생각(thinking) 토큰도 출력 한도에 포함 — 16384 에서 잘림(MAX_TOKENS)
+      responseMimeType: 'application/json', ...(schema ? { responseSchema: SCHEMA } : {}) }
   });
 
   const models = MODEL ? [MODEL] : await autoModels();
@@ -1093,7 +1094,19 @@ async function main() {
   // 모두 혼잡이었으면 30초 쉬고 첫 모델을 한 번 더.
   const tryModel = async m => {
     for (const withSchema of [true, false]) {
-      try { resp = await post(m, body(withSchema)); used = m; return 'ok'; }
+      try {
+        const r = await post(m, body(withSchema));
+        // 응답은 왔지만 잘렸거나(MAX_TOKENS) JSON 이 아니면 이 모델은 실패로 보고 다음 모델로 (전체 실패로 끝내지 않음)
+        const c = r.candidates && r.candidates[0], t = c && c.content && (c.content.parts || []).map(p => p.text || '').join('');
+        try { JSON.parse(String(t).replace(/^```(?:json)?\s*|\s*```$/g, '')); }
+        catch (pe) {
+          const u = r.usageMetadata || {};
+          lastErr = new Error(`응답 JSON 해석 실패 (finishReason: ${c && c.finishReason}, 출력 ${u.candidatesTokenCount ?? '?'} · 생각 ${u.thoughtsTokenCount ?? '?'} 토큰)`);
+          console.log(`  ${m} → ${lastErr.message}`);
+          return 'skip';
+        }
+        resp = r; used = m; return 'ok';
+      }
       catch (e) {
         lastErr = e; console.log(`  ${m}${withSchema ? '' : ' (형식 지정 없이)'} → ${e.message}`);
         if (e.status === 429) return 'quota';
@@ -1246,7 +1259,7 @@ async function main() {
   await mkdir(dirname(OUT), { recursive: true });
   await writeFile(OUT, JSON.stringify(out));
   const u = resp.usageMetadata || {};
-  console.log(`✓ AI 인사이트 생성 (${used}) — 입력 ${u.promptTokenCount ?? '?'} · 출력 ${u.candidatesTokenCount ?? '?'} · 합계 ${u.totalTokenCount ?? '?'} 토큰, 분류 브리핑 ${Object.keys(sections).length}개, 지표 해설 ${Object.keys(indicators).length}개`);
+  console.log(`✓ AI 인사이트 생성 (${used}) — 입력 ${u.promptTokenCount ?? '?'} · 출력 ${u.candidatesTokenCount ?? '?'}${u.thoughtsTokenCount ? ` · 생각 ${u.thoughtsTokenCount}` : ''} · 합계 ${u.totalTokenCount ?? '?'} 토큰, 분류 브리핑 ${Object.keys(sections).length}개, 지표 해설 ${Object.keys(indicators).length}개`);
   // 검토용 로그 (Actions 로그에서 그대로 읽을 수 있게)
   const len = x => (x || '').length;
   const warn = [];
