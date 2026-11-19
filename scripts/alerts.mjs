@@ -17,6 +17,7 @@
  * ===================================================================== */
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
+import { tgPost, failReason } from './lib/telegram.mjs';
 
 const args = process.argv.slice(2);
 const arg = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
@@ -155,12 +156,8 @@ async function findChatId() {
 }
 
 async function sendTelegram(text, chat = TG_CHAT) {
-  const res = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
-    method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ chat_id: chat, text, disable_web_page_preview: true }),
-    signal: AbortSignal.timeout(20000)
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status} ${(await res.text()).slice(0, 200)}`);
+  const r = await tgPost(TG_TOKEN, chat, text);   // 텔레그램 서버 일시 오류는 잠시 쉬고 다시 보냄
+  if (!r.ok) throw new Error(failReason(r));
 }
 
 const kstDate = d => new Date(d.getTime() + 9 * 3600000).toISOString().slice(0, 10);

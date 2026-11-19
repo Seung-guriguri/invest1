@@ -12,6 +12,7 @@ import { clean as aiClean, soften, cleanWatch, groundRefs, checkNumbers, stats a
 import { readPairs, linkHealth, linkBlock, linkTelegram, linkJson, summary as linkSummary, WHY, KIND, weekly, trendChanges, trendJudge } from '../scripts/lib/link-health.mjs';
 import { obsAsOf, rateDecomp, seasonDevAt, oilTightness, basketIndex, goldRealGap, yoySameWeek } from '../scripts/lib/combo.mjs';
 import { SOURCES } from '../scripts/sources.mjs';
+import { tgPost, failReason } from '../scripts/lib/telegram.mjs';
 import { loadConfig } from '../scripts/lib/config.mjs';
 import { validateData } from '../scripts/validate-data.mjs';
 import { buildCatalog } from '../scripts/catalog.mjs';
@@ -709,3 +710,32 @@ test('Gemini 모델 순서: 새 세대 Flash급(코드명) → 번호 최고 Fla
   assert.deepEqual(modelOrder([]), ['gemini-flash-latest', 'gemini-flash-lite-latest'], '목록을 못 받으면 별칭만');
 });
 
+
+/* ---------- 텔레그램 전송 재시도: 서버 일시 오류(5xx·429·네트워크)만 다시, 설정 오류(4xx)는 바로 실패 ---------- */
+test('텔레그램 전송: 502 는 다시 보내 성공, 403 은 한 번만, 계속 502 면 시도 횟수와 함께 실패', async () => {
+  const realFetch = globalThis.fetch;
+  let plan = [], calls = 0;
+  globalThis.fetch = async (url, opt) => {
+    if (!String(url).includes('api.telegram.org')) return realFetch(url, opt);
+    const st = plan[Math.min(calls++, plan.length - 1)];
+    if (st === 'net') throw new Error('fetch failed');
+    return { ok: st === 200, status: st, json: async () => ({ parameters: { retry_after: 0 } }) };
+  };
+  const W = { waits: [0, 0, 0] };
+  try {
+    plan = [502, 'net', 200]; calls = 0;
+    let r = await tgPost('t', 'c', 'x', W);
+    assert.deepEqual([r.ok, r.tries], [true, 3]);
+    plan = [403]; calls = 0;
+    r = await tgPost('t', 'c', 'x', W);
+    assert.deepEqual([r.ok, r.tries, calls], [false, 1, 1]);
+    assert.equal(failReason(r), 'HTTP 403');
+    plan = [502]; calls = 0;
+    r = await tgPost('t', 'c', 'x', W);
+    assert.deepEqual([r.ok, r.tries], [false, 4]);
+    assert.match(failReason(r), /서버 일시 오류 HTTP 502 · 4번 시도/);
+    plan = [429, 200]; calls = 0;
+    r = await tgPost('t', 'c', 'x', W);
+    assert.equal(r.ok, true);
+  } finally { globalThis.fetch = realFetch; }
+});
