@@ -26,6 +26,7 @@ import '../season.js';   // globalThis.SEASON 등록
 import { SOURCES } from './sources.mjs';
 import { closes, retAfter, retSoFar } from './watch-perf.mjs';
 import { rateDecomp, oilTightness, goldRealGap } from './lib/combo.mjs';
+import { tgPost, failReason, transient } from './lib/telegram.mjs';
 import { readPairs, linkHealth, linkBlock, linkTelegram, summary as linkSummary } from './lib/link-health.mjs';
 
 const args = process.argv.slice(2);
@@ -59,14 +60,8 @@ async function keepPrevious(reason, { fail = false } = {}) {
   // 생성하려다 실패한 경우만 텔레그램으로 알림 (실행 대상 아님·이미 생성됨은 알리지 않음)
   if (fail && RUN && TG_TOKEN && TG_CHAT) {
     const note = SCHEDULED && new Date(Date.now() + 9 * 3600000).getUTCHours() < 9 ? '\n09:23 백업 실행에서 한 번 더 시도합니다.' : '\nActions → Run workflow(AI 체크)로 다시 만들 수 있어요.';
-    try {
-      await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
-        method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ chat_id: TG_CHAT, text: `⚠️ AI 브리핑 생성 실패\n이유: ${String(reason).slice(0, 200)}\n앱에는 이전 브리핑이 그대로 표시됩니다.${note}`, disable_web_page_preview: true }),
-        signal: AbortSignal.timeout(20000)
-      });
-      console.log('  텔레그램으로 실패 알림 전송');
-    } catch (e) { console.log(`  실패 알림 전송 실패: ${e.message}`); }
+    const r = await tgPost(TG_TOKEN, TG_CHAT, `⚠️ AI 브리핑 생성 실패\n이유: ${String(reason).slice(0, 200)}\n앱에는 이전 브리핑이 그대로 표시됩니다.${note}`);
+    console.log(r.ok ? '  텔레그램으로 실패 알림 전송' : `  실패 알림 전송 실패: ${failReason(r)}`);
   }
   if (!PREV) return;
   try {
@@ -523,15 +518,12 @@ const CAT_LABEL = { rates: '금리', inflation: '물가', growth: '경기', mark
 
 /** 새 브리핑을 텔레그램으로 (4096자 제한 안에서) */
 /** 공유 채널로 가는 내용 전송이 실패하면 개인 채팅(운영 알림 창구)에 한 줄로 알림 — 채널이 조용히 끊기는 걸 막음 */
-async function contentFailed(label, why) {
+async function contentFailed(label, r) {
   if (!TO_SHARE || !TG_TOKEN || !TG_CHAT) return;
-  try {
-    await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ chat_id: TG_CHAT, text: `⚠️ 공유 채널로 ${label} 전송이 실패했어요 (${String(why).slice(0, 80)})\n봇이 채널의 '메시지 게시' 관리자인지, TELEGRAM_SHARE_CHAT_ID 값이 맞는지 확인하세요.`, disable_web_page_preview: true }),
-      signal: AbortSignal.timeout(20000)
-    });
-  } catch (e) { /* 알림도 못 보내면 로그만 */ }
+  const hint = transient(r.status)
+    ? '텔레그램 서버 쪽 일시 오류라 설정 문제는 아니에요. 내용은 앱 AI 화면에서 볼 수 있어요.'
+    : "봇이 채널의 '메시지 게시' 관리자인지, TELEGRAM_SHARE_CHAT_ID 값이 맞는지 확인하세요.";
+  await tgPost(TG_TOKEN, TG_CHAT, `⚠️ 공유 채널로 ${label} 전송이 실패했어요 (${failReason(r).slice(0, 80)})\n${hint}`);
 }
 
 async function sendBriefingTelegram(b, sections, kst, energy = {}, chains = {}, linkLines = []) {
@@ -578,14 +570,9 @@ async function sendBriefingTelegram(b, sections, kst, energy = {}, chains = {}, 
       .replace('\n\n분류별 한 줄', '\n\n🔗 식량·중국 철강·한국 수입 부담 연결 블록은 앱 AI 화면에서\n\n분류별 한 줄');
   }
   if (text.length > 4000) text = text.slice(0, 3990) + '…';
-  try {
-    const res = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ chat_id: TG_DEST, text, disable_web_page_preview: true }), signal: AbortSignal.timeout(20000)
-    });
-    console.log(res.ok ? `  ${WHERE}로 브리핑 전송 완료` : `  ${WHERE} 브리핑 전송 실패: HTTP ${res.status}`);
-    if (!res.ok) await contentFailed('브리핑', `HTTP ${res.status}`);
-  } catch (e) { console.log(`  ${WHERE} 브리핑 전송 실패: ${e.message}`); await contentFailed('브리핑', e.message); }
+  const r = await tgPost(TG_TOKEN, TG_DEST, text);
+  console.log(r.ok ? `  ${WHERE}로 브리핑 전송 완료${r.tries > 1 ? ` (${r.tries}번째 시도)` : ''}` : `  ${WHERE} 브리핑 전송 실패: ${failReason(r)}`);
+  if (!r.ok) await contentFailed('브리핑', r);
 }
 
 /* ---------- 오늘의 칼럼: 섹션형 짧은 칼럼 (브리핑 성공 뒤 1회 추가 호출) ----------
@@ -668,14 +655,9 @@ async function sendColumnTelegram(col) {
   let text = [`📰 ${ED.col} 《${col.title}》`, '', col.oneline || col.summary || '', '', SITE_URL ? `전문 보기: ${SITE_URL}` : '전문은 앱의 AI 브리핑에서 볼 수 있어요.'].join('\n');
   if (TO_SHARE) text += '\n\n※ AI가 작성한 참고용 글이며 투자 권유가 아닙니다.';   // 여러 사람이 보는 채널
   if (text.length > 4000) text = text.slice(0, 3990) + '…';
-  try {
-    const res = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ chat_id: TG_DEST, text, disable_web_page_preview: true }), signal: AbortSignal.timeout(20000)
-    });
-    console.log(res.ok ? `  ${WHERE}로 칼럼 전송 완료` : `  ${WHERE} 칼럼 전송 실패: HTTP ${res.status}`);
-    if (!res.ok) await contentFailed('칼럼', `HTTP ${res.status}`);
-  } catch (e) { console.log(`  ${WHERE} 칼럼 전송 실패: ${e.message}`); await contentFailed('칼럼', e.message); }
+  const r = await tgPost(TG_TOKEN, TG_DEST, text);
+  console.log(r.ok ? `  ${WHERE}로 칼럼 전송 완료${r.tries > 1 ? ` (${r.tries}번째 시도)` : ''}` : `  ${WHERE} 칼럼 전송 실패: ${failReason(r)}`);
+  if (!r.ok) await contentFailed('칼럼', r);
 }
 
 /* ---------- 관심 종목·ETF: 텔레그램 전용 — 개인 채팅 + 공유 채널 (앱·ai.json·로그에 내용을 남기지 않음) ---------- */
@@ -805,14 +787,9 @@ async function sendWatchlistTelegram(w, universe, kst) {
   ].join('\n');
   let text = body + '\n\n' + (TO_SHARE ? shareNote : '※ 텔레그램 전용 · AI가 고른 조사 후보이며 매수·매도 권유가 아닙니다.');
   if (text.length > 4000) text = text.slice(0, 3990) + '…';
-  try {
-    const res = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ chat_id: TG_DEST, text, disable_web_page_preview: true }), signal: AbortSignal.timeout(20000)
-    });
-    console.log(res.ok ? `  ${WHERE}로 관심 종목·ETF 전송 완료` : `  ${WHERE} 관심 종목 전송 실패: HTTP ${res.status}`);
-    if (!res.ok) await contentFailed('관심 종목·ETF', `HTTP ${res.status}`);
-  } catch (e) { console.log(`  ${WHERE} 관심 종목 전송 실패: ${e.message}`); await contentFailed('관심 종목·ETF', e.message); }
+  const r = await tgPost(TG_TOKEN, TG_DEST, text);
+  console.log(r.ok ? `  ${WHERE}로 관심 종목·ETF 전송 완료${r.tries > 1 ? ` (${r.tries}번째 시도)` : ''}` : `  ${WHERE} 관심 종목 전송 실패: ${failReason(r)}`);
+  if (!r.ok) await contentFailed('관심 종목·ETF', r);
 }
 
 const CATS = ['rates', 'inflation', 'growth', 'market', 'fx', 'energy', 'power', 'freight', 'stocks', 'metals', 'grains', 'fert', 'etf'];
@@ -907,13 +884,8 @@ async function sendTelegramLong(text, label, chat = TG_DEST) {
   if (cur) parts.push(cur);
   for (let i = 0; i < parts.length; i++) {
     const body = parts.length > 1 ? `${parts[i]}${i < parts.length - 1 ? `\n\n(${i + 1}/${parts.length} — 계속)` : ''}` : parts[i];
-    try {
-      const res = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
-        method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ chat_id: chat, text: body.slice(0, 4090), disable_web_page_preview: true }), signal: AbortSignal.timeout(20000)
-      });
-      if (!res.ok) { console.log(`  텔레그램 ${label} 전송 실패: HTTP ${res.status}`); if (chat !== TG_CHAT) await contentFailed(label, `HTTP ${res.status}`); return; }
-    } catch (e) { console.log(`  텔레그램 ${label} 전송 실패: ${e.message}`); if (chat !== TG_CHAT) await contentFailed(label, e.message); return; }
+    const r = await tgPost(TG_TOKEN, chat, body.slice(0, 4090));
+    if (!r.ok) { console.log(`  텔레그램 ${label} 전송 실패: ${failReason(r)}`); if (chat !== TG_CHAT) await contentFailed(label, r); return; }
   }
   console.log(`  ${chat === TG_CHAT ? '텔레그램' : '공유 채널'}으로 ${label} 전송 완료 (${parts.length}개 메시지)`);
 }

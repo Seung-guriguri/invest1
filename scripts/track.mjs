@@ -15,6 +15,7 @@
  * ===================================================================== */
 import { readFile, writeFile, mkdir, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
+import { tgPost, failReason } from './lib/telegram.mjs';
 import { closes, retAfter } from './watch-perf.mjs';
 
 const args = process.argv.slice(2);
@@ -31,11 +32,8 @@ const kstNow = () => new Date(Date.now() + 9 * 3600000);
 const readJSON = async (f, d) => { try { return JSON.parse(await readFile(f, 'utf8')); } catch { return d; } };
 
 async function sendTelegram(text, chat = TG_CHAT) {
-  const res = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
-    method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ chat_id: chat, text, disable_web_page_preview: true }), signal: AbortSignal.timeout(20000)
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const r = await tgPost(TG_TOKEN, chat, text);   // 텔레그램 서버 일시 오류는 잠시 쉬고 다시 보냄
+  if (!r.ok) throw new Error(failReason(r));
 }
 
 const pct = v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1) + '%';
