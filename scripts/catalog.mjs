@@ -15,6 +15,7 @@ const OUT = new URL('../docs/indicator-catalog.md', import.meta.url);
 function srcLabel(s) {
   if (s.fred) return `FRED ${s.fred}`;
   if (s.yahoo) return `Yahoo ${s.yahoo}`;
+  if (s.curve) return `Yahoo ${s.curve} 개별 월물 (근월물 − ${s.gap}개월 뒤)`;
   if (s.ecos) return `한국은행 ${s.ecos}${s.item ? '/' + s.item : ''}`;
   if (s.eia) return `EIA ${s.eia}`;
   if (s.eiaGrid) return `EIA-930 ${s.eiaGrid}`;

@@ -13,6 +13,7 @@ import { readPairs, linkHealth, linkBlock, linkTelegram, linkJson, summary as li
 import { obsAsOf, rateDecomp, seasonDevAt, oilTightness, basketIndex, goldRealGap, yoySameWeek } from '../scripts/lib/combo.mjs';
 import { SOURCES } from '../scripts/sources.mjs';
 import { tgPost, failReason } from '../scripts/lib/telegram.mjs';
+import { lastTrade, frontAt, ticker as futTicker, contractsFor, curveSpread, curveState } from '../scripts/lib/curve.mjs';
 import { loadConfig } from '../scripts/lib/config.mjs';
 import { validateData } from '../scripts/validate-data.mjs';
 import { buildCatalog } from '../scripts/catalog.mjs';
@@ -738,4 +739,47 @@ test('텔레그램 전송: 502 는 다시 보내 성공, 403 은 한 번만, 계
     r = await tgPost('t', 'c', 'x', W);
     assert.equal(r.ok, true);
   } finally { globalThis.fetch = realFetch; }
+});
+
+/* ---------- 원유 기간 구조: 만기 규칙 · 그날의 근월물 · 월물 교체일에도 같은 날 두 월물만 비교 ---------- */
+test('기간 구조: WTI·브렌트 만기, 근월물 판정, 교체일 전후 스프레드, 콘탱고·백워데이션 판정', () => {
+  // WTI: 인도월 전달 25일에서 3영업일 전 (12/25 휴장 → 12/24 기준) · 브렌트: 인도월 2개월 전 달 마지막 영업일
+  assert.equal(lastTrade('cl', 2026, 11), '2026-11-20');   // CLZ26 (실제 Yahoo 마지막 값 11-20)
+  assert.equal(lastTrade('cl', 2027, 0), '2026-12-21');    // CLF27: 12/25(금) 휴장 → 12/24 에서 3영업일 전
+  assert.equal(lastTrade('brent', 2026, 11), '2026-10-30'); // BZZ26 (Yahoo 404 = 만기 지남)
+  assert.equal(lastTrade('brent', 2027, 0), '2026-11-30');  // BZF27
+  assert.equal(futTicker('CL', '.NYM', frontAt('cl', '2026-11-20')), 'CLZ26.NYM');   // 만기 당일까지는 그 월물
+  assert.equal(futTicker('CL', '.NYM', frontAt('cl', '2026-11-23')), 'CLF27.NYM');
+  assert.equal(futTicker('BZ', '.NYM', frontAt('brent', '2026-11-23')), 'BZF27.NYM');
+  assert.deepEqual(contractsFor('cl', '2026-11-19', '2026-11-23', 2).map(c => futTicker('CL', '', c)), ['CLZ26', 'CLF27', 'CLG27', 'CLH27']);
+  // 11-20(금)은 CLZ26−CLF27, 11-23(월)은 CLF27−CLG27 — 교체일에 연속 선물처럼 값이 튀지 않음
+  const closes = new Map([
+    ['CLZ26.NYM', new Map([['2026-11-20', 84]])],
+    ['CLF27.NYM', new Map([['2026-11-20', 83], ['2026-11-23', 82]])],
+    ['CLG27.NYM', new Map([['2026-11-20', 82.2], ['2026-11-23', 81.5]])]
+  ]);
+  assert.deepEqual(curveSpread('cl', 'CL', '.NYM', 1, closes, '2026-11-01'), [['2026-11-20', 1], ['2026-11-23', 0.5]]);
+  // 근월물 값이 없으면(만기 지난 월물 404) 그날은 비움 — 다음 월물을 근월물로 잘못 쓰지 않음
+  closes.delete('CLZ26.NYM');
+  assert.deepEqual(curveSpread('cl', 'CL', '.NYM', 1, closes, '2026-11-01'), [['2026-11-23', 0.5]]);
+  assert.equal(curveState(3.2), 'backwardation');
+  assert.equal(curveState(-1.1), 'contango');
+  assert.equal(curveState(0.2), 'flat');
+});
+
+test('AI 조합 재료: 원유 기간 구조 판정·전환·재고와 같은 방향인지', () => {
+  const rows = [
+    { id: 'wti_curve', value: 2.4, chg_1m: 3.1, date: '2026-11-23' },      // 한 달 전 −0.7(콘탱고) → 백워데이션 전환
+    { id: 'brent_curve', value: 5.2, chg_1m: 0.4, date: '2026-11-23' },
+    { id: 'us_crude', value: 417.8, season_dev: -3.7, date: '2026-11-13' }
+  ];
+  const { lines, nums } = macroLines(rows, {});
+  const l = lines.find(x => x.startsWith('원유 기간 구조'));
+  assert.match(l, /\[WTI 백워데이션 · 브렌트 백워데이션\]/);
+  assert.match(l, /WTI \+2\.40\$ 백워데이션 \(2026-11-23, 1개월 \+3\.10\$ · 한 달 전 콘탱고에서 전환\)/);
+  assert.match(l, /재고 부족과 같은 방향/);
+  assert.ok(nums.includes(2.4) && nums.includes(5.2));
+  // 이력이 한 달이 안 되면 전환 판단 없이
+  const l2 = macroLines([{ id: 'brent_curve', value: -1.2, chg_1m: null, date: '2026-11-23' }], {}).lines[0];
+  assert.match(l2, /\[브렌트 콘탱고\].*1개월 이력 부족/);
 });

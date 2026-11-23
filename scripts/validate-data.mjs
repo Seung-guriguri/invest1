@@ -11,7 +11,7 @@ import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 
 // 급변(직전 대비 25%↑) 점검 제외: 값이 0 근처를 오가거나 규모가 작아 변동률이 의미 없는 지표
-const NO_SPIKE = new Set(['aux_rrp', 'gold_real_gap', 'power_yoy', 'rate_driver']);
+const NO_SPIKE = new Set(['aux_rrp', 'gold_real_gap', 'power_yoy', 'rate_driver', 'wti_curve', 'brent_curve']);
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const FREQS = new Set(['D', 'W', 'M', 'Q']);

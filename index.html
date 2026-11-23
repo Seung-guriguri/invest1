@@ -301,6 +301,9 @@
   .badge.sample { color: var(--sample); background: var(--sample-bg); border: 1px dashed var(--sample); }
   .badge.stale { color: var(--red); background: var(--red-bg); }
   .badge.auto { color: var(--text-2); background: var(--surface-2); }
+  .badge.state.bw { color: var(--yellow); background: var(--yellow-bg); }   /* 백워데이션: 지금 빡빡함 */
+  .badge.state.ct { color: var(--accent); background: var(--surface-2); }   /* 콘탱고: 남아돎 */
+  .badge.state.fl { color: var(--text-2); background: var(--grey-bg); }
   .comment { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); font-size: 13.5px; }
   .season-note { margin-top: 4px; font-size: 12.5px; color: var(--text-2); }
   .empty { color: var(--text-2); font-size: 14px; }
@@ -833,6 +836,10 @@ const CONFIG = {
       level: { dir: 'up', warn: 130000, danger: 150000 }, change: { dir: 'both', flat: 1, warn: 5, danger: 10 } },
     { id: 'brent_wti', cat: 'energy', name: '브렌트−WTI 가격차', sub: '국제 유가 − 미국 유가, 자동 계산 · 평소 $3~5', unit: '$/bbl', dp: 2, changeMode: 'abs', profile: 'brentWti',
       level: { fixed: true, dir: 'up', warn: 7, danger: 10 }, change: { dir: 'both', flat: 0.2, warn: 1.5, danger: 3 } },
+    { id: 'wti_curve', cat: 'energy', name: 'WTI 기간 구조', sub: '근월물 − 6개월 뒤 월물, 자동 계산 — +면 백워데이션(지금 귀함), −면 콘탱고(남아돎)', unit: '$/bbl', dp: 2, changeMode: 'abs', profile: 'oilCurve', noSeason: true,
+      change: { dir: 'both', flat: 0.3, warn: 1.5, danger: 3 } },
+    { id: 'brent_curve', cat: 'energy', name: '브렌트 기간 구조', sub: '근월물 − 6개월 뒤 월물, 자동 계산 — +면 백워데이션(지금 귀함), −면 콘탱고(남아돎)', unit: '$/bbl', dp: 2, changeMode: 'abs', profile: 'oilCurve', noSeason: true,
+      change: { dir: 'both', flat: 0.3, warn: 1.5, danger: 3 } },
     { id: 'natgas', cat: 'energy', name: '천연가스', sub: '헨리허브', unit: '$/MMBtu', dp: 3, changeMode: 'pct', profile: 'gas',
       change: { dir: 'both', flat: 2, warn: 8, danger: 15 } },
     { id: 'ttf', cat: 'energy', name: '유럽 천연가스 (TTF)', sub: '네덜란드 TTF 선물 — 유럽 가스 기준가격, LNG 수입 수요', unit: '€/MWh', dp: 2, changeMode: 'pct', profile: 'ttf',
@@ -1449,6 +1456,21 @@ const COMMENTS = {
       : a.value > 0 ? '최근 한 달 금리 움직임은 실질금리 쪽이 주도 → 긴축·성장 기대 변화 (성장주·금에 민감)'
       : '최근 한 달 금리 움직임은 물가 기대 쪽이 주도 → 유가·물가 걱정 변화 (원자재와 연동)'
   },
+  oilCurve: {
+    // 값의 부호가 기간 구조를 정함: + 백워데이션(근월물이 비쌈), − 콘탱고(원월물이 비쌈), ±0.5달러 안은 평탄
+    badge: a => !Number.isFinite(a.value) ? null : a.value > 0.5 ? { text: '백워데이션', cls: 'bw' } : a.value < -0.5 ? { text: '콘탱고', cls: 'ct' } : { text: '평탄', cls: 'fl' },
+    special: a => {
+      if (!Number.isFinite(a.value)) return '';
+      const d = a.m1 ? a.m1.diff : null;
+      const turn = d == null ? '' : a.value > 0.5 && a.value - d <= 0.5 ? ' · 한 달 사이 백워데이션으로 전환'
+        : a.value < -0.5 && a.value - d >= -0.5 ? ' · 한 달 사이 콘탱고로 전환' : '';
+      const trend = d == null || Math.abs(d) < 0.3 || turn ? '' : a.value > 0.5 ? (d > 0 ? ' · 한 달 새 더 가팔라짐(빡빡해지는 중)' : ' · 한 달 새 완만해짐(빡빡함 완화)')
+        : a.value < -0.5 ? (d < 0 ? ' · 한 달 새 더 깊어짐(과잉 심화)' : ' · 한 달 새 얕아짐(과잉 완화)') : '';
+      if (a.value > 0.5) return `백워데이션 — 지금 당장 쓸 원유가 귀해 근월물이 비쌈. 재고가 줄거나 공급이 빠듯할 때 나타나고, 선물 보유자는 월물 교체 때 이익(롤 수익)${turn || trend}`;
+      if (a.value < -0.5) return `콘탱고 — 지금은 원유가 남아 먼 월물이 비쌈. 재고를 쌓아 두고 나중에 파는 게 이득인 구조라 저장 수요↑, 원유 ETF 는 월물 교체 때마다 손실${turn || trend}`;
+      return `평탄 — 근월물과 먼 월물 가격이 비슷, 수급이 균형에 가까움 (백워데이션↔콘탱고 전환 길목일 수 있음)${turn}`;
+    }
+  },
   netLiq: {
     surge: '순유동성 급증 → 시장에 풀린 돈이 빠르게 늘어남, 위험자산에 우호적',
     rise: '순유동성 증가 → 시장에 풀린 돈이 늘어나는 방향',
@@ -2041,6 +2063,8 @@ function analyze(ind) {
     a.stale = !!a.staleReason;
   }
   a.comment = pickComment(ind, a);
+  const prof = COMMENTS[ind.profile];
+  a.stateBadge = prof && prof.badge ? prof.badge(a) : null;   // 값으로 정해지는 상태 표시 (예: 백워데이션·콘탱고)
   return a;
 }
 
@@ -2298,6 +2322,7 @@ function shortObsDate(date, freq) {
 
 /** 카드에 한 줄 해석을 보일지 (지금은 해석이 있으면 모두 표시) */
 function showComment(a) { return !!a.comment; }
+function stateBadgeHTML(a) { return a.stateBadge ? `<span class="badge state ${a.stateBadge.cls}">${esc(a.stateBadge.text)}</span>` : ''; }
 
 function cardHTML(a) {
   const ind = a.ind;
@@ -2312,7 +2337,8 @@ function cardHTML(a) {
   // 카드는 간결하게: 기준일 + 1개월·위치 한 줄. 업데이트 시각·출처·계절 메모는 상세 화면에서
   const badges = [
     a.isSample ? '<span class="badge sample">샘플</span>' : '',
-    a.stale ? `<span class="badge stale" title="${esc(a.staleReason)}">오래됨</span>` : ''
+    a.stale ? `<span class="badge stale" title="${esc(a.staleReason)}">오래됨</span>` : '',
+    stateBadgeHTML(a)
   ].join('');
   const metaParts = [a.isSample ? '기준일 샘플' : `${shortObsDate(a.cur.date, a.freq)} 기준`];
   if (!a.isSample) metaParts.push(m1Text(a), a.season ? seasonText(a) : positionText(a));
@@ -2982,7 +3008,7 @@ function openEdit(id) {
       <span class="value num">${fmt(a.value, ind.dp)}<span class="unit">${esc(ind.unit)}</span></span>${changeHTML(a)}
       <span class="light ${s}" style="margin-left:auto"><span class="dot ${s}"></span>${a.signal == null ? '데이터 없음' : a.moveLabel || SIGNAL_LABEL[a.signal]}</span>
     </div>
-    <div class="meta" style="margin-top:4px">${a.isSample ? '<span class="badge sample">샘플</span>' : ''}${a.stale ? '<span class="badge stale">오래된 데이터</span>' : ''}
+    <div class="meta" style="margin-top:4px">${a.isSample ? '<span class="badge sample">샘플</span>' : ''}${a.stale ? '<span class="badge stale">오래된 데이터</span>' : ''}${stateBadgeHTML(a)}
       <span>${a.isSample ? '기준일 샘플' : `기준일 ${esc(fmtObsDate(a.cur.date, a.freq))} · 업데이트 ${esc(toLocalISO(a.cur.updatedAt))} · ${esc(sourceName(a))}${a.cur.source === 'auto' && a.meta ? ` (${esc(a.meta.source.split(':')[1] || '')})` : ''}`}</span></div>
     ${periods ? `<div class="periods">${periods}</div>` : ''}
     <div class="comment" style="margin-top:8px">${esc(a.comment)}</div>

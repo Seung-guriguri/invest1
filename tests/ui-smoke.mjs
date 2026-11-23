@@ -40,6 +40,8 @@ function fixture(cfg) {
   });
   // 품질 상태 확인용: WTI 마지막 값 급변(+40%) → 검증 필요, 천연가스는 이번 수집 실패(이전 값 유지) → 지연
   const w = series.wti.obs; w[w.length - 1][1] = Math.round(w[w.length - 2][1] * 1.4 * 1000) / 1000;
+  // 기간 구조: WTI 는 + (백워데이션), 브렌트는 − (콘탱고)
+  series.brent_curve.obs = series.brent_curve.obs.map(([d, v]) => [d, -Math.abs(v) / 10]);
   return { generatedAt: today.toISOString(), series, errors: [{ id: 'natgas', message: '테스트 실패', keptPrevious: true }] };
 }
 const AI = { generatedAt: new Date().toISOString(), model: 'test',
@@ -161,6 +163,12 @@ async function main() {
       if (process.env.SHOT_DIR) { await page.evaluate(() => { openEdit('total_demand'); document.querySelector('#editSheet .ind-years').scrollIntoView(); }); await page.waitForTimeout(200); await page.screenshot({ path: `${process.env.SHOT_DIR}/years-${ui}-${scheme}.png` }); await page.evaluate(() => document.querySelector('#editSheet').close()); }
       check(yr.us_crude && yr.us_crude.lines >= 5 && yr.us_crude.lines === yr.us_crude.legend && yr.us_crude.cur && yr.us_crude.sum && yr.total_demand && yr.total_demand.label && yr.us_cpi && yr.us_cpi.lines >= 5 && yr.wti === null,
         `연도별 비교 차트 (주간·월간만, 총수요는 주간 원값) ${JSON.stringify(yr)}`);
+      const curve = await page.evaluate(() => ['wti_curve', 'brent_curve'].map(id => {
+        const a = analyze(CONFIG.indicators.find(i => i.id === id)); const html = cardHTML(a);
+        openEdit(id); const detail = document.querySelector('#editSheet').textContent; document.querySelector('#editSheet').close();
+        return { badge: (html.match(/(백워데이션|콘탱고|평탄)<\/span>/) || [])[1], meaning: /롤 수익|월물 교체 때마다 손실|균형/.test(detail) };
+      }));
+      check(curve[0].badge === '백워데이션' && curve[1].badge === '콘탱고' && curve.every(c => c.meaning), `원유 기간 구조: 카드 표시와 상세 의미 ${JSON.stringify(curve)}`);
       check(await page.evaluate(() => { openEdit('coal_jkm'); const ok = [...document.querySelectorAll('#chartHost .th-label.ref')].length === 2; document.querySelector('#editSheet').close(); return ok; }), '석탄÷가스 상대가격: 7·16 기준선 표시');
       const shared = await page.evaluate(() => ['wti', 'us_cpi', 'coal_pw_jpn', 'scfi'].map(id => { try { return Share.render(id).canvas.width; } catch (e) { return id + ':' + e.message; } }));
       check(shared.every(w => w === 1080), `공유 이미지 그리기 ${JSON.stringify(shared)}`);

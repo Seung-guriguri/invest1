@@ -7,6 +7,7 @@
  *   { fred:  'DGS10', units: 'pc1'(선택: 전년비 %), scale: 1(선택: 곱할 값) }
  *   { yahoo: 'CL=F',  scale: 1 }                         — 비공식 Yahoo Finance 차트 API
  *   { yahoo: 'FRO', adj: true }                         — 배당·분할 반영 수정종가 사용 (주식·ETF, 배당락일 가짜 급락 방지)
+ *   { curve: 'CL', suffix: '.NYM', rule: 'cl', gap: 6 }   — 선물 기간 구조: 근월물 − gap개월 뒤 월물 (Yahoo 개별 월물)
  *   { ecos:  '722Y001', item: '0101000', cycle: 'D'|'M', transform: 'yoy'(선택) } — 한국은행 ECOS
  *
  * 화면 표시 단위는 index.html CONFIG 의 unit 이고, 여기 scale 로 그 단위에 맞춰 환산합니다.
@@ -86,6 +87,9 @@ export const SOURCES = {
   // ── 에너지 ──
   wti:    [{ yahoo: 'CL=F' }, { fred: 'DCOILWTICO' }],
   brent:  [{ yahoo: 'BZ=F' }, { fred: 'DCOILBRENTEU' }],
+  // 원유 기간 구조: 근월물 − 6개월 뒤 월물 ($/bbl, +면 백워데이션·−면 콘탱고). 날짜마다 만기 규칙으로 그날의 근월물을 정함
+  wti_curve:   [{ curve: 'CL', suffix: '.NYM', rule: 'cl', gap: 6 }],
+  brent_curve: [{ curve: 'BZ', suffix: '.NYM', rule: 'brent', gap: 6 }],
   natgas: [{ yahoo: 'NG=F' }, { fred: 'DHHNGSP' }],
   ttf: [{ yahoo: 'TTF=F', front: { root: 'TTF', suffix: '.NYM' } }],   // 연속 선물이 가끔 하루치만 줄 때 근월물(TTFZ26.NYM 등)로 최근 구간 보충                                 // 유럽 천연가스 TTF (€/MWh)
   jkm: [{ yahoo: 'JKM=F' }],                                 // 아시아 LNG 현물 JKM ($/MMBtu, Platts 기준 선물 근월물)

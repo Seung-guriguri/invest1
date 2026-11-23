@@ -89,7 +89,7 @@
 | `usdcny` | 위안/달러 환율 | 위안 | 실측 | Yahoo CNY=X → FRED DEXCHUS | pct |
 | `vix` | VIX |  | 실측 | Yahoo ^VIX → FRED VIXCLS | pct |
 
-## 에너지 (19)
+## 에너지 (21)
 
 | ID | 이름 | 단위 | 성격 | 출처 (1순위 → 대체) | 변화 판단 |
 |---|---|---|---|---|---|
@@ -97,6 +97,8 @@
 | `brent` | 브렌트유 | $/bbl | 실측 | Yahoo BZ=F → FRED DCOILBRENTEU | pct |
 | `brent_krw` | 원화 환산 브렌트 | 원/bbl | 계산 | 계산: 브렌트×원/달러 | pct |
 | `brent_wti` | 브렌트−WTI 가격차 | $/bbl | 계산 | 계산: 브렌트−WTI | abs |
+| `wti_curve` | WTI 기간 구조 | $/bbl | 실측 | Yahoo CL 개별 월물 (근월물 − 6개월 뒤) | abs |
+| `brent_curve` | 브렌트 기간 구조 | $/bbl | 실측 | Yahoo BZ 개별 월물 (근월물 − 6개월 뒤) | abs |
 | `natgas` | 천연가스 | $/MMBtu | 실측 | Yahoo NG=F → FRED DHHNGSP | pct |
 | `ttf` | 유럽 천연가스 (TTF) | €/MWh | 실측 | Yahoo TTF=F | pct |
 | `jkm` | 아시아 LNG (JKM) | $/MMBtu | 실측 | Yahoo JKM=F | pct |
