@@ -161,6 +161,9 @@
 .row2 .tg.r { background: var(--red-bg); color: var(--red); }
 .row2 .tg.y { background: var(--yellow-bg); color: var(--yellow); }
 .row2 .tg.g { background: var(--grey-bg); color: var(--text-3); }
+.row2 .tg.st.bw { background: var(--yellow-bg); color: var(--yellow); }   /* 백워데이션 */
+.row2 .tg.st.ct { background: var(--surface-2); color: var(--accent); }   /* 콘탱고 */
+.row2 .tg.st.fl { background: var(--grey-bg); color: var(--text-3); }
 .row2 .sp { width: 48px; height: 24px; display: block; }
 .row2 .sp .spark { width: 48px; height: 24px; flex: none; margin: 0; }
 .row2 .sp .spark path { stroke-width: 2; opacity: 1; stroke: var(--text-3); }

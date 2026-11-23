@@ -27,6 +27,7 @@ import { SOURCES } from './sources.mjs';
 import { closes, retAfter, retSoFar } from './watch-perf.mjs';
 import { rateDecomp, oilTightness, goldRealGap } from './lib/combo.mjs';
 import { tgPost, failReason, transient } from './lib/telegram.mjs';
+import { curveState, CURVE_LABEL } from './lib/curve.mjs';
 import { readPairs, linkHealth, linkBlock, linkTelegram, summary as linkSummary } from './lib/link-health.mjs';
 
 const args = process.argv.slice(2);
@@ -405,12 +406,31 @@ function macroLines(rows, series) {
       nums.push(g.ret, g.dReal, g.explained, g.gap);
     }
   }
+  // ⑦ 원유 기간 구조: 근월물 − 6개월 뒤 월물 부호로 콘탱고·백워데이션 판정, 한 달 사이 전환 여부, 실물 재고와 같은 방향인지
+  const curves = [['WTI', R.wti_curve], ['브렌트', R.brent_curve]].filter(([, r]) => r && Number.isFinite(r.value));
+  if (curves.length) {
+    const desc = curves.map(([name, r]) => {
+      const st = curveState(r.value), before = r.chg_1m != null ? curveState(r.value - r.chg_1m) : null;
+      const turn = before && before !== st ? ` · 한 달 전 ${CURVE_LABEL[before]}에서 전환` : '';
+      nums.push(r.value); if (r.chg_1m != null) nums.push(r.chg_1m);
+      return { name, st, text: `${name} ${f(r.value, '$')} ${CURVE_LABEL[st]} (${r.date}, 1개월 ${r.chg_1m != null ? f(r.chg_1m, '$') : '이력 부족'}${turn})` };
+    });
+    const inv = R.us_crude && R.us_crude.season_dev != null ? R.us_crude.season_dev : null;
+    const w = desc.find(d => d.name === 'WTI');
+    const fit = inv == null || !w || w.st === 'flat' ? '' : w.st === 'backwardation' && inv < -3 ? ' — 미국 원유 재고 부족과 같은 방향(빡빡함 확인)'
+      : w.st === 'contango' && inv > 3 ? ' — 미국 원유 재고 과잉과 같은 방향(남아돎 확인)'
+      : w.st === 'backwardation' && inv > 3 ? ' — 재고는 평년보다 많은데 백워데이션(일시 공급 차질·수출 수요 등 확인 필요)'
+      : w.st === 'contango' && inv < -3 ? ' — 재고는 평년보다 적은데 콘탱고(앞으로 공급 증가·수요 둔화 기대)' : '';
+    out.push(`원유 기간 구조 [${desc.map(d => `${d.name} ${CURVE_LABEL[d.st]}`).join(' · ')}] 근월물 − 6개월 뒤 월물: ${desc.map(d => d.text).join(' · ')}` +
+      (inv != null ? ` · 미국 원유 재고 평년 대비 ${f(inv, '%', 1)} (${R.us_crude.date} 주)` : '') + fit);
+  }
   return { lines: out, nums };
 }
 /* ---------- 핵심 점검 지표: 그동안 추가한 지표 중 브리핑에서 놓치기 쉬운 것들 (분류별, [주목] 판정은 코드) ----------
  *  해설 대상 상위 15개(이상치 순)에 못 들면 AI 가 아예 안 보던 지표들 — 분류별로 묶어 매일 재료로 줌 */
 const FOCUS = [
   'crack321', 'gasoline_crack', 'diesel_crack', 'jet_crack', 'jet_diesel', 'refiner_idx',              // 정제 마진·정유주
+  'wti_curve', 'brent_curve',                                                                             // 원유 기간 구조
   'oil_tight', 'total_demand', 'gasoline_days', 'distill_days', 'jet_days', 'crude_exports',            // 석유 수급
   'jkm_hh', 'lng_spread',                                                                                 // LNG 수출 마진
   'rate_driver', 't5y5y', 'move',                                                                         // 금리

@@ -23,6 +23,7 @@ import { dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { SOURCES } from './sources.mjs';
 import { readSheet } from './lib/xlsx.mjs';
+import { contractsFor, curveSpread, ticker as futTicker } from './lib/curve.mjs';
 import { obsAsOf, rateDecomp, oilTightness, basketIndex, goldRealGap, yoySameWeek } from './lib/combo.mjs';
 
 const args = process.argv.slice(2);
@@ -122,6 +123,8 @@ function valueAsOf(obs, date) {
 
 /* ---------- 유틸 ---------- */
 const iso = d => d.toISOString().slice(0, 10);
+const DAY_MS = 86400000;
+const NO_SPIKE = new Set(['aux_rrp', 'wti_curve', 'brent_curve']);
 const yearsAgo = n => { const d = new Date(); d.setFullYear(d.getFullYear() - n); return d; };
 const round = v => Number(Number(v).toPrecision(8));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -238,6 +241,28 @@ async function fetchYahoo(src) {
   const now = Date.now() / 1000;
   if (!h24 && reg && now >= reg.start && now < reg.end && r.timestamp[r.timestamp.length - 1] >= reg.start) rows = rows.slice(0, -1);
   if (recentOnly) rows.recentOnly = true;
+  return rows;
+}
+
+/* ---------- 원유 선물 기간 구조: { curve: 'CL', suffix: '.NYM', rule: 'cl'|'brent', gap: 6 } ----------
+ * 근월물 − gap개월 뒤 월물 ($/bbl). 거래 중인 월물만 받을 수 있어 최근 45일만 계산하고 이전 이력 뒤에 이어 붙임(recentOnly) */
+async function fetchCurve(src) {
+  const today = iso(new Date()), from = iso(new Date(Date.now() - 45 * DAY_MS));
+  const closes = new Map(); let ok = 0;
+  for (const c of contractsFor(src.rule, from, today, src.gap)) {
+    const sym = futTicker(src.curve, src.suffix, c);
+    try {
+      const j = await getJSON(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=3mo&interval=1d&includePrePost=false`, {}, 2);
+      const r = j && j.chart && j.chart.result && j.chart.result[0];
+      if (!r || !r.timestamp) continue;
+      const offset = (r.meta && r.meta.gmtoffset) || 0, q = r.indicators.quote[0].close;
+      closes.set(sym, new Map(r.timestamp.map((t, i) => [iso(new Date((t + offset) * 1000)), q[i]]).filter(o => o[1] != null)));
+      ok++;
+    } catch (e) { /* 만기 지난 월물은 404 — 그 날짜는 비움 */ }
+  }
+  const rows = curveSpread(src.rule, src.curve, src.suffix, src.gap, closes, from);
+  if (rows.length < 2) throw new Error(`월물 ${ok}개 받음, 같은 날 두 월물 값이 부족`);
+  rows.recentOnly = true;
   return rows;
 }
 
@@ -558,8 +583,8 @@ async function fetchSpdr(src) {
   return parseSpdr(readSheet(await getBuffer(url), /historical archive/i));
 }
 
-const FETCHERS = { fred: fetchFred, yahoo: fetchYahoo, ecos: fetchEcos, eurostat: fetchEurostat, eia: fetchEia, eiaGrid: fetchEiaGrid, nrc: fetchNrc, ember: fetchEmber, wb: fetchWorldBank, spdr: fetchSpdr };
-const sourceLabel = src => src.fred ? `FRED:${src.fred}` : src.yahoo ? `Yahoo:${src.yahoo}`
+const FETCHERS = { fred: fetchFred, yahoo: fetchYahoo, curve: fetchCurve, ecos: fetchEcos, eurostat: fetchEurostat, eia: fetchEia, eiaGrid: fetchEiaGrid, nrc: fetchNrc, ember: fetchEmber, wb: fetchWorldBank, spdr: fetchSpdr };
+const sourceLabel = src => src.fred ? `FRED:${src.fred}` : src.yahoo ? `Yahoo:${src.yahoo}` : src.curve ? `Yahoo:${src.curve} 월물 M1−M${src.gap + 1}`
   : src.eurostat ? `Eurostat:${src.eurostat}` : src.eia ? `EIA:${src.eia}` : src.eiaGrid ? `EIA-930:US48/${src.eiaGrid}` : src.nrc ? 'NRC:원자로 출력' : src.ember ? `Ember:${src.ember}/${src.series}` : src.wb ? `WorldBank:${src.wb}` : src.spdr ? `SPDR:${src.spdr.toUpperCase()} 보유량` : `ECOS:${src.ecos}/${src.item}`;
 
 /** 지표 하나: 소스를 순서대로 시도 */
@@ -633,8 +658,8 @@ async function main() {
       series[id] = got;
       // 무결성 점검: 직전 관측치 대비 비정상 급변(시세 오류·선물 월물 교체 등) — 값은 그대로 두고 로그로 알림
       const o = got.obs, n = o.length;
-      // 역레포 잔액(aux_rrp)은 규모가 작아 하루 변동률이 원래 커서 급변 점검에서 제외
-      if (n >= 2 && got.freq === 'D' && id !== 'aux_rrp' && o[n - 2][1] && Math.abs(o[n - 1][1] / o[n - 2][1] - 1) > 0.25 && Math.sign(o[n - 1][1]) === Math.sign(o[n - 2][1])) {
+      // 역레포 잔액(aux_rrp)은 규모가 작아, 선물 스프레드는 0 근처를 오가서 하루 변동률이 원래 커서 급변 점검에서 제외
+      if (n >= 2 && got.freq === 'D' && !NO_SPIKE.has(id) && o[n - 2][1] && Math.abs(o[n - 1][1] / o[n - 2][1] - 1) > 0.25 && Math.sign(o[n - 1][1]) === Math.sign(o[n - 2][1])) {
         warnings.push(id); console.log(`  ⚠ ${id}: 직전 대비 ${((o[n - 1][1] / o[n - 2][1] - 1) * 100).toFixed(1)}% 급변 (${o[n - 2][0]} ${o[n - 2][1]} → ${o[n - 1][0]} ${o[n - 1][1]}) — 시세 확인 필요`);
       }
       const last = series[id].obs[series[id].obs.length - 1];
